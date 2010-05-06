@@ -2,14 +2,18 @@
 
 >>> gdb = GraphDatabase("http://localhost:9999")
 
+>>> gdb.node(name="Jimmy Wales", profession="Wikipedia Founder")
+
+>>> nod1 = gdb.node[1]
+
 >>> nod1 = gdb.node.get(1)
 
->>> nod2 = gdb.node.get(2)
+>>> nod2 = gdb.node(name="John Doe", profession="Hakcher")
 
->>> nod3 = gdb.node(name="John Doe", profession="Hakcher")
-
->>> nod3["name"]
+>>> nod2["name"]
 'John Doe'
+
+>>> nod2["name"] = "John Does"
 
 >>> nod1.KWONS(nod2)
 'http://localhost:9999/relationship/0'
