@@ -1,0 +1,15 @@
+>>> from client import GraphDatabase
+
+>>> gdb = GraphDatabase("http://localhost:9999")
+
+>>> nod1 = gdb.node.get(1)
+
+>>> nod2 = gdb.node.get(2)
+
+>>> nod3 = gdb.node(name="John Doe", profession="Hakcher")
+
+>>> nod3["name"]
+'John Doe'
+
+>>> nod1.KWONS(nod2)
+'http://localhost:9999/relationship/0'
