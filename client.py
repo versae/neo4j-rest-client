@@ -272,7 +272,7 @@ class Request(object):
         """
         return self._request('DELETE', url, headers=headers)
 
-    def _json_encode(data, ensure_ascii=False):
+    def _json_encode(self, data, ensure_ascii=False):
 
         def _any(data):
             DATE_FORMAT = "%Y-%m-%d"
