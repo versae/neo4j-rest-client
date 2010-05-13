@@ -97,6 +97,20 @@ class Node(object):
         else:
             raise StatusException(response.status, "Unable get node")
 
+    def __del__(self):
+        response = Request().delete(properties_url)
+        if response.status == 204:
+            self = None
+        else:
+            raise StatusException(response.status, "Node not found or node
+                                                   "could not be deleted "\
+                                                   "(still has " \
+                                                   "relationships?) " \
+                                                   "node not found")
+
+    def delete(self):
+        return self.__del__()
+
     def __getitem__(self, key):
         property_url = self.dic["property"].replace("{key}", key)
         response = Request().get(property_url)
@@ -136,8 +150,8 @@ class Node(object):
                 data.update({"data": kwargs})
             response = Request().post(create_relationship_url, data=data)
             if response.status == 201:
-                # TODO: Return RelationShip with returned location
-                # return RelationShip(response.getheader("Location"))
+                # TODO: Return Relationship with returned location
+                # return Relationship(response.getheader("Location"))
                 return response.getheader("Location")
             else:
                 raise StatusException(response.status,
@@ -150,8 +164,32 @@ class Node(object):
     def __unicode__(self):
         return u"<Neo4j Node: >" % self.url
 
-    def properties(self):
+    def _get_properties(self):
         return self.dic["data"]
+
+    def _set_properties(self, props={}):
+        if not props:
+            return None
+        properties_url = self.dic["properties"]
+        response = Request().put(properties_url, data=props)
+        if response.status == 204:
+            self.dic["data"].update(props)
+            return props
+        else:
+            raise StatusException(response.status, "Invalid data sent or " \
+                                                   "node not found")
+
+    def _del_properties(self):
+        properties_url = self.dic["properties"]
+        response = Request().delete(properties_url, data=props)
+        if response.status == 204:
+            self.dic["data"] = {}
+            return props
+        else:
+            raise StatusException(response.status, "Invalid data sent or " \
+                                                   "node not found")
+
+    properties = property(_get_properties, _set_properties)
 
 
 class StatusException(Exception):
@@ -331,7 +369,6 @@ class Request(object):
             base64_credentials = base64.encodestring(credentials)
             authorization = "Basic %s" % base64_credentials[:-1]
             headers['Authorization'] = authorization
-
         body = self._json_encode(data, ensure_ascii=True)
         connection.request(method, url, body, headers)
         response = connection.getresponse()
