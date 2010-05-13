@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import datetime
+import decimal
 import httplib
 import base64
 import simplejson
@@ -33,6 +35,10 @@ class GraphDatabase(object):
                                   self.reference_node_url)
         else:
             raise StatusException(response.status, "Unable get root")
+
+    def _get_reference_node(self):
+        return Node(self.reference_node_url)
+    reference_node = property(_get_reference_node)
 
     def index(self, create=False):
         pass
@@ -266,6 +272,42 @@ class Request(object):
         """
         return self._request('DELETE', url, headers=headers)
 
+    def _json_encode(data, ensure_ascii=False):
+
+        def _any(data):
+            DATE_FORMAT = "%Y-%m-%d"
+            TIME_FORMAT = "%H:%M:%S"
+            ret = None
+            if isinstance(data, (list, tuple)):
+                ret = _list(data)
+            elif isinstance(data, dict):
+                ret = _dict(data)
+            elif isinstance(data, decimal.Decimal):
+                ret = str(data)
+            elif isinstance(data, datetime.datetime):
+                ret = data.strftime("%s %s" % (DATE_FORMAT, TIME_FORMAT))
+            elif isinstance(data, datetime.date):
+                ret = data.strftime(DATE_FORMAT)
+            elif isinstance(data, datetime.time):
+                ret = data.strftime(TIME_FORMAT)
+            else:
+                ret = data
+            return ret
+
+        def _list(data):
+            ret = []
+            for v in data:
+                ret.append(_any(v))
+            return ret
+
+        def _dict(data):
+            ret = {}
+            for k, v in data.items():
+                ret[k] = _any(v)
+            return ret
+        ret = _any(data)
+        return simplejson.dumps(ret, ensure_ascii=ensure_ascii)
+
     def _request(self, method, url, data={}, headers={}):
         splits = urlsplit(url)
         scheme = splits.scheme
@@ -290,7 +332,7 @@ class Request(object):
             authorization = "Basic %s" % base64_credentials[:-1]
             headers['Authorization'] = authorization
 
-        body = simplejson.dumps(data)
+        body = self._json_encode(data)
         connection.request(method, url, body, headers)
         response = connection.getresponse()
         response.body = response.read()
