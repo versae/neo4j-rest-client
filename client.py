@@ -332,7 +332,7 @@ class Request(object):
             authorization = "Basic %s" % base64_credentials[:-1]
             headers['Authorization'] = authorization
 
-        body = self._json_encode(data)
+        body = self._json_encode(data, ensure_ascii=True)
         connection.request(method, url, body, headers)
         response = connection.getresponse()
         response.body = response.read()
