@@ -7,6 +7,7 @@ import simplejson
 from urlparse import urlsplit
 
 __all__ = ("GraphDatabase", )
+__version__ = u'0.1alpha'
 
 
 class GraphDatabase(object):
@@ -56,7 +57,7 @@ class NodeProxy(dict):
         self.node_url = "%s%s" % (self.url, self.node_path)
         self.reference_node_url = reference_node_url
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, **kwargs):
         reference = kwargs.pop("reference", False)
         if reference and self.reference_node_url:
             return Node(self.reference_node_url)
@@ -72,6 +73,10 @@ class NodeProxy(dict):
     def create(self, **kwargs):
         return Node(self.node_url, create=True, data=kwargs)
 
+    def delete(self):
+        node = self.__getitem__(key)
+        del node
+
 
 class Node(object):
     """
@@ -81,10 +86,11 @@ class Node(object):
     dic = {}
 
     def __init__(self, url, create=False, data={}):
+        self.dic = {}
         if create:
             response = Request().post(url, data=data)
             if response.status == 201:
-                self.dic.update(data)
+                self.dic.update(data.copy())
                 self.url = response.getheader("Location")
             else:
                 raise StatusException(response.status, "Invalid data sent")
@@ -93,16 +99,17 @@ class Node(object):
         response = Request().get(self.url)
         if response.status == 200:
             content = response.body
-            self.dic.update(simplejson.loads(content))
+            self.dic.update(simplejson.loads(content).copy())
         else:
             raise StatusException(response.status, "Unable get node")
 
     def __del__(self):
+        properties_url = self.dic["properties"]
         response = Request().delete(properties_url)
         if response.status == 204:
-            self = None
+            del self
         else:
-            raise StatusException(response.status, "Node not found or node
+            raise StatusException(response.status, "Node not found or node" \
                                                    "could not be deleted "\
                                                    "(still has " \
                                                    "relationships?) " \
@@ -181,15 +188,14 @@ class Node(object):
 
     def _del_properties(self):
         properties_url = self.dic["properties"]
-        response = Request().delete(properties_url, data=props)
+        response = Request().delete(properties_url)
         if response.status == 204:
             self.dic["data"] = {}
-            return props
         else:
             raise StatusException(response.status, "Invalid data sent or " \
                                                    "node not found")
 
-    properties = property(_get_properties, _set_properties)
+    properties = property(_get_properties, _set_properties, _del_properties)
 
 
 class StatusException(Exception):
@@ -341,7 +347,9 @@ class Request(object):
         def _dict(data):
             ret = {}
             for k, v in data.items():
-                ret[k] = _any(v)
+                # Neo4j doesn't allow 'null' properties
+                if v:
+                    ret[k] = _any(v)
             return ret
         ret = _any(data)
         return simplejson.dumps(ret, ensure_ascii=ensure_ascii)
@@ -354,21 +362,22 @@ class Request(object):
         username = splits.username or self.username
         password = splits.password or self.password
         if scheme.lower() == 'https':
-            connection = httplib.HTTPSConnection(hostname, port,
-                                                  self.key_file,
-                                                  self.cert_file)
+            connection = httplib.HTTPSConnection(hostname, port, self.key_file,
+                                                 self.cert_file)
         else:
             connection = httplib.HTTPConnection(hostname, port)
         headers = headers or {}
         headers['Accept'] = 'application/json'
         headers['Accept-Encoding'] = '*'
+        headers['Accept-Charset'] = 'ISO-8859-1,utf-8;q=0.7,*;q=0.7'
         headers['Content-Type'] = 'application/json'
-
+        headers['User-Agent'] = 'Neo4jPythonClient/%s ' % __version__
         if username and password:
             credentials = "%s:%s" % (username, password)
             base64_credentials = base64.encodestring(credentials)
             authorization = "Basic %s" % base64_credentials[:-1]
             headers['Authorization'] = authorization
+            headers['Remote-User'] = username
         body = self._json_encode(data, ensure_ascii=True)
         connection.request(method, url, body, headers)
         response = connection.getresponse()
