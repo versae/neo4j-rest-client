@@ -14,14 +14,14 @@ class GraphDatabase(object):
     """
     Main class for connection to Ne4j standalone REST server.
     """
-    url = None
-    node = {}
-    index_url = None
-    reference_node_url = None
-    index_path = "/index"
-    node_path = "/node"
 
     def __init__(self, url):
+        self.url = None
+        self.node = {}
+        self.index_url = None
+        self.reference_node_url = None
+        self.index_path = "/index"
+        self.node_path = "/node"
         if url.endswith("/"):
             self.url = url[0:-1]
         else:
@@ -43,6 +43,104 @@ class GraphDatabase(object):
 
     def index(self, create=False):
         pass
+
+
+class Base(object):
+    """
+    Base class.
+    """
+
+    def __init__(self, url, create=False, data={}):
+        self._dic = {}
+        self.url = None
+        if create:
+            response = Request().post(url, data=data)
+            if response.status == 201:
+                self._dic.update(data.copy())
+                self.url = response.getheader("Location")
+            else:
+                raise StatusException(response.status, "Invalid data sent")
+        if not self.url:
+            self.url = url
+        response = Request().get(self.url)
+        if response.status == 200:
+            content = response.body
+            self._dic.update(simplejson.loads(content).copy())
+        else:
+            raise StatusException(response.status, "Unable get node")
+
+    def __del__(self):
+        properties_url = self._dic["properties"]
+        response = Request().delete(properties_url)
+        if response.status == 204:
+            del self
+        else:
+            raise StatusException(response.status, "Node not found or node" \
+                                                   "could not be deleted "\
+                                                   "(still has " \
+                                                   "relationships?) " \
+                                                   "node not found")
+
+    def delete(self):
+        return self.__del__()
+
+    def __getitem__(self, key):
+        property_url = self._dic["property"].replace("{key}", key)
+        response = Request().get(property_url)
+        if response.status == 200:
+            content = response.body
+            self._dic["data"][key] = simplejson.loads(content)
+        else:
+            raise StatusException(response.status, "Node or propery not found")
+        return self._dic["data"][key]
+
+    def __setitem__(self, key, value):
+        property_url = self._dic["property"].replace("{key}", key)
+        response = Request().put(property_url, data=value)
+        if response.status == 204:
+            self._dic["data"].update({key: value})
+        else:
+            raise StatusException(response.status, "Invalid data sent")
+
+    def __deleteitem__(self, key):
+        property_url = self._dic["property"].replace("{key}", key)
+        response = Request().delete(property_url)
+        if response.status == 204:
+            del self._dic["data"][key]
+        else:
+            raise StatusException(response.status, "Node or propery not found")
+
+    def __str__(self):
+        return u"<Neo4j %s: %s>" % (self.__class__.__name__, self.url)
+
+    def __unicode__(self):
+        return u"<Neo4j %s: %s>" % (self.__class__.__name__, self.url)
+
+    def _get_properties(self):
+        return self._dic["data"]
+
+    def _set_properties(self, props={}):
+        if not props:
+            return None
+        properties_url = self._dic["properties"]
+        response = Request().put(properties_url, data=props)
+        if response.status == 204:
+            self._dic["data"].update(props)
+            return props
+        else:
+            raise StatusException(response.status, "Invalid data sent or " \
+                                                   "node not found")
+
+    def _del_properties(self):
+        properties_url = self._dic["properties"]
+        response = Request().delete(properties_url)
+        if response.status == 204:
+            self._dic["data"] = {}
+        else:
+            raise StatusException(response.status, "Invalid data sent or " \
+                                                   "node not found")
+
+    properties = property(_get_properties, _set_properties, _del_properties)
 
 
 class NodeProxy(dict):
@@ -73,82 +171,23 @@ class NodeProxy(dict):
     def create(self, **kwargs):
         return Node(self.node_url, create=True, data=kwargs)
 
-    def delete(self):
+    def delete(self, key):
         node = self.__getitem__(key)
         del node
 
 
-class Node(object):
+class Node(Base):
     """
     Node class.
     """
-    url = None
-    dic = {}
-
-    def __init__(self, url, create=False, data={}):
-        self.dic = {}
-        if create:
-            response = Request().post(url, data=data)
-            if response.status == 201:
-                self.dic.update(data.copy())
-                self.url = response.getheader("Location")
-            else:
-                raise StatusException(response.status, "Invalid data sent")
-        if not self.url:
-            self.url = url
-        response = Request().get(self.url)
-        if response.status == 200:
-            content = response.body
-            self.dic.update(simplejson.loads(content).copy())
-        else:
-            raise StatusException(response.status, "Unable get node")
-
-    def __del__(self):
-        properties_url = self.dic["properties"]
-        response = Request().delete(properties_url)
-        if response.status == 204:
-            del self
-        else:
-            raise StatusException(response.status, "Node not found or node" \
-                                                   "could not be deleted "\
-                                                   "(still has " \
-                                                   "relationships?) " \
-                                                   "node not found")
-
-    def delete(self):
-        return self.__del__()
-
-    def __getitem__(self, key):
-        property_url = self.dic["property"].replace("{key}", key)
-        response = Request().get(property_url)
-        if response.status == 200:
-            content = response.body
-            self.dic["data"][key] = simplejson.loads(content)
-        else:
-            raise StatusException(response.status, "Node or propery not found")
-        return self.dic["data"][key]
-
-    def __setitem__(self, key, value):
-        property_url = self.dic["property"].replace("{key}", key)
-        response = Request().put(property_url, data=value)
-        if response.status == 204:
-            self.dic["data"].update({key: value})
-        else:
-            raise StatusException(response.status, "Invalid data sent")
-
-    def __deleteitem__(self, key):
-        property_url = self.dic["property"].replace("{key}", key)
-        response = Request().delete(property_url)
-        if response.status == 204:
-            del self.dic["data"][key]
-        else:
-            raise StatusException(response.status, "Node or propery not found")
 
     def __getattr__(self, relationship_name, *args, **kwargs):
-        """HACK: To allow to set node relationship"""
+        """
+        HACK: To allow to set node relationship
+        """
 
         def relationship(to, *args, **kwargs):
-            create_relationship_url = self.dic["create relationship"]
+            create_relationship_url = self._dic["create relationship"]
             data = {
                 "to": to.url,
                 "type": relationship_name,
@@ -157,45 +196,73 @@ class Node(object):
                 data.update({"data": kwargs})
             response = Request().post(create_relationship_url, data=data)
             if response.status == 201:
-                # TODO: Return Relationship with returned location
-                # return Relationship(response.getheader("Location"))
-                return response.getheader("Location")
+                return Relationship(response.getheader("Location"))
             else:
                 raise StatusException(response.status,
                                       "Invalid data sent, \"to\" node, or " \
                                       "the node specified by the URI not " \
                                       "found")
-            print create_relationship_url, relationship_name, to, args, kwargs
         return relationship
 
-    def __unicode__(self):
-        return u"<Neo4j Node: >" % self.url
+    def _get_relationships(self):
+        """
+        HACK: Return a 3-methods class: incoming, outgoing and all.
+        """
+        return Relationships(self)
 
-    def _get_properties(self):
-        return self.dic["data"]
+    relationships = property(_get_relationships)
 
-    def _set_properties(self, props={}):
-        if not props:
-            return None
-        properties_url = self.dic["properties"]
-        response = Request().put(properties_url, data=props)
-        if response.status == 204:
-            self.dic["data"].update(props)
-            return props
-        else:
-            raise StatusException(response.status, "Invalid data sent or " \
-                                                   "node not found")
 
-    def _del_properties(self):
-        properties_url = self.dic["properties"]
-        response = Request().delete(properties_url)
-        if response.status == 204:
-            self.dic["data"] = {}
-        else:
-            raise StatusException(response.status, "Invalid data sent or " \
-                                                   "node not found")
+class Relationships(object):
+    """
+    Relationships class for a node
+    """
 
-    properties = property(_get_properties, _set_properties, _del_properties)
+    def __init__(self, node):
+        self._node = node
+        self._pattern = "{-list|&|types}"
+
+    def __getattr__(self, relationship_type):
+
+        def get_relationships(types=None, *args, **kwargs):
+            if relationship_type in ["all", "incoming", "outgoing"]:
+                if types and isinstance(types, (tuple, list)):
+                    key = "%s typed relationships" % relationship_type
+                    url_string = self._node._dic[key]
+                    url = url_string.replace(self._pattern, "&".join(types))
+                else:
+                    key = "%s relationships" % relationship_type
+                    url = self._node._dic[key]
+                response = Request().get(url)
+                if response.status == 200:
+                    content = response.body
+                    relationship_list = simplejson.loads(content)
+                    relationships = [Relationship(r["self"])
+                                     for r in relationship_list]
+                    return relationships
+                else:
+                    raise StatusException(response.status, "Node not found")
+            raise KeyError('%s' % relationship_type)
+
+        return get_relationships
+
+
+class Relationship(Base):
+    """
+    Relationship class
+    """
+
+    def _get_start(self):
+        return Node(self._dic['start'])
+    start = property(_get_start)
+
+    def _get_end(self):
+        return Node(self._dic['end'])
+    end = property(_get_end)
+
+    def _get_type(self):
+        return self._dic['type']
+    type = property(_get_type)
 
 
 class StatusException(Exception):
