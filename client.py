@@ -69,9 +69,8 @@ class Base(object):
         else:
             raise StatusException(response.status, "Unable get node")
 
-    def __del__(self):
-        properties_url = self._dic["properties"]
-        response = Request().delete(properties_url)
+    def delete(self):
+        response = Request().delete(self.url)
         if response.status == 204:
             del self
         else:
@@ -80,9 +79,6 @@ class Base(object):
                                                    "(still has " \
                                                    "relationships?) " \
                                                    "node not found")
-
-    def delete(self):
-        return self.__del__()
 
     def __getitem__(self, key):
         property_url = self._dic["property"].replace("{key}", key)
@@ -94,6 +90,19 @@ class Base(object):
             raise StatusException(response.status, "Node or propery not found")
         return self._dic["data"][key]
 
+    def get(self, key, *args):
+        if args:
+            default = args[0]
+            try:
+                return self.__getitem__(key)
+            except (KeyError, StatusException):
+                return default
+        else:
+            return self.__getitem__(key)
+
+    def __contains__(self, obj):
+        return obj in self._dic["data"]
+
     def __setitem__(self, key, value):
         property_url = self._dic["property"].replace("{key}", key)
         response = Request().put(property_url, data=value)
@@ -102,6 +111,9 @@ class Base(object):
         else:
             raise StatusException(response.status, "Invalid data sent")
 
+    def set(self, key, value):
+        self.__setitem__(key, value)
+
     def __deleteitem__(self, key):
         property_url = self._dic["property"].replace("{key}", key)
         response = Request().delete(property_url)
@@ -109,6 +121,15 @@ class Base(object):
             del self._dic["data"][key]
         else:
             raise StatusException(response.status, "Node or propery not found")
+
+    def __eq__(self, obj):
+        return hasattr(obj, "url") and self.url == obj.url
+
+    def __ne__(self, obj):
+        return not self.__cmp__(obj)
+
+    def __repr__(self):
+        return u"<Neo4j %s: %s>" % (self.__class__.__name__, self.url)
 
     def __str__(self):
         return u"<Neo4j %s: %s>" % (self.__class__.__name__, self.url)
@@ -125,7 +146,7 @@ class Base(object):
         properties_url = self._dic["properties"]
         response = Request().put(properties_url, data=props)
         if response.status == 204:
-            self._dic["data"].update(props)
+            self._dic["data"] = props.copy()
             return props
         else:
             raise StatusException(response.status, "Invalid data sent or " \
@@ -139,7 +160,6 @@ class Base(object):
         else:
             raise StatusException(response.status, "Invalid data sent or " \
                                                    "node not found")
-
     properties = property(_get_properties, _set_properties, _del_properties)
 
 
@@ -163,7 +183,10 @@ class NodeProxy(dict):
             return self.create(**kwargs)
 
     def __getitem__(self, key):
-        return Node("%s/%s" % (self.node_url, key))
+        if isinstance(key, (str, unicode)) and key.startswith(self.node_url):
+            return Node(key)
+        else:
+            return Node("%s/%s" % (self.node_url, key))
 
     def get(self, key):
         return self.__getitem__(key)
@@ -209,8 +232,11 @@ class Node(Base):
         HACK: Return a 3-methods class: incoming, outgoing and all.
         """
         return Relationships(self)
-
     relationships = property(_get_relationships)
+
+    def _get_id(self):
+        return int(self.url.split("/")[-1])
+    id = property(_get_id)
 
 
 class Relationships(object):
@@ -242,7 +268,7 @@ class Relationships(object):
                     return relationships
                 else:
                     raise StatusException(response.status, "Node not found")
-            raise KeyError('%s' % relationship_type)
+            raise NameError("name %s is not defined" % relationship_type)
 
         return get_relationships
 
