@@ -32,8 +32,10 @@ class GraphDatabase(object):
             response_json = simplejson.loads(content)
             self.index_url = response_json['index']
             self.reference_node_url = response_json['reference node']
-            self.node = NodeProxy(self.url, self.node_path,
+            self.nodes = NodeProxy(self.url, self.node_path,
                                   self.reference_node_url)
+            # Backward compatibility. The current style is more pythonic
+            self.node = self.nodes
         else:
             raise StatusException(response.status, "Unable get root")
 
@@ -114,7 +116,7 @@ class Base(object):
     def set(self, key, value):
         self.__setitem__(key, value)
 
-    def __deleteitem__(self, key):
+    def __delitem__(self, key):
         property_url = self._dic["property"].replace("{key}", key)
         response = Request().delete(property_url)
         if response.status == 204:
@@ -122,11 +124,26 @@ class Base(object):
         else:
             raise StatusException(response.status, "Node or propery not found")
 
+    def delete(self, key):
+        self.__delitem__(key)
+
+    def __len__(self):
+        return len(self._dic["data"])
+
+    def __iter__(self):
+        return self._dic["data"].__iter__()
+
     def __eq__(self, obj):
-        return hasattr(obj, "url") and self.url == obj.url
+        return (hasattr(obj, "url")
+                and self.url == obj.url
+                and hasattr(obj, "__class__")
+                and self.__class__ == obj.__class__)
 
     def __ne__(self, obj):
         return not self.__cmp__(obj)
+
+    def __nonzero__(self):
+        return bool(self._dic["data"])
 
     def __repr__(self):
         return u"<Neo4j %s: %s>" % (self.__class__.__name__, self.url)
@@ -271,6 +288,9 @@ class Relationships(object):
             raise NameError("name %s is not defined" % relationship_type)
 
         return get_relationships
+
+    def create(self, relationship_name, to, **kwargs):
+        return getattr(self._node, relationship_name)(to, **kwargs)
 
 
 class Relationship(Base):
