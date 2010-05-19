@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
+import base64
 import datetime
 import decimal
 import httplib
-import base64
+import re
 import simplejson
+import time
 from urlparse import urlsplit
 
 __all__ = ("GraphDatabase", )
@@ -429,6 +431,52 @@ class Request(object):
         """
         return self._request('DELETE', url, headers=headers)
 
+    # strftime function taken from http://code.activestate.com/recipes/306860-proleptic-gregorian-dates-and-strftime-before-1900/
+    _illegal_s = re.compile(r"((^|[^%])(%%)*%s)")
+
+    def _findall(self, text, substr):
+         # Also finds overlaps
+         sites = []
+         i = 0
+         while 1:
+             j = text.find(substr, i)
+             if j == -1:
+                 break
+             sites.append(j)
+             i=j+1
+         return sites
+
+    # Every 28 years the calendar repeats, except through century leap
+    # years where it's 6 years.  But only if you're using the Gregorian
+    # calendar.  ;)
+    def _strftime(self, dt, fmt):
+        if _illegal_s.search(fmt):
+            raise TypeError("This strftime implementation does not handle %s")
+        if dt.year > 1900:
+            return dt.strftime(fmt)
+        year = dt.year
+        # For every non-leap year century, advance by
+        # 6 years to get into the 28-year repeat cycle
+        delta = 2000 - year
+        off = 6*(delta // 100 + delta // 400)
+        year = year + off
+        # Move to around the year 2000
+        year = year + ((2000 - year)//28)*28
+        timetuple = dt.timetuple()
+        s1 = time.strftime(fmt, (year,) + timetuple[1:])
+        sites1 = _findall(s1, str(year))
+        s2 = time.strftime(fmt, (year+28,) + timetuple[1:])
+        sites2 = _findall(s2, str(year+28))
+        sites = []
+        for site in sites1:
+            if site in sites2:
+                sites.append(site)
+        s = s1
+        syear = "%4d" % (dt.year,)
+        for site in sites:
+            s = s[:site] + syear + s[site+4:]
+        return s
+
     def _json_encode(self, data, ensure_ascii=False):
 
         def _any(data):
@@ -442,9 +490,9 @@ class Request(object):
             elif isinstance(data, decimal.Decimal):
                 ret = str(data)
             elif isinstance(data, datetime.datetime):
-                ret = data.strftime("%s %s" % (DATE_FORMAT, TIME_FORMAT))
+                ret = self._strftime(data, "%s %s" % (DATE_FORMAT, TIME_FORMAT))
             elif isinstance(data, datetime.date):
-                ret = data.strftime(DATE_FORMAT)
+                ret = self._strftime(data, DATE_FORMAT)
             elif isinstance(data, datetime.time):
                 ret = data.strftime(TIME_FORMAT)
             else:
