@@ -19,7 +19,7 @@ The main class is *GraphDatabase*, exactly how in neo4j.py_::
 
   >>> from client import GraphDatabase
   
-  >>> gdb = GraphDatabase("http://localhost:999")
+  >>> gdb = GraphDatabase("http://localhost:9999")
 
 By now, no options are provided.
 
@@ -31,6 +31,7 @@ Due to the syntax is fully compatible with neo4j.py_, the next lines only show
 the commands added and its differences.
 
 Creating a node::
+
   >>> n = graphdb.node()
   
   # Equivalent to
@@ -78,7 +79,7 @@ Besides, a Node object has other attributes::
   14
   
   >>> n.url
-  http://localhost:9999/node/13
+  http://localhost:9999/node/14
 
 Create relationship::
 
