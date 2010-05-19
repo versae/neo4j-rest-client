@@ -48,7 +48,7 @@ Accessing node by id::
 
   >>> n = graphdb.node[14]
   
-  # Or
+  # Using the identifier or the URL is possible too
   >>> n = graphdb.nodes.get(14)
 
 Accessing properties::
@@ -79,7 +79,7 @@ Besides, a Node object has other attributes::
   14
   
   >>> n.url
-  http://localhost:9999/node/14
+  'http://localhost:9999/node/14'
 
 Create relationship::
 
@@ -101,6 +101,15 @@ The creation returns a Relationship object, which has properties, setter and
 getters like a node::
 
   >>> rel = n1.relationships.create("Knows", n2, since=123456789)
+  
+  >>> rel.start
+  <Neo4j Node: http://localhost:9999/node/14>
+  
+  >>> rel.end
+  <Neo4j Node: http://localhost:9999/node/32>
+  
+  >>> rel.type
+  'Knows'
   
   >>> rel.properties
   {'since': 123456789}
@@ -128,6 +137,9 @@ incoming or outgoing relationships (typed or not)::
    <Neo4j Relationship: http://localhost:9999/relationship/10>,
    <Neo4j Relationship: http://localhost:9999/relationship/9>]
 
+  >>> rels = n1.relationships.outgoing(["Knows", "Loves"])
+  [<Neo4j Relationship: http://localhost:9999/relationship/35842>,
+   <Neo4j Relationship: http://localhost:9999/relationship/35847>]
 
 Transaction
 -----------

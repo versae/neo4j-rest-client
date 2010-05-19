@@ -8,11 +8,11 @@ class TestNode(unittest.TestCase):
         self.gdb = client.GraphDatabase("http://localhost:9999")
 
     def test_create_node(self):
-        n = self.gdb.node.create()
+        n = self.gdb.nodes.create()
         self.assertEqual(n.properties, {})
 
     def test_create_node_properties(self):
-        n = self.gdb.node.create(name="John Doe", profession="Hacker")
+        n = self.gdb.nodes.create(name="John Doe", profession="Hacker")
         self.assertEqual(n.properties, {"name": "John Doe",
                                         "profession": "Hacker"})
 
@@ -38,13 +38,13 @@ class TestNode(unittest.TestCase):
         self.assertEqual(n.get("surname", "Doe"), "Doe")
 
     def test_get_node(self):
-        n1 = self.gdb.node(name="John Doe", profession="Hacker")
-        n2 = self.gdb.node.get(n1.id)
+        n1 = self.gdb.nodes.create(name="John Doe", profession="Hacker")
+        n2 = self.gdb.nodes.get(n1.id)
         self.assertEqual(n1, n2)
 
     def test_get_node_url(self):
-        n1 = self.gdb.node(name="John Doe", profession="Hacker")
-        n2 = self.gdb.node.get(n1.url)
+        n1 = self.gdb.nodes.create(name="John Doe", profession="Hacker")
+        n2 = self.gdb.nodes.get(n1.url)
         self.assertEqual(n1, n2)
 
     def test_get_node_dicionary(self):
@@ -66,7 +66,7 @@ class TestNode(unittest.TestCase):
     def test_set_node_property(self):
         n1 = self.gdb.node(name="John Doe", profession="Hacker")
         n1.set("name", "Jimmy Doe")
-        n2 = self.gdb.node.get(n1.id)
+        n2 = self.gdb.nodes.get(n1.id)
         self.assertEqual(n1.get("name"), n1.get("name"))
 
     def test_set_node_properties(self):
