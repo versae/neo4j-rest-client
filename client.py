@@ -73,7 +73,10 @@ class Base(object):
         else:
             raise StatusException(response.status, "Unable get node")
 
-    def delete(self):
+    def delete(self, key=None):
+        if key:
+            self.__delitem__(key)
+            return
         response = Request().delete(self.url)
         if response.status == 204:
             del self
@@ -125,9 +128,6 @@ class Base(object):
             del self._dic["data"][key]
         else:
             raise StatusException(response.status, "Node or propery not found")
-
-    def delete(self, key):
-        self.__delitem__(key)
 
     def __len__(self):
         return len(self._dic["data"])
@@ -402,6 +402,7 @@ class Request(object):
         self.password = password
         self.key_file = key_file
         self.cert_file = cert_file
+        self._illegal_s = re.compile(r"((^|[^%])(%%)*%s)")
 
     def get(self, url, headers=None):
         """
@@ -431,26 +432,27 @@ class Request(object):
         """
         return self._request('DELETE', url, headers=headers)
 
-    # strftime function taken from http://code.activestate.com/recipes/306860-proleptic-gregorian-dates-and-strftime-before-1900/
-    _illegal_s = re.compile(r"((^|[^%])(%%)*%s)")
+    # Proleptic Gregorian dates and strftime before 1900 « Python recipes
+    # ActiveState Code: http://bit.ly/9t0JKb via @addthis
 
     def _findall(self, text, substr):
-         # Also finds overlaps
-         sites = []
-         i = 0
-         while 1:
-             j = text.find(substr, i)
-             if j == -1:
-                 break
-             sites.append(j)
-             i=j+1
-         return sites
+        # Also finds overlaps
+        sites = []
+        i = 0
+        while 1:
+            j = text.find(substr, i)
+            if j == -1:
+                break
+            sites.append(j)
+            i = j + 1
+        return sites
 
     # Every 28 years the calendar repeats, except through century leap
     # years where it's 6 years.  But only if you're using the Gregorian
     # calendar.  ;)
+
     def _strftime(self, dt, fmt):
-        if _illegal_s.search(fmt):
+        if self._illegal_s.search(fmt):
             raise TypeError("This strftime implementation does not handle %s")
         if dt.year > 1900:
             return dt.strftime(fmt)
@@ -458,23 +460,23 @@ class Request(object):
         # For every non-leap year century, advance by
         # 6 years to get into the 28-year repeat cycle
         delta = 2000 - year
-        off = 6*(delta // 100 + delta // 400)
+        off = 6 * (delta // 100 + delta // 400)
         year = year + off
         # Move to around the year 2000
-        year = year + ((2000 - year)//28)*28
+        year = year + ((2000 - year) // 28) * 28
         timetuple = dt.timetuple()
         s1 = time.strftime(fmt, (year,) + timetuple[1:])
-        sites1 = _findall(s1, str(year))
-        s2 = time.strftime(fmt, (year+28,) + timetuple[1:])
-        sites2 = _findall(s2, str(year+28))
+        sites1 = self._findall(s1, str(year))
+        s2 = time.strftime(fmt, (year + 28,) + timetuple[1:])
+        sites2 = self._findall(s2, str(year + 28))
         sites = []
         for site in sites1:
             if site in sites2:
                 sites.append(site)
         s = s1
-        syear = "%4d" % (dt.year,)
+        syear = "%4d" % (dt.year, )
         for site in sites:
-            s = s[:site] + syear + s[site+4:]
+            s = s[:site] + syear + s[site + 4:]
         return s
 
     def _json_encode(self, data, ensure_ascii=False):
@@ -490,7 +492,8 @@ class Request(object):
             elif isinstance(data, decimal.Decimal):
                 ret = str(data)
             elif isinstance(data, datetime.datetime):
-                ret = self._strftime(data, "%s %s" % (DATE_FORMAT, TIME_FORMAT))
+                ret = self._strftime(data,
+                                     "%s %s" % (DATE_FORMAT, TIME_FORMAT))
             elif isinstance(data, datetime.date):
                 ret = self._strftime(data, DATE_FORMAT)
             elif isinstance(data, datetime.time):
