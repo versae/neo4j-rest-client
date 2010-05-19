@@ -2,7 +2,7 @@ import client
 import unittest
 
 
-class TestNode(unittest.TestCase):
+class TestNodes(unittest.TestCase):
 
     def setUp(self):
         self.gdb = client.GraphDatabase("http://localhost:9999")
@@ -75,11 +75,44 @@ class TestNode(unittest.TestCase):
         n2 = self.gdb.node[n1.id]
         self.assertEqual(n1.properties, n2.properties)
 
+    def test_del_node_property_dictionary(self):
+        n1 = self.gdb.node(name="John Doe", profession="Hacker")
+        del n1["name"]
+        self.assertEqual(n1.get("name", None), None)
 
-#    def test_choice(self):
-#        element = random.choice(self.seq)
-#        self.assertTrue(element in self.seq)
+    def test_del_node_property(self):
+        n1 = self.gdb.nodes.create(name="John Doe", profession="Hacker")
+        n1.delete("name")
+        self.assertEqual(n1.get("name", None), None)
+
+    def test_del_node_properties(self):
+        n1 = self.gdb.node(name="John Doe", profession="Hacker")
+        del n1.properties
+        self.assertEqual(n1.properties, {})
+
+    def test_del_node(self):
+        n1 = self.gdb.nodes.create(name="John Doe", profession="Hacker")
+        identifier = n1.id
+        n1.delete()
+        try:
+            self.gdb.nodes.get(identifier)
+            self.assertTrue(False)
+        except client.NotFoundError, client.StatusException:
+            self.assertTrue(True)
+
+
+class TestRelationships(unittest.TestCase):
+
+    def setUp(self):
+        self.gdb = client.GraphDatabase("http://localhost:9999")
+
+    def test_create_node(self):
+        n = self.gdb.nodes.create()
+        self.assertEqual(n.properties, {})
+
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestNode)
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    nodes_suite = unittest.TestLoader().loadTestsFromTestCase(TestNodes)
+    unittest.TextTestRunner(verbosity=2).run(nodes_suite)
+    relationships_suite = unittest.TestLoader().loadTestsFromTestCase(TestRelationships)
+    unittest.TextTestRunner(verbosity=2).run(relationships_suite)
