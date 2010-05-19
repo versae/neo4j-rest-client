@@ -102,7 +102,7 @@ getters like a node::
 
   >>> rel = n1.relationships.create("Knows", n2, since=123456789)
   
-  >>> rel
+  >>> rel.properties
   {'since': 123456789}
 
 Others functions over 'relationships' attribute are possible. Like get all,
