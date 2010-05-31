@@ -2,7 +2,7 @@ import client
 import unittest
 
 
-class TestNodes(unittest.TestCase):
+class NodesTestCase(unittest.TestCase):
 
     def setUp(self):
         self.gdb = client.GraphDatabase("http://localhost:9999")
@@ -20,7 +20,7 @@ class TestNodes(unittest.TestCase):
         n = self.gdb.node()
         self.assertEqual(n.properties, {})
 
-    def test_create_node_properties(self):
+    def test_create_node_properties_dictionary(self):
         n = self.gdb.node(name="John Doe", profession="Hacker")
         self.assertEqual(n.properties, {"name": "John Doe",
                                         "profession": "Hacker"})
@@ -67,7 +67,7 @@ class TestNodes(unittest.TestCase):
         n1 = self.gdb.node(name="John Doe", profession="Hacker")
         n1.set("name", "Jimmy Doe")
         n2 = self.gdb.nodes.get(n1.id)
-        self.assertEqual(n1.get("name"), n1.get("name"))
+        self.assertEqual(n1.get("name"), n2.get("name"))
 
     def test_set_node_properties(self):
         n1 = self.gdb.node(name="John Doe", profession="Hacker")
@@ -75,44 +75,63 @@ class TestNodes(unittest.TestCase):
         n2 = self.gdb.node[n1.id]
         self.assertEqual(n1.properties, n2.properties)
 
-    def test_del_node_property_dictionary(self):
+    def test_delete_node_property_dictionary(self):
         n1 = self.gdb.node(name="John Doe", profession="Hacker")
         del n1["name"]
         self.assertEqual(n1.get("name", None), None)
 
-    def test_del_node_property(self):
+    def test_delete_node_property(self):
         n1 = self.gdb.nodes.create(name="John Doe", profession="Hacker")
         n1.delete("name")
         self.assertEqual(n1.get("name", None), None)
 
-    def test_del_node_properties(self):
+    def test_delete_node_properties(self):
         n1 = self.gdb.node(name="John Doe", profession="Hacker")
         del n1.properties
         self.assertEqual(n1.properties, {})
 
-    def test_del_node(self):
+    def test_delete_node(self):
         n1 = self.gdb.nodes.create(name="John Doe", profession="Hacker")
         identifier = n1.id
         n1.delete()
         try:
             self.gdb.nodes.get(identifier)
-            self.assertTrue(False)
+            self.fail()
         except client.NotFoundError, client.StatusException:
-            self.assertTrue(True)
+            pass
 
 
-class TestRelationships(unittest.TestCase):
+class RelationshipsTestCase(NodesTestCase):
 
-    def setUp(self):
-        self.gdb = client.GraphDatabase("http://localhost:9999")
+    def test_create_relationship(self):
+        n1 = self.gdb.node()
+        n2 = self.gdb.node()
+        rel = n1.Knows(n2)
+        self.assertEqual(rel.properties, {})
 
-    def test_create_node(self):
-        n = self.gdb.nodes.create()
-        self.assertEqual(n.properties, {})
+    def test_create_relationship_functional(self):
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        rel = n1.relationships.create("Knows", n2)
+        self.assertEqual(rel.properties, {})
 
+    def test_create_relationship_properties(self):
+        n1 = self.gdb.node()
+        n2 = self.gdb.node()
+        rel = n1.Knows(n2, since=1970)
+        self.assertEqual(rel.properties, {"since": 1970})
+
+    def test_create_relationship_functional_properties(self):
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        rel = n1.relationships.create("Knows", n2, since=1970)
+        self.assertEqual(rel.properties, {"since": 1970})
+
+
+class Neo4jPythonClientTestCase(RelationshipsTestCase):
+    pass
 
 if __name__ == '__main__':
-    nodes_suite = unittest.TestLoader().loadTestsFromTestCase(TestNodes)
-    unittest.TextTestRunner(verbosity=2).run(nodes_suite)
-    relationships_suite = unittest.TestLoader().loadTestsFromTestCase(TestRelationships)
-    unittest.TextTestRunner(verbosity=2).run(relationships_suite)
+    test_loader = unittest.TestLoader()
+    suite = test_loader.loadTestsFromTestCase(Neo4jPythonClientTestCase)
+    unittest.TextTestRunner(verbosity=2).run(suite)
