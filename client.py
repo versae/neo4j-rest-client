@@ -8,8 +8,62 @@ import simplejson
 import time
 from urlparse import urlsplit
 
-__all__ = ("GraphDatabase", "NotFoundError","StatusException")
-__version__ = u'0.1alpha'
+__all__ = ("GraphDatabase", "Incoming", "Outgoing", "Undirected",
+           "StopAtDepth", "NotFoundError", "StatusException")
+__author__ = "Javier de la Rosa, and Diego Muñoz Escalante"
+__credits__ = ["Javier de la Rosa", "Diego Muñoz Escalante"]
+__license__ = "GPLv3"
+__version__ = "0.0.1"
+__email__ = "versae [at] gmail [dot] com"
+__status__ = "Development"
+
+
+# Order
+BREADTH_FIRST = "breadth first"
+DEPTH_FIRST = "depth first"
+# Return
+RETURN_ALL_NODES = "all"
+RETURN_ALL_BUT_START_NODE = "all but start node"
+# Stop
+STOP_AT_DEPTH_ONE = 1
+STOP_AT_END_OF_GRAPH = "none"
+# Uniqueness
+NODE_GLOBAL = "node global"
+NODE_PATH = "node path"
+NODE_RECENT = "node recent"
+NONE = "node"
+RELATIONSHIP_GLOBAL = "relationship global"
+RELATIONSHIP_PATH = "relationship path"
+RELATIONSHIP_RECENT = "relationship recent"
+# Returns
+# NODE too
+RELATIONSHIP = "relationship"
+PATH = "path"
+POSITION = "position"
+
+
+class StopAtDepth(object):
+    """Only traverse to a certain depth."""
+
+    def __init__(self, depth):
+        self.depth = depth
+
+    def __get__(self):
+        return self.depth
+
+
+class MetaTraversal(type):
+    """Metaclass for adding default attributes to Traversal class"""
+
+    def __new__(cls, name, bases, dic):
+        for attr in ["types", "order", "stop", "returnable", "uniqueness",
+                     "returns"]:
+            dic[attr] = dic.get(attr, None)
+        dic["is_returnable"] = dic.get("is_returnable",
+                                       dic.get("isReturnable", None))
+        dic["is_stop_node"] = dic.get("is_stop_node",
+                                      dic.get("isStopNode", None))
+        return type.__new__(cls, name, bases, dic)
 
 
 class GraphDatabase(object):
@@ -24,6 +78,7 @@ class GraphDatabase(object):
         self.reference_node_url = None
         self.index_path = "/index"
         self.node_path = "/node"
+        self.Traversal = self._get_traversal_class()
         if url.endswith("/"):
             self.url = url[0:-1]
         else:
@@ -47,6 +102,35 @@ class GraphDatabase(object):
 
     def index(self, create=False):
         pass
+
+    def traverse(self, *args, **kwargs):
+        return self.reference_node.traverse(*args, **kwargs)
+
+    def _get_traversal_class(self):
+        cls = self
+
+        class Traversal(object):
+            __metaclass__ = MetaTraversal
+
+            def __init__(self, start_node=None):
+                if start_node and isinstance(start_node, Node):
+                    self.start_node = start_node
+                else:
+                    self.start_node = cls.reference_node
+
+            def __iteritems__(self):
+                is_returnable = self.is_returnable
+                is_stop_node = self.is_stop_node
+                return self.start_node.traverse(types=self.types,
+                                                order=self.order,
+                                                stop=self.stop,
+                                                returnable=self.returnable,
+                                                uniqueness=self.uniqueness,
+                                                is_stop_node=is_stop_node,
+                                                is_returnable=is_returnable,
+                                                returns=self.returns)
+
+        return Traversal
 
 
 class Base(object):
@@ -229,7 +313,7 @@ class Node(Base):
 
     def __getattr__(self, relationship_name, *args, **kwargs):
         """
-        HACK: To allow to set node relationship
+        HACK: Allow to set node relationship
         """
 
         def relationship(to, *args, **kwargs):
@@ -261,6 +345,55 @@ class Node(Base):
     def _get_id(self):
         return int(self.url.split("/")[-1])
     id = property(_get_id)
+
+    def traverse(self, types=None, order=None, stop=None, returnable=None,
+                 uniqueness=None, is_stop_node=None, is_returnable=None,
+                 returns=None):
+        data = {}
+        if order in (BREADTH_FIRST, DEPTH_FIRST):
+            data.update({"order": order})
+        if isinstance(stop, (int, float)) or stop is STOP_AT_END_OF_GRAPH:
+            data.update({"max depth": stop})
+        if returnable in (BREADTH_FIRST, DEPTH_FIRST):
+            data.update({"return filter": {
+                            "language": "builtin",
+                            "name": returnable,
+            }})
+        if uniqueness in (NODE_GLOBAL, NODE_PATH, NODE_RECENT, NONE,
+                          RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
+                          RELATIONSHIP_RECENT):
+            data.update({"uniqueness": uniqueness})
+        if types:
+            if not isinstance(types, (list, tuple)):
+                types = [types]
+            relationships = []
+            for relationship in types:
+                if relationship.direction == "both":
+                    relationships.append({"type": relationship.type})
+                else:
+                    relationships.append({"type": relationship.type,
+                                          "direction": relationship.direction})
+            if relationships:
+                data.update({"relationships": relationships})
+        if returns not in (NODE, RELATIONSHIP, PATH, POSITION):
+            returns = NODE
+        traverse_url = self._dic["traverse"].replace("{returnType}", returns)
+        response = Request().post(create_relationship_url, data=data)
+        if response.status == 200:
+            results_list = simplejson.loads(content)
+            if returns is NODE:
+                return [Node(r["self"]) for r in results_list]
+            elif returns is RELATIONSHIP:
+                return [Relationship(r["self"]) for r in results_list]
+            elif returns is PATH:
+                return [Path(r) for r in results_list]
+            elif returns is POSITION:
+                return [Position(r) for r in results_list]
+        elif response.status == 404:
+            raise NotFoundError(response.status, "Node or relationship not " \
+                                                 "found")
+        else:
+            raise StatusException(response.status, "Invalid data sent")
 
 
 class Relationships(object):
@@ -319,6 +452,59 @@ class Relationship(Base):
     def _get_type(self):
         return self._dic['type']
     type = property(_get_type)
+
+
+class Path(object):
+    """Path class for return type PATH in traversals"""
+
+    def __init__(self, dic):
+        self.start = property(Node(dic["start"]))
+        self.end = property(Node(dic["end"]))
+        self._length = int(dic["length"])
+        nodes = []
+        relationships = []
+        self._iterable = []
+        for i in range(0, len(dic["relationships"])):
+            node = Node(dic["nodes"][i])
+            nodes.append(node)
+            relationship = Relationship(dic["relationships"][i])
+            relationships.append(node)
+            self._iterable.append(node)
+            self._iterable.append(relationship)
+        node = Node(dic["nodes"][-1])
+        nodes.append(node)
+        self._iterable.append(node)
+        self.nodes = property(nodes)
+        self.relationships = property(relationships)
+
+    def __len__(self):
+        return self._length
+
+    def __iter__(self):
+        while True:
+            for obj in self._iterable:
+                yield obj
+
+
+class BaseInAndOut(object):
+
+    def __init__(self, direction):
+        self.direction = direction
+
+    def get(self, attr):
+        return self.__getattr__(attr)
+
+    def __getattr__(self, attr):
+        # Using an anonymous class
+        direction = self.direction
+        return type("", (object, ), {
+            'direction': property(lambda self: direction),
+            'type': property(lambda self: attr),
+        })()
+
+Outgoing = BaseInAndOut(direction="out")
+Incoming = BaseInAndOut(direction="in")
+Undirected = BaseInAndOut(direction="both")
 
 
 class StatusException(Exception):
