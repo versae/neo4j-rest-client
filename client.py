@@ -31,19 +31,20 @@ STOP_AT_END_OF_GRAPH = "none"
 NODE_GLOBAL = "node global"
 NODE_PATH = "node path"
 NODE_RECENT = "node recent"
-NONE = "node"
 RELATIONSHIP_GLOBAL = "relationship global"
 RELATIONSHIP_PATH = "relationship path"
 RELATIONSHIP_RECENT = "relationship recent"
 # Returns
-# NODE too
+NODE = "node"
 RELATIONSHIP = "relationship"
 PATH = "path"
 POSITION = "position"
 
 
 class StopAtDepth(object):
-    """Only traverse to a certain depth."""
+    """
+    Only traverse to a certain depth.
+    """
 
     def __init__(self, depth):
         self.depth = depth
@@ -53,7 +54,9 @@ class StopAtDepth(object):
 
 
 class MetaTraversal(type):
-    """Metaclass for adding default attributes to Traversal class"""
+    """
+    Metaclass for adding default attributes to Traversal class.
+    """
 
     def __new__(cls, name, bases, dic):
         for attr in ["types", "order", "stop", "returnable", "uniqueness",
@@ -359,7 +362,7 @@ class Node(Base):
                             "language": "builtin",
                             "name": returnable,
             }})
-        if uniqueness in (NODE_GLOBAL, NODE_PATH, NODE_RECENT, NONE,
+        if uniqueness in (NODE_GLOBAL, NODE_PATH, NODE_RECENT, NODE,
                           RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
                           RELATIONSHIP_RECENT):
             data.update({"uniqueness": uniqueness})
@@ -378,8 +381,9 @@ class Node(Base):
         if returns not in (NODE, RELATIONSHIP, PATH, POSITION):
             returns = NODE
         traverse_url = self._dic["traverse"].replace("{returnType}", returns)
-        response = Request().post(create_relationship_url, data=data)
+        response = Request().post(traverse_url, data=data)
         if response.status == 200:
+            content = response.body
             results_list = simplejson.loads(content)
             if returns is NODE:
                 return [Node(r["self"]) for r in results_list]
@@ -398,7 +402,7 @@ class Node(Base):
 
 class Relationships(object):
     """
-    Relationships class for a node
+    Relationships class for a node.
     """
 
     def __init__(self, node):
@@ -438,7 +442,7 @@ class Relationships(object):
 
 class Relationship(Base):
     """
-    Relationship class
+    Relationship class.
     """
 
     def _get_start(self):
@@ -455,7 +459,9 @@ class Relationship(Base):
 
 
 class Path(object):
-    """Path class for return type PATH in traversals"""
+    """
+    Path class for return type PATH in traversals.
+    """
 
     def __init__(self, dic):
         self.start = property(Node(dic["start"]))
@@ -486,7 +492,23 @@ class Path(object):
                 yield obj
 
 
+class Position(object):
+    """
+    Position class for return type POSITION in traversals.
+    """
+
+    def __init__(self, dic):
+        self.node = property(Node(dic["node"]))
+        self.depth = int(dic["depth"])
+        relationship = Relationship(dic["last relationship"])
+        self.last_relationship = property(relationship)
+        self.path = property(Path(dic["path"]))
+
+
 class BaseInAndOut(object):
+    """
+    Base class for Incoming, Outgoing and Undirected relationships types.
+    """
 
     def __init__(self, direction):
         self.direction = direction

@@ -128,7 +128,20 @@ class RelationshipsTestCase(NodesTestCase):
         self.assertEqual(rel.properties, {"since": 1970})
 
 
-class Neo4jPythonClientTestCase(RelationshipsTestCase):
+class TraversalsTestCase(RelationshipsTestCase):
+
+    def test_create_traversal(self):
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        n1.relationships.create("Knows", n2, since=1970)
+        types = [
+            client.Undirected.Knows,
+        ]
+        traversal = n1.traverse(types=types)
+        self.failUnless(len(traversal) > 0)
+
+
+class Neo4jPythonClientTestCase(TraversalsTestCase):
     pass
 
 if __name__ == '__main__':
