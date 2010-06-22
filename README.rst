@@ -141,6 +141,14 @@ incoming or outgoing relationships (typed or not)::
   [<Neo4j Relationship: http://localhost:9999/relationship/35842>,
    <Neo4j Relationship: http://localhost:9999/relationship/35847>]
 
+
+Traversals
+----------
+
+The traversals framework is supported too with the same syntax of neo4j.py_,
+but with some added issues.
+
+
 Transaction
 -----------
 

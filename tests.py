@@ -140,6 +140,22 @@ class TraversalsTestCase(RelationshipsTestCase):
         traversal = n1.traverse(types=types)
         self.failUnless(len(traversal) > 0)
 
+    def test_create_traversal_class(self):
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        n1.relationships.create("Knows", n2, since=1970)
+
+        class TraversalClass(self.gdb.Traversal):
+
+            types = [
+                client.Undirected.Knows,
+            ]
+
+        results = []
+        for result in TraversalClass(n1):
+            results.append(result)
+        self.failUnless(len(results) > 0)
+
 
 class Neo4jPythonClientTestCase(TraversalsTestCase):
     pass

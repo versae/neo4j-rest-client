@@ -120,18 +120,27 @@ class GraphDatabase(object):
                     self.start_node = start_node
                 else:
                     self.start_node = cls.reference_node
-
-            def __iteritems__(self):
                 is_returnable = self.is_returnable
                 is_stop_node = self.is_stop_node
-                return self.start_node.traverse(types=self.types,
-                                                order=self.order,
-                                                stop=self.stop,
-                                                returnable=self.returnable,
-                                                uniqueness=self.uniqueness,
-                                                is_stop_node=is_stop_node,
-                                                is_returnable=is_returnable,
-                                                returns=self.returns)
+                results = self.start_node.traverse(types=self.types,
+                                                   order=self.order,
+                                                   stop=self.stop,
+                                                   returnable=self.returnable,
+                                                   uniqueness=self.uniqueness,
+                                                   is_stop_node=is_stop_node,
+                                                   is_returnable=is_returnable,
+                                                   returns=self.returns)
+                self._items = results
+                self._index = len(results)
+
+            def __iter__(self):
+                return self
+
+            def next(self):
+                if self._index == 0:
+                    raise StopIteration
+                self._index = self._index - 1
+                return self._items[self._index]
 
         return Traversal
 
@@ -236,7 +245,7 @@ class Base(object):
         return not self.__cmp__(obj)
 
     def __nonzero__(self):
-        return bool(self._dic["data"])
+        return bool(self._dic)
 
     def __repr__(self):
         return self.__unicode__()
