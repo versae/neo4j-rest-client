@@ -136,7 +136,7 @@ incoming or outgoing relationships (typed or not)::
    <Neo4j Relationship: http://localhost:9999/relationship/11>,
    <Neo4j Relationship: http://localhost:9999/relationship/10>,
    <Neo4j Relationship: http://localhost:9999/relationship/9>]
-
+  
   >>> rels = n1.relationships.outgoing(["Knows", "Loves"])
   [<Neo4j Relationship: http://localhost:9999/relationship/35842>,
    <Neo4j Relationship: http://localhost:9999/relationship/35847>]
@@ -147,6 +147,26 @@ Traversals
 
 The traversals framework is supported too with the same syntax of neo4j.py_,
 but with some added issues.
+
+Regular way::
+  >>> n1.relationships.create("Knows", n2, since=1970)
+  <Neo4j Relationship: http://localhost:9999/relationship/36009>
+  
+  >>> class TraversalClass(gdb.Traversal):
+     ...:     types = [
+     ...:         Undirected.Knows
+     ...:     ]
+     ...: 
+  
+  >>> [traversal for traversal in TraversalClass(n1)]
+  [<Neo4j Node: http://localhost:9999/node/15880>]
+
+Added way (more ''pythonic'')::
+  >>> n1.relationships.create("Knows", n2, since=1970)
+  <Neo4j Relationship: http://localhost:9999/relationship/36009>
+  
+  >>> n1.traverse(types=[client.Undirected.Knows])
+  [<Neo4j Node: http://localhost:9999/node/15880>]
 
 
 Transaction
