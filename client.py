@@ -9,8 +9,6 @@ import time
 from urlparse import urlsplit
 import urllib
 
-import pycurl
-
 __all__ = ("GraphDatabase", "Incoming", "Outgoing", "Undirected",
            "StopAtDepth", "NotFoundError", "StatusException")
 __author__ = "Javier de la Rosa, and Diego Muñoz Escalante"
