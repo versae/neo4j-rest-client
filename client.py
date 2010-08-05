@@ -83,12 +83,12 @@ class GraphDatabase(object):
         self.index_path = "/index"
         self.node_path = "/node"
         self.Traversal = self._get_traversal_class()
-        self.Index = Index()
         if url.endswith("/"):
             self.url = url[0:-1]
         else:
             self.url = url
             
+        self.Index = Index()
         self._get_nodes(url)
 
     def _get_nodes(self, url):
@@ -110,7 +110,7 @@ class GraphDatabase(object):
         return Node(self.reference_node_url)
     reference_node = property(_get_reference_node)
 
-    def index(self, key, value=None, create=None):
+    def index(self, key, value=None, create=False, delete=False):
         self.Index.index_url = self.index_url
         self.Index.nodes = self.nodes
         return self.Index.mediate(key, value=value, create=create)        
@@ -154,12 +154,16 @@ class GraphDatabase(object):
         return Traversal
         
 class Index(object):
-    nodes = {}
-    index_url = ''
-      
-    def mediate(self, key, value=None, create=None):
+    
+    def __init__(self, nodes={}, index_url=None):
+        self.nodes = nodes
+        self.index_url = index_url
+              
+    def mediate(self, key, value=None, create=False, delete=False):
         if create:
             return self.create(key)
+        elif delete:
+            return self.delete(key=key, value=value)
         else:
             return self.get(key, value)
         
@@ -168,10 +172,8 @@ class Index(object):
             node = self.nodes[ind]
             create = '%s/node/%s/%s' % (self.index_url, urllib.quote(key), urllib.quote(node.get(key)))
             response = Request().post(create, data=node.url, headers=False)
-            if response.status == 201:
-                if response.body:
-                    self._dic["indexed"] = response.body
-            else:
+            
+            if response.status != 201:
                 raise NotFoundError(response.status, "Problem?")
             
         return self
@@ -183,15 +185,24 @@ class Index(object):
         
         if response.status == 200:
             content = response.body
-            nodes = simplejson.loads(content)
-            print nodes
+            defs = simplejson.loads(content)
+            for dic in defs:
+                nodes.append(Node(dic['self'], index_url=self.index_url))
         else:
             raise StatusException(response.status)
                 
         return nodes
         
-    def delete(self):
-        pass
+    def delete(self, key, value):
+        for ind in self.nodes:
+            node = self.nodes[ind]
+            url = '%s/node/%s/%s/%s' % (self.index_url, urllib.quote(key), urllib.quote(value), node.id)
+            response = Request().delete(url)
+            
+            if response.status != 204:
+                raise StatusException(response.status)
+                
+        return self
 
 class Base(object):
     """
@@ -201,9 +212,8 @@ class Base(object):
     def __init__(self, url, index_url=None, create=False, data={}):
         self._dic = {}
         self.url = None
-        self.Index = Index()
-        self.Index.index_url = index_url
-        self.Index.nodes = {self.id: self}
+        self.Index = Index(index_url=index_url, nodes = {self.id: self})
+
         if create:
             response = Request().post(url, data=data)
             if response.status == 201:
@@ -211,9 +221,12 @@ class Base(object):
                 self.url = response.getheader("Location")
             else:
                 raise NotFoundError(response.status, "Invalid data sent")
+                
         if not self.url:
             self.url = url
+            
         response = Request().get(self.url)
+        
         if response.status == 200:
             content = response.body
             self._dic.update(simplejson.loads(content).copy())
@@ -224,7 +237,9 @@ class Base(object):
         if key:
             self.__delitem__(key)
             return
+            
         response = Request().delete(self.url)
+        
         if response.status == 204:
             del self
         elif response.status == 404:
@@ -254,8 +269,8 @@ class Base(object):
         else:
             return self.__getitem__(key)
     
-    def index(self, key, create=False):
-        return self.Index.mediate(key, create=create)
+    def index(self, key, value=None, create=False, delete=False):
+        return self.Index.mediate(key, value=value, create=create, delete=delete)
     
     def __contains__(self, obj):
         return obj in self._dic["data"]
