@@ -113,7 +113,17 @@ class GraphDatabase(object):
     def index(self, key, value=None, create=False, delete=False):
         self.Index.index_url = self.index_url
         self.Index.nodes = self.nodes
-        return self.Index.mediate(key, value=value, create=create)        
+        response = self.Index.mediate(key, value=value, create=create, delete=delete)
+
+        if not create and not delete:
+            self.nodes = NodeProxy(self.url, self.node_path,
+                                  self.reference_node_url,
+                                  index_url=self.index_url)
+            for node in response:
+                temp_node = Node(node.url, index_url=self.index_url)
+                self.nodes[temp_node.id] = temp_node
+                
+        return response        
 
     def traverse(self, *args, **kwargs):
         return self.reference_node.traverse(*args, **kwargs)
@@ -198,7 +208,7 @@ class Index(object):
             node = self.nodes[ind]
             url = '%s/node/%s/%s/%s' % (self.index_url, urllib.quote(key), urllib.quote(value), node.id)
             response = Request().delete(url)
-            
+
             if response.status != 204:
                 raise StatusException(response.status)
                 
@@ -383,7 +393,7 @@ class NodeProxy(dict):
     def create(self, **kwargs):
         node = Node(self.node_url, index_url=self.index_url, create=True, data=kwargs)
         self[node.id] = node
-        return self[node.id]
+        return node
 
     def delete(self, key):
         node = self.__getitem__(key)

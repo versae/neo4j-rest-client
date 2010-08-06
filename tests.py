@@ -16,15 +16,6 @@ class TestNodes(unittest.TestCase):
         self.assertEqual(n.properties, {"name": "John Doe",
                                         "profession": "Hacker"})
 
-    def test_create_node_empty(self):
-        n = self.gdb.node()
-        self.assertEqual(n.properties, {})
-
-    def test_create_node_properties(self):
-        n = self.gdb.node(name="John Doe", profession="Hacker")
-        self.assertEqual(n.properties, {"name": "John Doe",
-                                        "profession": "Hacker"})
-
     def test_create_node_dictionary(self):
         n = self.gdb.node(name="John Doe", profession="Hacker")
         self.assertEqual(n["name"], "John Doe")
@@ -99,7 +90,48 @@ class TestNodes(unittest.TestCase):
             self.assertTrue(False)
         except client.NotFoundError, client.StatusException:
             self.assertTrue(True)
-
+            
+    def test_create_index_on_node(self):
+        n1 = self.gdb.nodes.create(name='John Doe', profession='Hacker')
+        n1.index(key='name', value='John Doe', create=True)
+        indexed = self.gdb.index(key='name', value='John Doe')
+        self.assertTrue(n1 in indexed)
+        
+    def test_create_index_on_collection(self):
+        n1 = self.gdb.nodes.create(name='John Doe', profession='Hacker')
+        self.gdb.index(key='profession', value='Hacker', create=True)
+        indexed = self.gdb.index(key='profession', value='Hacker')
+        self.assertTrue(n1 in indexed)
+        
+    def test_query_index_on_node(self):
+        n1 = self.gdb.nodes.create(name='John Doe', profession='Hacker')
+        n1.index(key='name', value='John Doe', create=True)
+        indexed = n1.index(key='name', value='John Doe')
+        self.assertTrue(len(indexed) > 0)
+        
+    def test_query_index_on_collection(self):
+        n1 = self.gdb.nodes.create(name='John Doe', profession='Hacker')
+        self.gdb.index(key='name', value='John Doe', create=True)
+        indexed = self.gdb.index(key='name', value='John Doe')
+        self.assertTrue(len(indexed) > 0)
+        
+    def test_delete_index_against_collection(self):
+        found = False
+        n1 = self.gdb.nodes.create(name='John Doe', profession='Hacker')
+        self.gdb.index(key='name', value='John Doe', create=True)
+        self.gdb.index(key='name', value='John Doe', delete=True)
+        indexed = self.gdb.index(key='name', value='John Doe')
+        
+        for node in indexed:
+            if node.url == n1.url:
+                found = True
+        
+        self.assertTrue(found == False)
+        
+    def test_delete_index_against_node(self):
+        nodes = self.gdb.index(key='profession', value='Hacker')
+        nodes[0].index(key='profession', value='Hacker', delete=True)
+        indexed = self.gdb.index(key='profession', value='Hacker')
 
 class TestRelationships(unittest.TestCase):
 
