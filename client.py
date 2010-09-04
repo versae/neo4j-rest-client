@@ -7,7 +7,7 @@ import re
 import simplejson
 import time
 from urlparse import urlsplit
-import urllib
+import urllib 
 
 __all__ = ("GraphDatabase", "Incoming", "Outgoing", "Undirected",
            "StopAtDepth", "NotFoundError", "StatusException")
@@ -88,7 +88,6 @@ class GraphDatabase(object):
         else:
             self.url = url
             
-        self.Index = Index()
         self._get_nodes(url)
 
     def _get_nodes(self, url):
@@ -98,6 +97,9 @@ class GraphDatabase(object):
             response_json = simplejson.loads(content)
             self.index_url = response_json['index']
             self.reference_node_url = response_json['reference node']
+            self.Index = Index(db_url=self.url, node_path=self.node_path,
+                               reference_node_url=self.reference_node_url,
+                               index_url=self.index_url)
             self.nodes = NodeProxy(self.url, self.node_path,
                                   self.reference_node_url,
                                   index_url=self.index_url)
@@ -113,17 +115,9 @@ class GraphDatabase(object):
     def index(self, key, value=None, create=False, delete=False):
         self.Index.index_url = self.index_url
         self.Index.nodes = self.nodes
-        response = self.Index.mediate(key, value=value, create=create, delete=delete)
-
-        if not create and not delete:
-            self.nodes = NodeProxy(self.url, self.node_path,
-                                  self.reference_node_url,
-                                  index_url=self.index_url)
-            for node in response:
-                temp_node = Node(node.url, index_url=self.index_url)
-                self.nodes[temp_node.id] = temp_node
+        self.nodes = self.Index.mediate(key, value=value, create=create, delete=delete)
                 
-        return response        
+        return self.nodes        
 
     def traverse(self, *args, **kwargs):
         return self.reference_node.traverse(*args, **kwargs)
@@ -164,10 +158,21 @@ class GraphDatabase(object):
         return Traversal
         
 class Index(object):
+    """
+    This class allows for node indexing
+    """
     
-    def __init__(self, nodes={}, index_url=None):
-        self.nodes = nodes
+    def __init__(self, nodes={}, db_url=None, node_path=None, reference_node_url=None, index_url=None):        
+        self.node_path = node_path
+        self.reference_node_url = reference_node_url
         self.index_url = index_url
+        self.db_url = db_url
+        if len(nodes) > 0:
+            self.nodes = nodes
+        else:
+            self.nodes = NodeProxy(self.db_url, self.node_path,
+                                  self.reference_node_url,
+                                  index_url=self.index_url)
               
     def mediate(self, key, value=None, create=False, delete=False):
         if create:
@@ -186,10 +191,9 @@ class Index(object):
             if response.status != 201:
                 raise NotFoundError(response.status, "Problem?")
             
-        return self
+        return self.nodes
         
     def get(self, key, value):
-        nodes = []
         get = '%s/node/%s/%s' % (self.index_url, key, urllib.quote(value))
         response = Request().get(get)
         
@@ -197,13 +201,19 @@ class Index(object):
             content = response.body
             defs = simplejson.loads(content)
             for dic in defs:
-                nodes.append(Node(dic['self'], index_url=self.index_url))
+                n = Node(dic['self'], index_url=self.index_url)
+                self.nodes[n.id] = n
         else:
             raise StatusException(response.status)
                 
-        return nodes
+        return self.nodes
         
     def delete(self, key, value):
+        if len(self.nodes) < 1:
+            self.get(key, value)
+            
+        nodes = self.nodes.copy()         
+        
         for ind in self.nodes:
             node = self.nodes[ind]
             url = '%s/node/%s/%s/%s' % (self.index_url, urllib.quote(key), urllib.quote(value), node.id)
@@ -211,8 +221,10 @@ class Index(object):
 
             if response.status != 204:
                 raise StatusException(response.status)
+            else:
+                del nodes[ind]
                 
-        return self
+        return nodes
 
 class Base(object):
     """
