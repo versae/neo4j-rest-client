@@ -23,15 +23,15 @@ The main class is *GraphDatabase*, exactly how in neo4j.py_::
 
 Two global options are available::
 
-  CACHE = False # Default
+  client.CACHE = False # Default
 
-If 'cache' is 'True', a '.cache' directory is created and the future request to
+If CACHE is 'True', a '.cache' directory is created and the future request to
 the same URL will be taken from cache
 And::
 
-  DEBUG = False # Default
+  client.DEBUG = False # Default
 
-If 'debug' is 'True', 'httplib2' is set to 'debuglevel = 1'.
+If DEBUG is 'True', 'httplib2' is set to debuglevel = 1.
 
 
 Node, Relationships and Properties

@@ -94,7 +94,7 @@ class GraphDatabase(object):
             self.index_url = response_json['index']
             self.reference_node_url = response_json['reference_node']
             self.nodes = NodeProxy(self.url, self.node_path,
-                                  self.reference_node_url)
+                                   self.reference_node_url)
             # Backward compatibility. The current style is more pythonic
             self.node = self.nodes
         else:
