@@ -2,7 +2,7 @@
 import base64
 import datetime
 import decimal
-import httplib
+import httplib2
 import re
 import simplejson
 import time
@@ -13,11 +13,13 @@ __all__ = ("GraphDatabase", "Incoming", "Outgoing", "Undirected",
 __author__ = "Javier de la Rosa, and Diego Muñoz Escalante"
 __credits__ = ["Javier de la Rosa", "Diego Muñoz Escalante"]
 __license__ = "GPLv3"
-__version__ = "0.0.1"
+__version__ = "0.1.0"
 __email__ = "versae [at] gmail [dot] com"
 __status__ = "Development"
 
-
+# Global options
+CACHE = False
+DEBUG = False
 # Order
 BREADTH_FIRST = "breadth first"
 DEPTH_FIRST = "depth first"
@@ -86,12 +88,11 @@ class GraphDatabase(object):
             self.url = url[0:-1]
         else:
             self.url = url
-        response = Request().get(url)
+        response, content = Request().get(url)
         if response.status == 200:
-            content = response.body
             response_json = simplejson.loads(content)
             self.index_url = response_json['index']
-            self.reference_node_url = response_json['reference node']
+            self.reference_node_url = response_json['reference_node']
             self.nodes = NodeProxy(self.url, self.node_path,
                                   self.reference_node_url)
             # Backward compatibility. The current style is more pythonic
@@ -154,17 +155,16 @@ class Base(object):
         self._dic = {}
         self.url = None
         if create:
-            response = Request().post(url, data=data)
+            response, content = Request().post(url, data=data)
             if response.status == 201:
                 self._dic.update(data.copy())
-                self.url = response.getheader("Location")
+                self.url = response.get("location")
             else:
                 raise NotFoundError(response.status, "Invalid data sent")
         if not self.url:
             self.url = url
-        response = Request().get(self.url)
+        response, content = Request().get(self.url)
         if response.status == 200:
-            content = response.body
             self._dic.update(simplejson.loads(content).copy())
         else:
             raise NotFoundError(response.status, "Unable get node")
@@ -173,7 +173,7 @@ class Base(object):
         if key:
             self.__delitem__(key)
             return
-        response = Request().delete(self.url)
+        response, content = Request().delete(self.url)
         if response.status == 204:
             del self
         elif response.status == 404:
@@ -185,9 +185,8 @@ class Base(object):
 
     def __getitem__(self, key):
         property_url = self._dic["property"].replace("{key}", key)
-        response = Request().get(property_url)
+        response, content = Request().get(property_url)
         if response.status == 200:
-            content = response.body
             self._dic["data"][key] = simplejson.loads(content)
         else:
             raise NotFoundError(response.status, "Node or propery not found")
@@ -208,7 +207,7 @@ class Base(object):
 
     def __setitem__(self, key, value):
         property_url = self._dic["property"].replace("{key}", key)
-        response = Request().put(property_url, data=value)
+        response, content = Request().put(property_url, data=value)
         if response.status == 204:
             self._dic["data"].update({key: value})
         elif response.status == 404:
@@ -221,7 +220,7 @@ class Base(object):
 
     def __delitem__(self, key):
         property_url = self._dic["property"].replace("{key}", key)
-        response = Request().delete(property_url)
+        response, content = Request().delete(property_url)
         if response.status == 204:
             del self._dic["data"][key]
         elif response.status == 404:
@@ -263,7 +262,7 @@ class Base(object):
         if not props:
             return None
         properties_url = self._dic["properties"]
-        response = Request().put(properties_url, data=props)
+        response, content = Request().put(properties_url, data=props)
         if response.status == 204:
             self._dic["data"] = props.copy()
             return props
@@ -274,7 +273,7 @@ class Base(object):
 
     def _del_properties(self):
         properties_url = self._dic["properties"]
-        response = Request().delete(properties_url)
+        response, content = Request().delete(properties_url)
         if response.status == 204:
             self._dic["data"] = {}
         else:
@@ -329,16 +328,17 @@ class Node(Base):
         """
 
         def relationship(to, *args, **kwargs):
-            create_relationship_url = self._dic["create relationship"]
+            create_relationship_url = self._dic["create_relationship"]
             data = {
                 "to": to.url,
                 "type": relationship_name,
             }
             if kwargs:
                 data.update({"data": kwargs})
-            response = Request().post(create_relationship_url, data=data)
+            response, content = Request().post(create_relationship_url,
+                                               data=data)
             if response.status == 201:
-                return Relationship(response.getheader("Location"))
+                return Relationship(response.get("location"))
             elif response.status == 404:
                 raise NotFoundError(response.status, "Node specified by the " \
                                                      "URI not of \"to\" node" \
@@ -390,9 +390,8 @@ class Node(Base):
         if returns not in (NODE, RELATIONSHIP, PATH, POSITION):
             returns = NODE
         traverse_url = self._dic["traverse"].replace("{returnType}", returns)
-        response = Request().post(traverse_url, data=data)
+        response, content = Request().post(traverse_url, data=data)
         if response.status == 200:
-            content = response.body
             results_list = simplejson.loads(content)
             if returns is NODE:
                 return [Node(r["self"]) for r in results_list]
@@ -429,9 +428,8 @@ class Relationships(object):
                 else:
                     key = "%s relationships" % relationship_type
                     url = self._node._dic[key]
-                response = Request().get(url)
+                response, content = Request().get(url)
                 if response.status == 200:
-                    content = response.body
                     relationship_list = simplejson.loads(content)
                     relationships = [Relationship(r["self"])
                                      for r in relationship_list]
@@ -596,6 +594,7 @@ class StatusException(Exception):
               'Cannot satisfy request range.'),
         417: ('Expectation Failed',
               'Expect condition could not be satisfied.'),
+        418: ('I\'m a teapot', 'Is the server running?'),
         500: ('Internal Server Error', 'Server got itself in trouble'),
         501: ('Not Implemented',
               'Server does not support this operation'),
@@ -758,22 +757,33 @@ class Request(object):
         return simplejson.dumps(ret, ensure_ascii=ensure_ascii)
 
     def _request(self, method, url, data={}, headers={}):
+        global CACHE, DEBUG
         splits = urlsplit(url)
         scheme = splits.scheme
-        hostname = splits.hostname
-        port = splits.port
+        # Not used, it makes pyflakes happy
+        # hostname = splits.hostname
+        # port = splits.port
         username = splits.username or self.username
         password = splits.password or self.password
-        if scheme.lower() == 'https':
-            connection = httplib.HTTPSConnection(hostname, port, self.key_file,
-                                                 self.cert_file)
-        else:
-            connection = httplib.HTTPConnection(hostname, port)
         headers = headers or {}
+        if DEBUG:
+            httplib2.debuglevel = 1
+        else:
+            httplib2.debuglevel = 0
+        if CACHE:
+            headers['Cache-Control'] = 'no-cache'
+            http = httplib2.Http(".cache")
+        else:
+            http = httplib2.Http()
+        if scheme.lower() == 'https':
+            http.add_certificate(self.key_file, self.cert_file, self.url)
         headers['Accept'] = 'application/json'
         headers['Accept-Encoding'] = '*'
         headers['Accept-Charset'] = 'ISO-8859-1,utf-8;q=0.7,*;q=0.7'
-        headers['Content-Type'] = 'application/json'
+        # I'm not sure on the right policy about cache with Neo4j REST Server
+        # headers['Cache-Control'] = 'no-cache'
+        # TODO: Handle all requests with the same Http object
+        headers['Connection'] = 'close'
         headers['User-Agent'] = 'Neo4jPythonClient/%s ' % __version__
         if username and password:
             credentials = "%s:%s" % (username, password)
@@ -781,11 +791,19 @@ class Request(object):
             authorization = "Basic %s" % base64_credentials[:-1]
             headers['Authorization'] = authorization
             headers['Remote-User'] = username
-        body = self._json_encode(data, ensure_ascii=True)
-        connection.request(method, url, body, headers)
-        response = connection.getresponse()
-        response.body = response.read()
-        connection.close()
-        if response.status == 401:
-            raise StatusException(401, "Authorization Required")
-        return response
+        if method in ("POST", "PUT"):
+            headers['Content-Type'] = 'application/json'
+        # Thanks to Yashh: http://bit.ly/cWsnZG
+        # Don't JSON encode body when it starts with "http://" to set inde
+        if isinstance(data, (str, unicode)) and data.startswith('http://'):
+            body = data
+        else:
+            body = self._json_encode(data, ensure_ascii=True)
+        try:
+            response, content = http.request(url, method, headers=headers,
+                                             body=body)
+            if response.status == 401:
+                raise StatusException(401, "Authorization Required")
+            return response, content
+        except AttributeError:
+            raise Exception("Unknown error. Is the server running?")

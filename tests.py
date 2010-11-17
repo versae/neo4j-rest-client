@@ -5,7 +5,31 @@ import unittest
 class NodesTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.gdb = client.GraphDatabase("http://localhost:9999")
+        self.url = "http://localhost:9999"
+        self.gdb = client.GraphDatabase(self.url)
+
+    def test_connection_cache(self):
+        import client as clientCache
+        clientCache.CACHE = True
+        gdb = clientCache.GraphDatabase(self.url)
+        clientCache.CACHE = False
+        self.assertEqual(gdb.url, self.url)
+
+    def test_connection_debug(self):
+        import client as clientDebug
+        clientDebug.DEBUG = True
+        gdb = clientDebug.GraphDatabase(self.url)
+        clientDebug.DEBUG = False
+        self.assertEqual(gdb.url, self.url)
+
+    def test_connection_cache_debug(self):
+        import client as clientCacheDebug
+        clientCacheDebug.CACHE = True
+        clientCacheDebug.DEBUG = True
+        gdb = clientCacheDebug.GraphDatabase(self.url)
+        clientCacheDebug.CACHE = False
+        clientCacheDebug.DEBUG = False
+        self.assertEqual(gdb.url, self.url)
 
     def test_create_node(self):
         n = self.gdb.nodes.create()

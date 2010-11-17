@@ -21,7 +21,17 @@ The main class is *GraphDatabase*, exactly how in neo4j.py_::
   
   >>> gdb = GraphDatabase("http://localhost:9999")
 
-By now, no options are provided.
+Two global options are available::
+
+  CACHE = False # Default
+
+If 'cache' is 'True', a '.cache' directory is created and the future request to
+the same URL will be taken from cache
+And::
+
+  DEBUG = False # Default
+
+If 'debug' is 'True', 'httplib2' is set to 'debuglevel = 1'.
 
 
 Node, Relationships and Properties
@@ -149,6 +159,7 @@ The traversals framework is supported too with the same syntax of neo4j.py_,
 but with some added issues.
 
 Regular way::
+
   >>> n1.relationships.create("Knows", n2, since=1970)
   <Neo4j Relationship: http://localhost:9999/relationship/36009>
   
@@ -162,6 +173,7 @@ Regular way::
   [<Neo4j Node: http://localhost:9999/node/15880>]
 
 Added way (more ''pythonic'')::
+
   >>> n1.relationships.create("Knows", n2, since=1970)
   <Neo4j Relationship: http://localhost:9999/relationship/36009>
   
