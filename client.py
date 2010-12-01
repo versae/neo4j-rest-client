@@ -750,7 +750,7 @@ class Request(object):
             ret = {}
             for k, v in data.items():
                 # Neo4j doesn't allow 'null' properties
-                if v:
+                if v or v == False:
                     ret[k] = _any(v)
             return ret
         ret = _any(data)

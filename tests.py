@@ -76,6 +76,11 @@ class NodesTestCase(unittest.TestCase):
         n2 = self.gdb.node[n1.id]
         self.assertEqual(n1, n2)
 
+    def test_get_node_dicionary_with_false(self):
+        n1 = self.gdb.node(name="John Doe", enable=False)
+        n2 = self.gdb.node[n1.id]
+        self.assertEqual(n1.properties, n2.properties)
+
     def test_get_node_url_dicionary(self):
         n1 = self.gdb.node(name="John Doe", profession="Hacker")
         n2 = self.gdb.node[n1.url]
