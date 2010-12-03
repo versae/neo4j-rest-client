@@ -306,8 +306,16 @@ class NodeProxy(dict):
         else:
             return Node("%s/%s" % (self.node_url, key))
 
-    def get(self, key):
-        return self.__getitem__(key)
+    def get(self, key, *args, **kwargs):
+        try:
+            return self.__getitem__(key)
+        except (KeyError, NotFoundError, StatusException):
+            if args:
+                return args[0]
+            elif "default" in kwargs:
+                return kwargs["default"]
+            else:
+                raise NotFoundError()
 
     def create(self, **kwargs):
         return Node(self.node_url, create=True, data=kwargs)
