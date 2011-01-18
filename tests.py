@@ -5,7 +5,7 @@ import unittest
 class NodesTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.url = "http://localhost:9999"
+        self.url = "http://localhost:7474/db/data"
         self.gdb = client.GraphDatabase(self.url)
 
     def test_connection_cache(self):

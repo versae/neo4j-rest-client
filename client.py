@@ -430,11 +430,11 @@ class Relationships(object):
         def get_relationships(types=None, *args, **kwargs):
             if relationship_type in ["all", "incoming", "outgoing"]:
                 if types and isinstance(types, (tuple, list)):
-                    key = "%s typed relationships" % relationship_type
+                    key = "%s_typed_relationships" % relationship_type
                     url_string = self._node._dic[key]
                     url = url_string.replace(self._pattern, "&".join(types))
                 else:
-                    key = "%s relationships" % relationship_type
+                    key = "%s_relationships" % relationship_type
                     url = self._node._dic[key]
                 response, content = Request().get(url)
                 if response.status == 200:
