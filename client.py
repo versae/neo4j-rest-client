@@ -4,7 +4,10 @@ import datetime
 import decimal
 import httplib2
 import re
-import simplejson
+try:
+    import simplejson
+except:
+    import json as simplejson
 import time
 from urlparse import urlsplit
 
@@ -87,11 +90,11 @@ class GraphDatabase(object):
             response_json = simplejson.loads(content)
             self._relationship_index = response_json['relationship_index']
             self._node = response_json['node']
-            self._extensions_info = response_json['extensions_info']
             self._node_index = response_json['node_index']
             self._reference_node = response_json['reference_node']
+            self._extensions_info = response_json['extensions_info']
             self._extensions = response_json['extensions']
-            self.extensions = ExtenionsProxy(self._extensions)
+            self.extensions = ExtensionsProxy(self._extensions)
             self.nodes = NodesProxy(self._node, self._reference_node)
             # Backward compatibility. The current style is more pythonic
             self.node = self.nodes
@@ -167,6 +170,8 @@ class Base(object):
         response, content = Request().get(self.url)
         if response.status == 200:
             self._dic.update(simplejson.loads(content).copy())
+            self._extensions = self._dic.get('extensions', {})
+            self.extensions = ExtensionsProxy(self._extensions)
         else:
             raise NotFoundError(response.status, "Unable get object")
 
@@ -543,7 +548,7 @@ Incoming = BaseInAndOut(direction="in")
 Undirected = BaseInAndOut(direction="both")
 
 
-class ExtenionsProxy(dict):
+class ExtensionsProxy(dict):
     """
     Class proxy for extensions in order to allow get an extension by module
     and class name and executing with the right params through calling.
@@ -551,14 +556,14 @@ class ExtenionsProxy(dict):
 
     def __init__(self, extensions):
         self._extensions = extensions
-
-    def get(self, attr):
-        return self.__getattr__(attr)
+        self._dict = {}
 
     def __getitem__(self, attr):
         return self.__getattr__(attr)
 
     def __getattr__(self, attr):
+        if attr in self._dict:
+            return self._dict[attr]
         class_name = self._extensions[attr]
         # Using an anonymous class
         return type("ExtensionModule", (dict, ), {
@@ -571,6 +576,47 @@ class ExtenionsProxy(dict):
             '__getattr__': lambda self, _attr: Extension(class_name[_attr]),
             'get': lambda self, _attr: self.__getattr__(_attr),
         })()
+
+    def __repr__(self):
+        return self.__unicode__()
+
+    def __str__(self):
+        return self.__unicode__()
+
+    def __unicode__(self):
+        if not self._dict:
+            self._dict = self._get_dict()
+        return unicode(self._dict)
+
+    def _get_dict(self):
+        return dict([(key, self.__getattr__(key))
+                     for key in self._extensions.keys()])
+
+    def get(self, attr, *args, **kwargs):
+        if attr in self._dict.keys():
+            return self.__getattr__(attr)
+        else:
+            if args:
+                return args[0]
+            elif "default" in kwargs:
+                return kwargs["default"]
+            else:
+                raise NotFoundError()
+
+    def items(self):
+        if not self._dict:
+            self._dict = self._get_dict()
+        return self._dict.items()
+
+    def values(self):
+        if not self._dict:
+            self._dict = self._get_dict()
+        return self._dict.values()
+
+    def keys(self):
+        if not self._dict:
+            self._dict = self._get_dict()
+        return self._dict.keys()
 
 
 class Extension(object):
@@ -593,11 +639,15 @@ class Extension(object):
         else:
             raise NotFoundError(response.status, "Unable get extension")
 
-    def __call__(self, **kwargs):
-        response, content = Request().post(self.url, data=kwargs)
+    def __call__(self, *args, **kwargs):
+        parameters = self._parse_parameters(args, kwargs)
+        response, content = Request().post(self.url, data=parameters)
         if response.status == 200:
             results_list = simplejson.loads(content)
-            returns = results_list[0]["self"]
+            # HACK: The _returns param is a temporary solution while
+            #       a proper way to get the data type of returned values by
+            #       the extensions is implemented in Neo4j
+            returns = kwargs.pop("_returns", results_list[0]["self"])
             if results_list:
                 if NODE in returns:
                     return [Node(r["self"]) for r in results_list]
@@ -622,6 +672,42 @@ class Extension(object):
 
     def __unicode__(self):
         return u"<Neo4j %s: %s>" % (self.__class__.__name__, self.url)
+
+    def _parse_parameters(self, args, kwargs):
+        if not args and not kwargs:
+            return kwargs
+        params_len = len(self.parameters)
+        args_len = len(args)
+        kwargs_len = len(kwargs)
+        if args_len + kwargs_len > params_len:
+            raise TypeError("%s() take at most %s arguments (%s given)"
+                            % (self.name, params_len, args_len + kwargs_len))
+        required = [np for np in self.parameters if np["optional"] == False]
+        required_len = len(required)
+        if args_len + kwargs_len < required_len:
+            raise TypeError("%s() take at least %s arguments (%s given)"
+                            % (self.name, required_len, args_len + kwargs_len))
+        params_kwargs = {}
+        if args:
+            for i, arg in enumerate(args):
+                key = required[i]["name"]
+                params_kwargs[key] = args[i]
+        if kwargs:
+            for param, value in kwargs.items():
+                has_param = (len([np for np in self.parameters
+                                     if np["name"] == param]) != 0)
+                if key not in params_kwargs and has_param:
+                    params_kwargs[key] = value
+        return self._parse_types(params_kwargs)
+
+    def _parse_types(self, kwargs):
+        params_kwargs = {}
+        for key, value in kwargs.items():
+            if isinstance(value, Base):
+                params_kwargs[key] = value.url
+            else:
+                params_kwargs[key] = value
+        return params_kwargs
 
 
 class StatusException(Exception):

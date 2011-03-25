@@ -186,7 +186,27 @@ class TraversalsTestCase(RelationshipsTestCase):
         self.failUnless(len(results) > 0)
 
 
-class Neo4jPythonClientTestCase(TraversalsTestCase):
+class ExtensionsTestCase(TraversalsTestCase):
+
+    def test_get_graph_extensions(self):
+        fail = False
+        try:
+            self.gdb.extensions
+        except:
+            fail = True
+        self.failUnless(not fail)
+
+    def test_get_node_extensions(self):
+        fail = False
+        n1 = self.gdb.nodes.create()
+        try:
+            n1.extensions
+        except:
+            fail = True
+        self.failUnless(not fail)
+
+
+class Neo4jPythonClientTestCase(ExtensionsTestCase):
     pass
 
 if __name__ == '__main__':
