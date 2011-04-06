@@ -19,7 +19,7 @@ The main class is *GraphDatabase*, exactly how in neo4j.py_::
 
   >>> from client import GraphDatabase
   
-  >>> gdb = GraphDatabase("http://localhost:9999")
+  >>> gdb = GraphDatabase("http://localhost:7474/db/data/")
 
 Two global options are available::
 

@@ -644,11 +644,14 @@ class Extension(object):
         response, content = Request().post(self.url, data=parameters)
         if response.status == 200:
             results_list = simplejson.loads(content)
-            # HACK: The _returns param is a temporary solution while
-            #       a proper way to get the data type of returned values by
-            #       the extensions is implemented in Neo4j
-            returns = kwargs.pop("_returns", results_list[0]["self"])
-            if results_list:
+            # The returns param is a temporary solution while
+            # a proper way to get the data type of returned values by
+            # the extensions is implemented in Neo4j
+            returns = kwargs.pop("returns", None)
+            # Another option is to inspect the results
+            if not returns and isinstance(results_list, (tuple, list)):
+                returns = results_list[0].get("self", None)
+            if results_list and returns:
                 if NODE in returns:
                     return [Node(r["self"]) for r in results_list]
                 elif RELATIONSHIP in returns:
