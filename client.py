@@ -106,8 +106,8 @@ class GraphDatabase(object):
         return Node(self._reference_node)
     reference_node = property(_get_reference_node)
 
-    def index(self, create=False):
-        pass
+    def index(self, name, create=False):
+		return Index("%s/%s" % (self._node_index, name), create)
 
     def traverse(self, *args, **kwargs):
         return self.reference_node.traverse(*args, **kwargs)
@@ -418,6 +418,65 @@ class Node(Base):
                                                  "found")
         else:
             raise StatusException(response.status, "Invalid data sent")
+
+
+class Index(object):
+    """
+	key/value indexed lookups. Create an index object with GraphDatabase.index.
+	The returned object supports dict style lookups, eg index[key][value].
+    """
+
+    class IndexKey(object):
+        """
+        Intermediate object so that lookups can be done like:
+        index[key][value]
+
+        Lookups are formated as http://.../{index_name}/{key}/{value}, so this
+        is the object that gets returned by index[key].  The REST request will
+        be sent when the value is specified.
+        """
+
+        def __init__(self, url):
+            if url[-1] == '/':
+                url = url[:-1]
+            self._index_url = url
+
+        def __getitem__(self, value):
+            request_url = "%s/%s" % (self._index_url, value)
+            response, content = Request().get(request_url)
+            if response.status == 200:
+                data_list = simplejson.loads(content)
+                return [Node(n['self'], data=n['data']) for n in data_list]
+            elif response.status == 404:
+                raise NotFoundError(response.status, "Node or property not found")
+            else:
+                raise StatusException(response.status, "Error requesting index with GET %s" % request_url)
+
+        def __setitem__(self, value, item):
+            if isinstance(item, Base):
+                url_ref = item.url
+            else:
+                url_ref = item
+
+            request_url = "%s/%s" % (self._index_url, value)
+            response, content = Request().post(request_url, data=url_ref)
+            if response.status == 201:
+                # returns node that was indexed
+                n = simplejson.loads(content)
+                return Node(n['self'], data=n['data'])
+            else:
+                raise StatusException(response.status, "Error requesting index with POST %s , data %s" % (request_url, url_ref))
+    
+
+    def __init__(self, url, create=False):
+        if url[-1] == '/':
+            url = url[:-1]
+        self._index_url = url
+    
+    def __getitem__(self, key):
+        # TODO url escaping?
+        return self.IndexKey("%s/%s" % (self._index_url, key))
+
 
 
 class Relationships(object):
@@ -972,10 +1031,11 @@ class Request(object):
             headers['Content-Type'] = 'application/json'
         # Thanks to Yashh: http://bit.ly/cWsnZG
         # Don't JSON encode body when it starts with "http://" to set inde
-        if isinstance(data, (str, unicode)) and data.startswith('http://'):
-            body = data
-        else:
-            body = self._json_encode(data, ensure_ascii=True)
+        # hrm, neo4j-1.3.M04 always expects JSON
+        # if isinstance(data, basestring) and data.startswith('http://'):
+        #    body = data
+        # else:
+        body = self._json_encode(data, ensure_ascii=True)
         try:
             response, content = http.request(url, method, headers=headers,
                                              body=body)
