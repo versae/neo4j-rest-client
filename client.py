@@ -106,8 +106,44 @@ class GraphDatabase(object):
         return Node(self._reference_node)
     reference_node = property(_get_reference_node)
 
-    def index(self, name, create=False):
-		return Index("%s/%s" % (self._node_index, name), create)
+    def index(self, *args, **kwargs):
+        # Backward compatibility. Neo4j now supports indices for nodes as well
+        # as for relationships, so it's a more pythonic way to use nodes.index
+        # and relationships.index instead of GraphDatabase(...).index,
+        # GraphDatabase(...).index().for_nodes or
+        # GraphDatabase(...).index().for_relationships.
+        if len(args) == 1:
+            create = kwargs.get("create", False)
+            return Index("%s/%s" % (self._node_index, args[0]),
+                         create=create)
+        elif len(args) == 2:
+            return Index("%s/%s" % (self._node_index, args[0]), create=args[1])
+        elif not args and "name" in kwargs:
+            name = kwargs.get("name")
+            create = kwargs.get("create", False)
+            return Index("%s/%s" % (self._node_index, name),
+                         create=create)
+        elif not args and not kwargs:
+
+            def index_nodes(name, create=False):
+                return Index("%s/%s" % (self._node_index, name), create=create)
+
+            def index_relationships(name, create=False):
+                return Index("%s/%s" % (self._relationship_index, name),
+                             create=create)
+
+            # Using an anonymous class
+            return type("IndexModule", (dict, ), {
+                '__str__': lambda self: self.__unicode__(),
+                '__repr__': lambda self: self.__unicode__(),
+                '__unicode__': lambda self: u"<Neo4j %s>" \
+                                            % (self.__class__.__name__),
+                'for_nodes': index_nodes,
+                'for_relationships': index_relationships,
+            })()
+        else:
+            raise TypeError("index() takes at most 1 argument (name) and " \
+                            "1 optional argument (create, default False)")
 
     def traverse(self, *args, **kwargs):
         return self.reference_node.traverse(*args, **kwargs)
@@ -422,8 +458,8 @@ class Node(Base):
 
 class Index(object):
     """
-	key/value indexed lookups. Create an index object with GraphDatabase.index.
-	The returned object supports dict style lookups, eg index[key][value].
+    key/value indexed lookups. Create an index object with GraphDatabase.index.
+    The returned object supports dict style lookups, eg index[key][value].
     """
 
     class IndexKey(object):
@@ -448,9 +484,12 @@ class Index(object):
                 data_list = simplejson.loads(content)
                 return [Node(n['self'], data=n['data']) for n in data_list]
             elif response.status == 404:
-                raise NotFoundError(response.status, "Node or property not found")
+                raise NotFoundError(response.status,
+                                    "Node or property not found")
             else:
-                raise StatusException(response.status, "Error requesting index with GET %s" % request_url)
+                raise StatusException(response.status,
+                                      "Error requesting index with GET %s" \
+                                       % request_url)
 
         def __setitem__(self, value, item):
             if isinstance(item, Base):
@@ -465,18 +504,18 @@ class Index(object):
                 n = simplejson.loads(content)
                 return Node(n['self'], data=n['data'])
             else:
-                raise StatusException(response.status, "Error requesting index with POST %s , data %s" % (request_url, url_ref))
-    
+                raise StatusException(response.status,
+                                      "Error requesting index with POST %s " \
+                                      ", data %s" % (request_url, url_ref))
 
     def __init__(self, url, create=False):
         if url[-1] == '/':
             url = url[:-1]
         self._index_url = url
-    
+
     def __getitem__(self, key):
         # TODO url escaping?
         return self.IndexKey("%s/%s" % (self._index_url, key))
-
 
 
 class Relationships(object):
