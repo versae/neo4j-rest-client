@@ -89,7 +89,7 @@ Besides, a Node object has other attributes::
   14
   
   >>> n.url
-  'http://localhost:9999/node/14'
+  'http://localhost:7474/db/data/node/14'
 
 Create relationship::
 
@@ -113,10 +113,10 @@ getters like a node::
   >>> rel = n1.relationships.create("Knows", n2, since=123456789)
   
   >>> rel.start
-  <Neo4j Node: http://localhost:9999/node/14>
+  <Neo4j Node: http://localhost:7474/db/data/node/14>
   
   >>> rel.end
-  <Neo4j Node: http://localhost:9999/node/32>
+  <Neo4j Node: http://localhost:7474/db/data/node/32>
   
   >>> rel.type
   'Knows'
@@ -124,32 +124,46 @@ getters like a node::
   >>> rel.properties
   {'since': 123456789}
 
+Or you can create the relationship using directly from GraphDatabse object::
+
+  >>> rel = gdb.relationships.create(n1, "Hates", n2)
+  
+  >>> rel
+  <Neo4j Relationship: http://localhost:7474/db/data/relationship/66>
+
+  >>> rel.start
+  <Neo4j Node: http://localhost:7474/db/data/node/14>
+  
+  >>> rel.end
+  <Neo4j Node: http://localhost:7474/db/data/node/32>
+
+
 Others functions over 'relationships' attribute are possible. Like get all,
 incoming or outgoing relationships (typed or not)::
 
   >>> rels = n1.relationships.all()
-  [<Neo4j Relationship: http://localhost:9999/relationship/35843>,
-   <Neo4j Relationship: http://localhost:9999/relationship/35840>,
-   <Neo4j Relationship: http://localhost:9999/relationship/35841>,
-   <Neo4j Relationship: http://localhost:9999/relationship/35842>,
-   <Neo4j Relationship: http://localhost:9999/relationship/35847>,
-   <Neo4j Relationship: http://localhost:9999/relationship/35846>,
-   <Neo4j Relationship: http://localhost:9999/relationship/35845>,
-   <Neo4j Relationship: http://localhost:9999/relationship/35844>,
-   <Neo4j Relationship: http://localhost:9999/relationship/11>,
-   <Neo4j Relationship: http://localhost:9999/relationship/10>,
-   <Neo4j Relationship: http://localhost:9999/relationship/9>]
+  [<Neo4j Relationship: http://localhost:7474/db/data/relationship/35843>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/35840>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/35841>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/35842>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/35847>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/35846>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/35845>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/35844>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/11>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/10>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/9>]
   
   >>> rels = n1.relationships.incoming(types=["Knows"])
-  [<Neo4j Relationship: http://localhost:9999/relationship/35843>,
-   <Neo4j Relationship: http://localhost:9999/relationship/35840>,
-   <Neo4j Relationship: http://localhost:9999/relationship/11>,
-   <Neo4j Relationship: http://localhost:9999/relationship/10>,
-   <Neo4j Relationship: http://localhost:9999/relationship/9>]
+  [<Neo4j Relationship: http://localhost:7474/db/data/relationship/35843>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/35840>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/11>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/10>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/9>]
   
   >>> rels = n1.relationships.outgoing(["Knows", "Loves"])
-  [<Neo4j Relationship: http://localhost:9999/relationship/35842>,
-   <Neo4j Relationship: http://localhost:9999/relationship/35847>]
+  [<Neo4j Relationship: http://localhost:7474/db/data/relationship/35842>,
+   <Neo4j Relationship: http://localhost:7474/db/data/relationship/35847>]
 
 
 Traversals
@@ -161,7 +175,7 @@ but with some added issues.
 Regular way::
 
   >>> n1.relationships.create("Knows", n2, since=1970)
-  <Neo4j Relationship: http://localhost:9999/relationship/36009>
+  <Neo4j Relationship: http://localhost:7474/db/data/relationship/36009>
   
   >>> class TraversalClass(gdb.Traversal):
      ...:     types = [
@@ -170,15 +184,59 @@ Regular way::
      ...: 
   
   >>> [traversal for traversal in TraversalClass(n1)]
-  [<Neo4j Node: http://localhost:9999/node/15880>]
+  [<Neo4j Node: http://localhost:7474/db/data/node/15880>]
 
 Added way (more ''pythonic'')::
 
   >>> n1.relationships.create("Knows", n2, since=1970)
-  <Neo4j Relationship: http://localhost:9999/relationship/36009>
+  <Neo4j Relationship: http://localhost:7474/db/data/relationship/36009>
   
   >>> n1.traverse(types=[client.Undirected.Knows])
-  [<Neo4j Node: http://localhost:9999/node/15880>]
+  [<Neo4j Node: http://localhost:7474/db/data/node/15880>]
+
+
+Indexes
+-------
+
+Due to the original neo4j.py_ currently doesn't provide support for the new
+index component, for nodes and for relationships, the syntax for indexing is
+not compliant, quite different and, hopefully, more intuitive::
+
+  >>> i1 =  gdb.nodes.indexes.create("index1")
+  
+  >>> i2 =  gdb.nodes.indexes.create("index2", type="fulltext", provider="lucene")
+  
+  >>> gdb.nodes.indexes
+  {u'index2': <Neo4j Index: http://localhost:7474/db/data/index/node/index2>,
+   u'index1': <Neo4j Index: http://localhost:7474/db/data/index/node/index1>}
+  
+  >>> gdb.nodes.indexes.get("index1")
+  <Neo4j Index: http://localhost:7474/db/data/index/node/index1>
+
+You can query and add elements to the index like a 3-dimensional array or
+using the convenience methods::
+
+  >>> i1["key"]["value"]
+  []
+  
+  >>> i1.get("key")["value"]
+  []
+  
+  >>> i1.get("key", "value")
+  []
+  
+  >>> i1["key"]["value"] = n1
+  
+  >>> i1.add("key", "value", n2)
+  
+  >>> i1["key"]["value"]
+  [<Neo4j Node: http://localhost:7474/db/data/node/1>,
+   <Neo4j Node: http://localhost:7474/db/data/node/2>]
+
+To work with indexes of relationships the instructions are the same::
+
+  >>> i3 =  gdb.relationships.indexes.create("index3")
+
 
 
 Extensions
