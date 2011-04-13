@@ -9,6 +9,7 @@ try:
 except:
     import json as simplejson
 import time
+import urllib
 from urlparse import urlsplit
 
 __all__ = ("GraphDatabase", "Incoming", "Outgoing", "Undirected",
@@ -44,6 +45,9 @@ NODE = "node"
 RELATIONSHIP = "relationship"
 PATH = "path"
 POSITION = "position"
+# Indexes
+INDEX_EXACT = "exact"
+INDEX_FULLTEXT = "fulltext"
 
 
 class StopAtDepth(object):
@@ -95,9 +99,16 @@ class GraphDatabase(object):
             self._extensions_info = response_json['extensions_info']
             self._extensions = response_json['extensions']
             self.extensions = ExtensionsProxy(self._extensions)
-            self.nodes = NodesProxy(self._node, self._reference_node)
+            self.nodes = NodesProxy(self._node, self._reference_node,
+                                    self._node_index)
             # Backward compatibility. The current style is more pythonic
             self.node = self.nodes
+            # HACK: Neo4j doesn't provide the URLs to access to relationships
+            url_parts = self._node.rpartition("node")
+            self._relationship = "%s%s%s" % (url_parts[0], RELATIONSHIP,
+                                             url_parts[2])
+            self.relationships = RelationshipsProxy(self._relationship,
+                                                    self._relationship_index)
             self.Traversal = self._get_traversal_class()
         else:
             raise NotFoundError(response.status, "Unable get root")
@@ -105,45 +116,6 @@ class GraphDatabase(object):
     def _get_reference_node(self):
         return Node(self._reference_node)
     reference_node = property(_get_reference_node)
-
-    def index(self, *args, **kwargs):
-        # Backward compatibility. Neo4j now supports indices for nodes as well
-        # as for relationships, so it's a more pythonic way to use nodes.index
-        # and relationships.index instead of GraphDatabase(...).index,
-        # GraphDatabase(...).index().for_nodes or
-        # GraphDatabase(...).index().for_relationships.
-        if len(args) == 1:
-            create = kwargs.get("create", False)
-            return Index("%s/%s" % (self._node_index, args[0]),
-                         create=create)
-        elif len(args) == 2:
-            return Index("%s/%s" % (self._node_index, args[0]), create=args[1])
-        elif not args and "name" in kwargs:
-            name = kwargs.get("name")
-            create = kwargs.get("create", False)
-            return Index("%s/%s" % (self._node_index, name),
-                         create=create)
-        elif not args and not kwargs:
-
-            def index_nodes(name, create=False):
-                return Index("%s/%s" % (self._node_index, name), create=create)
-
-            def index_relationships(name, create=False):
-                return Index("%s/%s" % (self._relationship_index, name),
-                             create=create)
-
-            # Using an anonymous class
-            return type("IndexModule", (dict, ), {
-                '__str__': lambda self: self.__unicode__(),
-                '__repr__': lambda self: self.__unicode__(),
-                '__unicode__': lambda self: u"<Neo4j %s>" \
-                                            % (self.__class__.__name__),
-                'for_nodes': index_nodes,
-                'for_relationships': index_relationships,
-            })()
-        else:
-            raise TypeError("index() takes at most 1 argument (name) and " \
-                            "1 optional argument (create, default False)")
 
     def traverse(self, *args, **kwargs):
         return self.reference_node.traverse(*args, **kwargs)
@@ -207,7 +179,8 @@ class Base(object):
         if response.status == 200:
             self._dic.update(simplejson.loads(content).copy())
             self._extensions = self._dic.get('extensions', {})
-            self.extensions = ExtensionsProxy(self._extensions)
+            if self._extensions:
+                self.extensions = ExtensionsProxy(self._extensions)
         else:
             raise NotFoundError(response.status, "Unable get object")
 
@@ -329,9 +302,10 @@ class NodesProxy(dict):
     create new nodes through calling.
     """
 
-    def __init__(self, node, reference_node=None):
+    def __init__(self, node, reference_node=None, node_index=None):
         self._node = node
         self._reference_node = reference_node
+        self._node_index = node_index
 
     def __call__(self, **kwargs):
         reference = kwargs.pop("reference", False)
@@ -363,6 +337,11 @@ class NodesProxy(dict):
     def delete(self, key):
         node = self.__getitem__(key)
         del node
+
+    def _indexes(self):
+        if self._node_index:
+            return IndexesProxy(self._node_index, NODE)
+    indexes = property(_indexes)
 
 
 class Node(Base):
@@ -456,6 +435,84 @@ class Node(Base):
             raise StatusException(response.status, "Invalid data sent")
 
 
+class IndexesProxy(dict):
+    """
+    Class proxy for indexes (nodes and relationships).
+    """
+
+    def __init__(self, index_url, index_for=NODE):
+        self.url = index_url
+        self._index_for = index_for
+        self._dict = self._get_dict()
+
+    def __getitem__(self, attr):
+        return self._dict[attr]
+
+    def __repr__(self):
+        return self.__unicode__()
+
+    def __str__(self):
+        return self.__unicode__()
+
+    def __unicode__(self):
+        return unicode(self._dict)
+
+    def _get_dict(self):
+        indexes_dict = {}
+        response, content = Request().get(self.url)
+        if response.status == 200:
+            indexes_dict = simplejson.loads(content)
+            for index_name, index_properties in indexes_dict.items():
+                indexes_dict[index_name] = Index(self._index_for, index_name,
+                                                 **index_properties)
+            return indexes_dict
+        elif response.status == 404:
+            raise NotFoundError(response.status, "Indexes not found")
+        elif response.status == 204:
+            return indexes_dict
+        else:
+            raise StatusException(response.status,
+                                  "Error requesting indexes with GET %s" \
+                                   % self.url)
+
+    def create(self, name, **kwargs):
+        data = {
+            'name': name,
+            'config': {
+                'type': kwargs.get("type", INDEX_FULLTEXT),
+                'provider': kwargs.get("provider", "lucene"),
+            }
+        }
+        if name not in self._dict:
+            response, content = Request().post(self.url, data=data)
+            if response.status == 201:
+                result_dict = simplejson.loads(content)
+                self._dict[name] = Index(self._index_for, name, **result_dict)
+            else:
+                raise StatusException(response.status, "Invalid data sent")
+        return self._dict[name]
+
+    def get(self, attr, *args, **kwargs):
+        if attr in self._dict.keys():
+            return self.__getitem__(attr)
+        else:
+            if args:
+                return args[0]
+            elif "default" in kwargs:
+                return kwargs["default"]
+            else:
+                raise NotFoundError()
+
+    def items(self):
+        return self._dict.items()
+
+    def values(self):
+        return self._dict.values()
+
+    def keys(self):
+        return self._dict.keys()
+
+
 class Index(object):
     """
     key/value indexed lookups. Create an index object with GraphDatabase.index.
@@ -472,50 +529,117 @@ class Index(object):
         be sent when the value is specified.
         """
 
-        def __init__(self, url):
+        def __init__(self, index_for, url):
+            self._index_for = index_for
             if url[-1] == '/':
                 url = url[:-1]
-            self._index_url = url
+            self.url = url
 
         def __getitem__(self, value):
-            request_url = "%s/%s" % (self._index_url, value)
+            request_url = "%s/%s" % (self.url, value)
             response, content = Request().get(request_url)
             if response.status == 200:
                 data_list = simplejson.loads(content)
-                return [Node(n['self'], data=n['data']) for n in data_list]
+                if self._index_for == NODE:
+                    return [Node(n['self'], data=n['data'])
+                            for n in data_list]
+                else:
+                    return [Relationship(r['self'], data=r['data'])
+                            for r in data_list]
             elif response.status == 404:
                 raise NotFoundError(response.status,
-                                    "Node or property not found")
+                                    "Node or relationship not found")
             else:
                 raise StatusException(response.status,
                                       "Error requesting index with GET %s" \
                                        % request_url)
 
         def __setitem__(self, value, item):
+            value = urllib.quote(value)
             if isinstance(item, Base):
                 url_ref = item.url
             else:
                 url_ref = item
-
-            request_url = "%s/%s" % (self._index_url, value)
+            request_url = "%s/%s" % (self.url, value)
             response, content = Request().post(request_url, data=url_ref)
             if response.status == 201:
-                # returns node that was indexed
-                n = simplejson.loads(content)
-                return Node(n['self'], data=n['data'])
+                # Returns object that was indexed
+                entity = simplejson.loads(content)
+                if self._index_for == NODE:
+                    return Node(entity['self'], data=entity['data'])
+                else:
+                    return Relationship(entity['self'], data=entity['data'])
             else:
                 raise StatusException(response.status,
                                       "Error requesting index with POST %s " \
                                       ", data %s" % (request_url, url_ref))
 
-    def __init__(self, url, create=False):
+    def __init__(self, index_for, name, **kwargs):
+        self._index_for = index_for
+        self.name = name
+        self.template = kwargs.get("template")
+        self.provider = kwargs.get("provider")
+        self.type = kwargs.get("type")
+        url = self.template.replace("{key}/{value}", "")
         if url[-1] == '/':
             url = url[:-1]
-        self._index_url = url
+        self.url = url
 
     def __getitem__(self, key):
-        # TODO url escaping?
-        return self.IndexKey("%s/%s" % (self._index_url, key))
+        return self.get(key)
+
+    def __repr__(self):
+        return self.__unicode__()
+
+    def __str__(self):
+        return self.__unicode__()
+
+    def __unicode__(self):
+        return u"<Neo4j %s: %s>" % (self.__class__.__name__, self.url)
+
+    def add(self, key, value, item):
+        self.get(key)[value] = item
+
+    def get(self, key):
+        key = urllib.quote(key)
+        return self.IndexKey(self._index_for, "%s/%s" % (self.url, key))
+
+
+class RelationshipsProxy(dict):
+    """
+    Class proxy for relationships in order to allow get a relationship by id
+    and create new relationships through calling.
+    """
+
+    def __init__(self, relationship, relationship_index):
+        self._relationship = relationship
+        self._relationship_index = relationship_index
+
+    def __getitem__(self, key):
+        return Relationship("%s/%s" % (self._relationship, key))
+
+    def get(self, key, *args, **kwargs):
+        try:
+            return self.__getitem__(key)
+        except (KeyError, NotFoundError, StatusException):
+            if args:
+                return args[0]
+            elif "default" in kwargs:
+                return kwargs["default"]
+            else:
+                raise NotFoundError()
+
+    def create(self, node_from, relationship_name, node_to, **kwargs):
+        return getattr(node_from, relationship_name)(node_to, **kwargs)
+
+    def delete(self, key):
+        relationship = self.__getitem__(key)
+        del relationship
+
+    def _indexes(self):
+        if self._relationship_index:
+            return IndexesProxy(self._relationship_index, RELATIONSHIP)
+    indexes = property(_indexes)
 
 
 class Relationships(object):
