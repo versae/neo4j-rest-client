@@ -157,7 +157,16 @@ class RelationshipsTestCase(NodesTestCase):
         self.assertEqual(rel.properties, {"since": 1970})
 
 
-class TraversalsTestCase(RelationshipsTestCase):
+class IndexesTestCase(RelationshipsTestCase):
+
+    def test_create_index_for_nodes(self):
+        n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
+        index = self.gdb.nodes.indexes.create(name="doe")
+        index["surnames"]["d"] = n1
+        self.failUnless(n1 in index["surnames"]["d"])
+
+
+class TraversalsTestCase(IndexesTestCase):
 
     def test_create_traversal(self):
         n1 = self.gdb.nodes.create()
