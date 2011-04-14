@@ -165,6 +165,39 @@ class IndexesTestCase(RelationshipsTestCase):
         index["surnames"]["d"] = n1
         self.failUnless(n1 in index["surnames"]["d"])
 
+    def test_create_index_for_relationships(self):
+        n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
+        n2 = self.gdb.nodes.create(name="Michael Doe", place="Tijuana")
+        r1 = self.gdb.relationships.create(n1, "Hates", n2)
+        index = self.gdb.relationships.indexes.create(name="brothers")
+        index["feeling"]["hate"] = r1
+        self.failUnless(r1 in index["feeling"]["hate"])
+
+    def test_remove_node_from_index(self):
+        n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
+        index = self.gdb.nodes.indexes.create(name="doe")
+        index["surnames"]["d"] = n1
+        index.remove("surnames", "d", n1)
+        self.failUnless(n1 not in index["surnames"]["d"])
+
+    def test_remove_relationship_from_index(self):
+        n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
+        n2 = self.gdb.nodes.create(name="Michael Doe", place="Tijuana")
+        r1 = self.gdb.relationships.create(n1, "Hates", n2)
+        index = self.gdb.relationships.indexes.create(name="brothers")
+        index["feeling"]["hate"] = r1
+        index.remove("feeling", "hate", r1)
+        self.failUnless(r1 not in index["feeling"]["hate"])
+
+    def test_query_index(self):
+        n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
+        n2 = self.gdb.nodes.create(name="Michael Donald", place="Tijuana")
+        index = self.gdb.nodes.indexes.create(name="do", type="fulltext")
+        index["surnames"]["doe"] = n1
+        index["surnames"]["donald"] = n2
+        results = index.query("surnames", "do*")
+        self.failUnless(n1 in results and n2 in results)
+
 
 class TraversalsTestCase(IndexesTestCase):
 
