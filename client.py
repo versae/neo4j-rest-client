@@ -525,7 +525,7 @@ class Index(object):
         index[key][value]
 
         Lookups are formated as http://.../{index_name}/{key}/{value}, so this
-        is the object that gets returned by index[key].  The REST request will
+        is the object that gets returned by index[key]. The REST request will
         be sent when the value is specified.
         """
 
@@ -536,25 +536,19 @@ class Index(object):
             self.url = url
 
         def __getitem__(self, value):
-            request_url = "%s/%s" % (self.url, value)
-            response, content = Request().get(request_url)
-            if response.status == 200:
-                data_list = simplejson.loads(content)
-                if self._index_for == NODE:
-                    return [Node(n['self'], data=n['data'])
-                            for n in data_list]
-                else:
-                    return [Relationship(r['self'], data=r['data'])
-                            for r in data_list]
-            elif response.status == 404:
-                raise NotFoundError(response.status,
-                                    "Node or relationship not found")
-            else:
-                raise StatusException(response.status,
-                                      "Error requesting index with GET %s" \
-                                       % request_url)
+            url = "%s/%s" % (self.url, value)
+            return self._get_results(url)
 
         def __setitem__(self, value, item):
+            # Neo4j hardly crush if you try to index a relationship in a
+            # node index and viceversa.
+            is_node_index = self._index_for == NODE and isinstance(item, Node)
+            is_relationship_index = (self._index_for == RELATIONSHIP
+                                     and isinstance(item, Relationship))
+            if not (is_node_index or is_relationship_index):
+                raise TypeError("%s is a %s and the index is for %ss"
+                                % (item, self._index_for.capitalize(),
+                                   self._index_for))
             value = urllib.quote(value)
             if isinstance(item, Base):
                 url_ref = item.url
@@ -573,6 +567,28 @@ class Index(object):
                 raise StatusException(response.status,
                                       "Error requesting index with POST %s " \
                                       ", data %s" % (request_url, url_ref))
+
+        def _get_results(self, url):
+            response, content = Request().get(url)
+            if response.status == 200:
+                data_list = simplejson.loads(content)
+                if self._index_for == NODE:
+                    return [Node(n['self'], data=n['data'])
+                            for n in data_list]
+                else:
+                    return [Relationship(r['self'], data=r['data'])
+                            for r in data_list]
+            elif response.status == 404:
+                raise NotFoundError(response.status,
+                                    "Node or relationship not found")
+            else:
+                raise StatusException(response.status,
+                                      "Error requesting index with GET %s" \
+                                       % url)
+
+        def query(self, value):
+            url = "%s?query=%s" % (self.url, urllib.quote(value))
+            return self._get_results(url)
 
     def __init__(self, index_for, name, **kwargs):
         self._index_for = index_for
@@ -600,9 +616,40 @@ class Index(object):
     def add(self, key, value, item):
         self.get(key)[value] = item
 
-    def get(self, key):
+    def get(self, key, value=None):
         key = urllib.quote(key)
-        return self.IndexKey(self._index_for, "%s/%s" % (self.url, key))
+        if value:
+            return self.IndexKey(self._index_for,
+                                 "%s/%s" % (self.url, key))[value]
+        else:
+            return self.IndexKey(self._index_for, "%s/%s" % (self.url, key))
+
+    def remove(self, key, value, item):
+        if not isinstance(item, Base):
+            raise TypeError("%s has no url attribute" % item)
+        if key and value:
+            key = urllib.quote(key)
+            value = urllib.quote(value)
+            url = self.template.replace("{key}", key).replace("{value}", value)
+            url = "%s/%s" % (url, item.id)
+        elif key and not value:
+            key = urllib.quote(key)
+            url = "%s/%s" % (self.template.replace("{key}", key), item.id)
+        elif not key and not value:
+            url = self.template.replace("{key}/{value}", item.id)
+        else:
+            raise TypeError("remove() take at least 2 arguments, the key " \
+                            "of the index and the %s to remove"
+                            % self._index_for)
+        response, content = Request().delete(url)
+        if response.status == 404:
+            raise NotFoundError(response.status,
+                                "%s not found" % self._index_for.capitalize())
+        elif response.status != 204:
+            raise StatusException(response.status)
+
+    def query(self, key, value):
+        return self.get(key).query(value)
 
 
 class RelationshipsProxy(dict):
@@ -697,6 +744,10 @@ class Relationship(Base):
     def _get_type(self):
         return self._dic['type']
     type = property(_get_type)
+
+    def _get_id(self):
+        return int(self.url.split("/")[-1])
+    id = property(_get_id)
 
 
 class Path(object):
