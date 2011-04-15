@@ -13,7 +13,8 @@ import urllib
 from urlparse import urlsplit
 
 __all__ = ("GraphDatabase", "Incoming", "Outgoing", "Undirected",
-           "StopAtDepth", "NotFoundError", "StatusException")
+           "StopAtDepth", "NotFoundError", "StatusException", "INDEX_EXACT",
+           "INDEX_FULLTEXT")
 __author__ = "Javier de la Rosa, and Diego Muñoz Escalante"
 __credits__ = ["Javier de la Rosa", "Diego Muñoz Escalante"]
 __license__ = "GPLv3"
@@ -624,7 +625,7 @@ class Index(object):
         else:
             return self.IndexKey(self._index_for, "%s/%s" % (self.url, key))
 
-    def remove(self, key, value, item):
+    def delete(self, key, value, item):
         if not isinstance(item, Base):
             raise TypeError("%s has no url attribute" % item)
         if key and value:
