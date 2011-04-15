@@ -1,0 +1,19 @@
+The PRIMARY AUTHORS are (ordered by aproximated LOC number):
+
+    * Javier de la Rosa <versae@gmail.com>
+
+APPRECIATED CONTRIBUTORS:
+
+    * Yashh, https://github.com/yashh
+    * timClicks, https://github.com/timClicks
+    * Mark Henderson, https://github.com/emehrkay
+    * Johan Lundberg, https://github.com/johanlundberg
+    * Mark Ng, https://github.com/markng
+    * kesavkolla, https://github.com/kesavkolla
+    * Andy Denmark, https://github.com/denmark
+
+And a big THANK YOU goes to:
+
+    * University of Western Ontario and CulturePlex Lab for the funding.
+    * Guido van Rossum for creating Python.
+    * Neo4j Team for developing one of the most amazing graph database.

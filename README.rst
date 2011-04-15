@@ -17,6 +17,10 @@ Available throught Python Package Index::
 
   $ pip install neo4jrestclient
 
+Or::
+
+  $ easy_install neo4jrestclient
+
 
 Getting started
 ---------------
@@ -29,13 +33,13 @@ The main class is *GraphDatabase*, exactly how in neo4j.py_::
 
 Two global options are available::
 
-  neo4jrestclient.CACHE = False # Default
+  neo4jrestclient.request.CACHE = False # Default
 
 If CACHE is 'True', a '.cache' directory is created and the future request to
 the same URL will be taken from cache
 And::
 
-  neo4jrestclient.DEBUG = False # Default
+  neo4jrestclient.request.DEBUG = False # Default
 
 If DEBUG is 'True', 'httplib2' is set to debuglevel = 1.
 

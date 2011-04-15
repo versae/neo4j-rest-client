@@ -1,0 +1,6 @@
+include AUTHORS.txt
+include CHANGES.txt
+include LICENSE-GPL.txt
+include MANIFEST.in
+include README.rst
+recursive-include neo4jrestclient *

@@ -1,4 +1,5 @@
 import client
+import request
 import unittest
 
 
@@ -9,24 +10,24 @@ class NodesTestCase(unittest.TestCase):
         self.gdb = client.GraphDatabase(self.url)
 
     def test_connection_cache(self):
-        import client as clientCache
+        import request as clientCache
         clientCache.CACHE = True
-        gdb = clientCache.GraphDatabase(self.url)
+        gdb = client.GraphDatabase(self.url)
         clientCache.CACHE = False
         self.assertEqual(gdb.url, self.url)
 
     def test_connection_debug(self):
-        import client as clientDebug
+        import request as clientDebug
         clientDebug.DEBUG = True
-        gdb = clientDebug.GraphDatabase(self.url)
+        gdb = client.GraphDatabase(self.url)
         clientDebug.DEBUG = False
         self.assertEqual(gdb.url, self.url)
 
     def test_connection_cache_debug(self):
-        import client as clientCacheDebug
+        import request as clientCacheDebug
         clientCacheDebug.CACHE = True
         clientCacheDebug.DEBUG = True
-        gdb = clientCacheDebug.GraphDatabase(self.url)
+        gdb = client.GraphDatabase(self.url)
         clientCacheDebug.CACHE = False
         clientCacheDebug.DEBUG = False
         self.assertEqual(gdb.url, self.url)
@@ -126,7 +127,7 @@ class NodesTestCase(unittest.TestCase):
         try:
             self.gdb.nodes.get(identifier)
             self.fail()
-        except client.NotFoundError, client.StatusException:
+        except request.NotFoundError, request.StatusException:
             pass
 
 
