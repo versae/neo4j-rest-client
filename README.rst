@@ -9,27 +9,33 @@ database thanks to Neo4j REST Server. So, the syntax of this API is fully
 compatible with neo4j.py. However, a new syntax is introduced in order to
 reach a more pythonic style.
 
-The main file is named client.py, but you can rename with whatever you want.
+
+Installation
+------------
+
+Available throught Python Package Index::
+
+  $ pip install neo4jrestclient
 
 
-Instantiation
--------------
+Getting started
+---------------
 
 The main class is *GraphDatabase*, exactly how in neo4j.py_::
 
-  >>> from client import GraphDatabase
+  >>> from neo4jrestclient import GraphDatabase
   
   >>> gdb = GraphDatabase("http://localhost:7474/db/data/")
 
 Two global options are available::
 
-  client.CACHE = False # Default
+  neo4jrestclient.CACHE = False # Default
 
 If CACHE is 'True', a '.cache' directory is created and the future request to
 the same URL will be taken from cache
 And::
 
-  client.DEBUG = False # Default
+  neo4jrestclient.DEBUG = False # Default
 
 If DEBUG is 'True', 'httplib2' is set to debuglevel = 1.
 
@@ -42,24 +48,24 @@ the commands added and its differences.
 
 Creating a node::
 
-  >>> n = graphdb.node()
+  >>> n = gdb.nodes.create()
   
   # Equivalent to
-  >>> n = graphdb.nodes.create()
+  >>> n = gdb.node()
 
 Specify properties for new node::
 
-  >>> n = graphdb.node(color="Red", widht=16, height=32)
+  >>> n = gdb.nodes.create(color="Red", widht=16, height=32)
   
   # Or
-  >>> n = graphdb.nodes.create(color="Red", widht=16, height=32)
+  >>> n = gdb.node(color="Red", widht=16, height=32)
 
 Accessing node by id::
 
-  >>> n = graphdb.node[14]
+  >>> n = gdb.node[14]
   
   # Using the identifier or the URL is possible too
-  >>> n = graphdb.nodes.get(14)
+  >>> n = gdb.nodes.get(14)
 
 Accessing properties::
 
@@ -191,7 +197,7 @@ Added way (more ''pythonic'')::
   >>> n1.relationships.create("Knows", n2, since=1970)
   <Neo4j Relationship: http://localhost:7474/db/data/relationship/36009>
   
-  >>> n1.traverse(types=[client.Undirected.Knows])
+  >>> n1.traverse(types=[neo4jrestclient.Undirected.Knows])
   [<Neo4j Node: http://localhost:7474/db/data/node/15880>]
 
 
@@ -233,7 +239,31 @@ using the convenience methods::
   [<Neo4j Node: http://localhost:7474/db/data/node/1>,
    <Neo4j Node: http://localhost:7474/db/data/node/2>]
 
-To work with indexes of relationships the instructions are the same::
+The advanced query is also supported if the index is created with the type
+'fulltext' ('lucene' is the default provider)::
+
+  >>> n1 = gdb.nodes.create(name="John Doe", place="Texas")
+  
+  >>> n2 = gdb.nodes.create(name="Michael Donald", place="Tijuana")
+  
+  >>> i1 = gdb.nodes.indexes.create(name="do", type="fulltext")
+  
+  >>> i1["surnames"]["doe"] = n1
+  
+  >>> i1["surnames"]["donald"] = n2
+  
+  >>> i1.query("surnames", "do*")
+  [<Neo4j Node: http://localhost:7474/db/data/node/295>,
+   <Neo4j Node: http://localhost:7474/db/data/node/296>]
+
+Deleting nodes from an index::
+
+  >>> i1.delete("key", "values", n1)
+  
+  >>> i1.delete("key", None, n2)
+
+And in order to work with indexes of relationships the instructions are the
+same::
 
   >>> i3 =  gdb.relationships.indexes.create("index3")
 
@@ -291,7 +321,6 @@ An example using extensions over nodes::
     u'name': u'depth',
     u'optional': True,
     u'type': u'integer'}]
-
 
 
 
