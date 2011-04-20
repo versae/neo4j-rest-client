@@ -157,6 +157,13 @@ class RelationshipsTestCase(NodesTestCase):
         rel = n1.relationships.create("Knows", n2, since=1970)
         self.assertEqual(rel.properties, {"since": 1970})
 
+    def test_delete_relationship(self):
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        rel = n1.relationships.create("Knows", n2, since=1970)
+        rel.delete()
+        self.assertTrue(len(n1.relationships.outgoing("Knows")) == 0)
+
 
 class IndexesTestCase(RelationshipsTestCase):
 
