@@ -425,8 +425,11 @@ class IndexesProxy(dict):
         if response.status == 200:
             indexes_dict = json.loads(content)
             for index_name, index_properties in indexes_dict.items():
+                index_props = {}
+                for key, val in index_properties.items():
+                    index_props[str(key)] = val
                 indexes_dict[index_name] = Index(self._index_for, index_name,
-                                                 **index_properties)
+                                                 **index_prop)
             return indexes_dict
         elif response.status == 404:
             raise NotFoundError(response.status, "Indexes not found")
@@ -448,7 +451,10 @@ class IndexesProxy(dict):
         if name not in self._dict:
             response, content = Request().post(self.url, data=data)
             if response.status == 201:
-                result_dict = json.loads(content)
+                loaded_dict = json.loads(content)
+                result_dict = {}
+                for key, val in loaded_dict.items():
+                    result_dict[str(key)] = val
                 self._dict[name] = Index(self._index_for, name, **result_dict)
             else:
                 raise StatusException(response.status, "Invalid data sent")
