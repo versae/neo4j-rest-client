@@ -429,7 +429,7 @@ class IndexesProxy(dict):
                 for key, val in index_properties.items():
                     index_props[str(key)] = val
                 indexes_dict[index_name] = Index(self._index_for, index_name,
-                                                 **index_prop)
+                                                 **index_props)
             return indexes_dict
         elif response.status == 404:
             raise NotFoundError(response.status, "Indexes not found")
