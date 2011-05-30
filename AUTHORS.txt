@@ -11,6 +11,7 @@ APPRECIATED CONTRIBUTORS:
     * Mark Ng, https://github.com/markng
     * kesavkolla, https://github.com/kesavkolla
     * Andy Denmark, https://github.com/denmark
+    * bkizzy, https://github.com/bkizzy
 
 And a big THANK YOU goes to:
 
