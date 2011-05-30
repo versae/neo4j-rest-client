@@ -16,7 +16,7 @@ setup(
     author_email=constants.__email__,
     url=constants.__url__,
     description=constants.__description__,
-    long_description=read('README.rst')+read('CHANGES.txt'),
+    long_description=read('README.txt') + "\n\n" + read('CHANGES.txt'),
     license=constants.__license__,
     keywords='neo4j graph graphdb graphdatabase database rest client',
     classifiers=[
