@@ -940,15 +940,15 @@ class Extension(object):
             for param, value in kwargs.items():
                 has_param = (len([np for np in self.parameters
                                      if np["name"] == param]) != 0)
-                if key not in params_kwargs and has_param:
-                    params_kwargs[key] = value
+                if param not in params_kwargs and has_param:
+                    params_kwargs[param] = value
         return self._parse_types(params_kwargs)
 
     def _parse_types(self, kwargs):
         params_kwargs = {}
-        for key, value in kwargs.items():
+        for param, value in kwargs.items():
             if isinstance(value, Base):
-                params_kwargs[key] = value.url
+                params_kwargs[param] = value.url
             else:
-                params_kwargs[key] = value
+                params_kwargs[param] = value
         return params_kwargs
