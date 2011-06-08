@@ -353,8 +353,13 @@ class Node(Base):
         data = {}
         if order in (BREADTH_FIRST, DEPTH_FIRST):
             data.update({"order": order})
-        if isinstance(stop, (int, float)) or stop is STOP_AT_END_OF_GRAPH:
+        if isinstance(stop, (int, float)):
             data.update({"max depth": stop})
+        elif stop is STOP_AT_END_OF_GRAPH:
+            data.update({'prune evaluator':{
+                            'language':'javascript',
+                            'body':'false',
+            }})
         if returnable in (BREADTH_FIRST, DEPTH_FIRST):
             data.update({"return filter": {
                             "language": "builtin",
@@ -940,15 +945,15 @@ class Extension(object):
             for param, value in kwargs.items():
                 has_param = (len([np for np in self.parameters
                                      if np["name"] == param]) != 0)
-                if key not in params_kwargs and has_param:
-                    params_kwargs[key] = value
+                if param not in params_kwargs and has_param:
+                    params_kwargs[param] = value
         return self._parse_types(params_kwargs)
 
     def _parse_types(self, kwargs):
         params_kwargs = {}
-        for key, value in kwargs.items():
+        for param, value in kwargs.items():
             if isinstance(value, Base):
-                params_kwargs[key] = value.url
+                params_kwargs[param] = value.url
             else:
-                params_kwargs[key] = value
+                params_kwargs[param] = value
         return params_kwargs
