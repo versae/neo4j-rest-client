@@ -1,4 +1,4 @@
-import client
+import client, constants
 import request
 import unittest
 
@@ -218,6 +218,30 @@ class TraversalsTestCase(IndexesTestCase):
         ]
         traversal = n1.traverse(types=types)
         self.failUnless(len(traversal) > 0)
+
+    def test_graph_wide_traversal(self):
+        """
+        Tests the use of constants.STOP_AT_END_OF_GRAPH as a stop depth.
+        """
+        nodes = [self.gdb.nodes.create() for i in xrange(10)]
+        #chain them into a linked list
+        last = None
+        for n in nodes:
+            if last:
+                last.relationships.create("Knows", n)
+            last = n
+        #toss in a different relationship type to ensure the STOP_AT_END_OF_GRAPH
+        #didn't break traversing by type
+        nodes[-1].relationships.create("Test", self.gdb.nodes.create())
+        types = [
+            client.Undirected.Knows,
+        ]
+        stop = constants.STOP_AT_END_OF_GRAPH
+        traversal = nodes[0].traverse(types=types, stop=stop)
+        self.failUnless(len(traversal) == len(nodes) - 1)
+        #test an untyple traversal
+        traversal = nodes[0].traverse(stop=stop)
+        self.failUnless(len(traversal) == len(nodes))
 
     def test_create_traversal_class(self):
         n1 = self.gdb.nodes.create()
