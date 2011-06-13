@@ -353,8 +353,13 @@ class Node(Base):
         data = {}
         if order in (BREADTH_FIRST, DEPTH_FIRST):
             data.update({"order": order})
-        if isinstance(stop, (int, float)) or stop is STOP_AT_END_OF_GRAPH:
+        if isinstance(stop, (int, float)):
             data.update({"max depth": stop})
+        elif stop is STOP_AT_END_OF_GRAPH:
+            data.update({'prune evaluator':{
+                            'language':'javascript',
+                            'body':'false',
+            }})
         if returnable in (BREADTH_FIRST, DEPTH_FIRST):
             data.update({"return filter": {
                             "language": "builtin",
