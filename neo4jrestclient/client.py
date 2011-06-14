@@ -895,7 +895,8 @@ class Extension(object):
             # the extensions is implemented in Neo4j
             returns = kwargs.pop("returns", None)
             # Another option is to inspect the results
-            if not returns and isinstance(results_list, (tuple, list)):
+            if (not returns and isinstance(results_list, (tuple, list))
+                and len(results_list) > 0):
                 returns = results_list[0].get("self", None)
             if results_list and returns:
                 if NODE in returns:
