@@ -8,7 +8,7 @@ from constants import (BREADTH_FIRST, DEPTH_FIRST,
                        RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
                        RELATIONSHIP_RECENT,
                        NODE, RELATIONSHIP, PATH, POSITION,
-                       INDEX_FULLTEXT)
+                       INDEX_FULLTEXT, SMART_ERRORS)
 from request import Request, NotFoundError, StatusException
 
 
@@ -166,7 +166,11 @@ class Base(object):
         if response.status == 200:
             self._dic["data"][key] = json.loads(content)
         else:
-            raise NotFoundError(response.status, "Node or propery not found")
+            if SMART_ERRORS:
+                raise KeyError()
+            else:
+                raise NotFoundError(response.status,
+                                    "Node or propery not found")
         return self._dic["data"][key]
 
     def get(self, key, *args):
@@ -201,7 +205,11 @@ class Base(object):
         if response.status == 204:
             del self._dic["data"][key]
         elif response.status == 404:
-            raise NotFoundError(response.status, "Node or property not found")
+            if SMART_ERRORS:
+                raise KeyError()
+            else:
+                raise NotFoundError(response.status,
+                                    "Node or propery not found")
         else:
             raise StatusException(response.status, "Node or propery not found")
 
@@ -474,7 +482,10 @@ class IndexesProxy(dict):
             elif "default" in kwargs:
                 return kwargs["default"]
             else:
-                raise NotFoundError()
+                if SMART_ERRORS:
+                    raise KeyError()
+                else:
+                    raise NotFoundError()
 
     def items(self):
         return self._dict.items()
