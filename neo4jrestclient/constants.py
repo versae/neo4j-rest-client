@@ -12,7 +12,7 @@ __credits__ = [
     "Andy Denmark, https://github.com/denmark",
 ]
 __license__ = "GPL 3"
-__version__ = "1.3.2"
+__version__ = "1.3.4"
 __email__ = "versae@gmail.com"
 __url__ = "https://github.com/versae/neo4j-rest-client"
 __description__ = """Library to interact with Neo4j standalone REST server"""
@@ -42,3 +42,5 @@ POSITION = "position"
 # Indexes
 INDEX_EXACT = "exact"
 INDEX_FULLTEXT = "fulltext"
+# Smart errors
+SMART_ERRORS = False
