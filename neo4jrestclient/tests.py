@@ -171,7 +171,7 @@ class IndexesTestCase(RelationshipsTestCase):
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
         index = self.gdb.nodes.indexes.create(name="doe")
         index["surnames"]["d"] = n1
-        self.failUnless(n1 in index["surnames"]["d"])
+        self.assertTrue(n1 in index["surnames"]["d"])
 
     def test_create_index_for_relationships(self):
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
@@ -179,14 +179,14 @@ class IndexesTestCase(RelationshipsTestCase):
         r1 = self.gdb.relationships.create(n1, "Hates", n2)
         index = self.gdb.relationships.indexes.create(name="brothers")
         index["feeling"]["hate"] = r1
-        self.failUnless(r1 in index["feeling"]["hate"])
+        self.assertTrue(r1 in index["feeling"]["hate"])
 
     def test_delete_node_from_index(self):
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
         index = self.gdb.nodes.indexes.create(name="doe")
         index["surnames"]["d"] = n1
         index.delete("surnames", "d", n1)
-        self.failUnless(n1 not in index["surnames"]["d"])
+        self.assertTrue(n1 not in index["surnames"]["d"])
 
     def test_delete_relationship_from_index(self):
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
@@ -195,7 +195,7 @@ class IndexesTestCase(RelationshipsTestCase):
         index = self.gdb.relationships.indexes.create(name="brothers")
         index["feeling"]["hate"] = r1
         index.delete("feeling", "hate", r1)
-        self.failUnless(r1 not in index["feeling"]["hate"])
+        self.assertTrue(r1 not in index["feeling"]["hate"])
 
     def test_query_index(self):
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
@@ -204,7 +204,10 @@ class IndexesTestCase(RelationshipsTestCase):
         index["surnames"]["doe"] = n1
         index["surnames"]["donald"] = n2
         results = index.query("surnames", "do*")
-        self.failUnless(n1 in results and n2 in results)
+        self.assertTrue(n1 in results and n2 in results)
+        results = index.query("surnames:do*")
+        self.assertTrue(n1 in results and n2 in results)
+        
 
 
 class TraversalsTestCase(IndexesTestCase):
@@ -217,7 +220,7 @@ class TraversalsTestCase(IndexesTestCase):
             client.Undirected.Knows,
         ]
         traversal = n1.traverse(types=types)
-        self.failUnless(len(traversal) > 0)
+        self.assertTrue(len(traversal) > 0)
 
     def test_graph_wide_traversal(self):
         """
@@ -238,10 +241,10 @@ class TraversalsTestCase(IndexesTestCase):
         ]
         stop = constants.STOP_AT_END_OF_GRAPH
         traversal = nodes[0].traverse(types=types, stop=stop)
-        self.failUnless(len(traversal) == len(nodes) - 1)
+        self.assertTrue(len(traversal) == len(nodes) - 1)
         #test an untyple traversal
         traversal = nodes[0].traverse(stop=stop)
-        self.failUnless(len(traversal) == len(nodes))
+        self.assertTrue(len(traversal) == len(nodes))
 
     def test_create_traversal_class(self):
         n1 = self.gdb.nodes.create()
@@ -257,7 +260,7 @@ class TraversalsTestCase(IndexesTestCase):
         results = []
         for result in TraversalClass(n1):
             results.append(result)
-        self.failUnless(len(results) > 0)
+        self.assertTrue(len(results) > 0)
 
 
 class ExtensionsTestCase(TraversalsTestCase):
@@ -268,7 +271,7 @@ class ExtensionsTestCase(TraversalsTestCase):
             self.gdb.extensions
         except:
             fail = True
-        self.failUnless(not fail)
+        self.assertTrue(not fail)
 
     def test_get_node_extensions(self):
         fail = False
@@ -277,7 +280,7 @@ class ExtensionsTestCase(TraversalsTestCase):
             n1.extensions
         except:
             fail = True
-        self.failUnless(not fail)
+        self.assertTrue(not fail)
 
 
 class Neo4jPythonClientTestCase(ExtensionsTestCase):
