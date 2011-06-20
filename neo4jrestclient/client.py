@@ -648,11 +648,7 @@ class Index(object):
                             ' a query) (%d given)' % (len(args) + 1))
         elif len(args) == 1:
             query, = args
-
-            field_regex = re.compile('\w+:')
-            if field_regex.search(query) is None:
-                raise ValueError('If ')
-            
+            return self.get('ridiculouskey123').query(query)
         else:
             key, query = args
             return self.get(key).query(query)
