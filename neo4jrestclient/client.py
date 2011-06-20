@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import urllib
+import re
 
 from constants import (BREADTH_FIRST, DEPTH_FIRST,
                        STOP_AT_END_OF_GRAPH,
@@ -635,9 +636,29 @@ class Index(object):
         elif response.status != 204:
             raise StatusException(response.status)
 
-    def query(self, key, value):
-        return self.get(key).query(value)
+    def query(self, *args):
+        """
+        Query a fulltext index by key and query or just a plain Lucene query, eg
 
+        i1 = gdb.nodes.indexes.get('people',type='fulltext', provider='lucene')
+        i1.query('name','do*')
+        i1.query('name:do*')
+
+        In this example, the last two line are equivalent.
+        """
+        if not args or len(args) > 2:
+            raise TypeError('query() takes 2 or 3 arguments (a query or a key and'
+                            ' a query) (%d given)' % (len(args) + 1))
+        elif len(args) == 1:
+            query, = args
+
+            field_regex = re.compile('\w+:')
+            if field_regex.search(query) is None:
+                raise ValueError('If ')
+            
+        else:
+            key, query = args
+            return self.get(key).query(query)
 
 class RelationshipsProxy(dict):
     """
