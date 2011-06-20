@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
 
-from setuptools import setup
+from distutils.core import setup
 
 from neo4jrestclient import constants
 
