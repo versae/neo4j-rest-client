@@ -1,23 +1,4 @@
 # -*- coding: utf-8 -*-
-__author__ = "Javier de la Rosa"
-__credits__ = [
-    "Javier de la Rosa",
-    "Diego Muñoz Escalante, https://github.com/escalant3",
-    "Yashh, https://github.com/yashh",
-    "timClicks, https://github.com/timClicks",
-    "Mark Henderson, https://github.com/emehrkay",
-    "Johan Lundberg, https://github.com/johanlundberg",
-    "Mark Ng, https://github.com/markng",
-    "kesavkolla, https://github.com/kesavkolla",
-    "Andy Denmark, https://github.com/denmark",
-]
-__license__ = "GPL 3"
-__version__ = "1.3.4"
-__email__ = "versae@gmail.com"
-__url__ = "https://github.com/versae/neo4j-rest-client"
-__description__ = """Library to interact with Neo4j standalone REST server"""
-__status__ = "Development"
-
 # Order
 BREADTH_FIRST = "breadth first"
 DEPTH_FIRST = "depth first"
