@@ -3,13 +3,14 @@ import json
 import urllib
 import re
 
+import options
 from constants import (BREADTH_FIRST, DEPTH_FIRST,
                        STOP_AT_END_OF_GRAPH,
                        NODE_GLOBAL, NODE_PATH, NODE_RECENT,
                        RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
                        RELATIONSHIP_RECENT,
                        NODE, RELATIONSHIP, PATH, POSITION,
-                       INDEX_FULLTEXT, SMART_ERRORS)
+                       INDEX_FULLTEXT)
 from request import Request, NotFoundError, StatusException
 
 
@@ -167,7 +168,7 @@ class Base(object):
         if response.status == 200:
             self._dic["data"][key] = json.loads(content)
         else:
-            if SMART_ERRORS:
+            if options.SMART_ERRORS:
                 raise KeyError()
             else:
                 raise NotFoundError(response.status,
@@ -206,7 +207,7 @@ class Base(object):
         if response.status == 204:
             del self._dic["data"][key]
         elif response.status == 404:
-            if SMART_ERRORS:
+            if options.SMART_ERRORS:
                 raise KeyError()
             else:
                 raise NotFoundError(response.status,
@@ -483,7 +484,7 @@ class IndexesProxy(dict):
             elif "default" in kwargs:
                 return kwargs["default"]
             else:
-                if SMART_ERRORS:
+                if options.SMART_ERRORS:
                     raise KeyError()
                 else:
                     raise NotFoundError()

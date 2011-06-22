@@ -8,11 +8,8 @@ import json
 import time
 from urlparse import urlsplit
 
+import options
 from constants import __version__
-
-# Global options
-CACHE = False
-DEBUG = False
 
 
 class StatusException(Exception):
@@ -236,7 +233,6 @@ class Request(object):
         return json.dumps(ret, ensure_ascii=ensure_ascii)
 
     def _request(self, method, url, data={}, headers={}):
-        global CACHE, DEBUG
         splits = urlsplit(url)
         scheme = splits.scheme
         # Not used, it makes pyflakes happy
@@ -245,11 +241,11 @@ class Request(object):
         username = splits.username or self.username
         password = splits.password or self.password
         headers = headers or {}
-        if DEBUG:
+        if options.DEBUG:
             httplib2.debuglevel = 1
         else:
             httplib2.debuglevel = 0
-        if CACHE:
+        if options.CACHE:
             headers['Cache-Control'] = 'no-cache'
             http = httplib2.Http(".cache")
         else:
