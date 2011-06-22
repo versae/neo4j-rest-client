@@ -10,21 +10,21 @@ class NodesTestCase(unittest.TestCase):
         self.gdb = client.GraphDatabase(self.url)
 
     def test_connection_cache(self):
-        import request as clientCache
+        import options as clientCache
         clientCache.CACHE = True
         gdb = client.GraphDatabase(self.url)
         clientCache.CACHE = False
         self.assertEqual(gdb.url, self.url)
 
     def test_connection_debug(self):
-        import request as clientDebug
+        import options as clientDebug
         clientDebug.DEBUG = True
         gdb = client.GraphDatabase(self.url)
         clientDebug.DEBUG = False
         self.assertEqual(gdb.url, self.url)
 
     def test_connection_cache_debug(self):
-        import request as clientCacheDebug
+        import options as clientCacheDebug
         clientCacheDebug.CACHE = True
         clientCacheDebug.DEBUG = True
         gdb = client.GraphDatabase(self.url)
@@ -227,14 +227,14 @@ class TraversalsTestCase(IndexesTestCase):
         Tests the use of constants.STOP_AT_END_OF_GRAPH as a stop depth.
         """
         nodes = [self.gdb.nodes.create() for i in xrange(10)]
-        #chain them into a linked list
+        # Chain them into a linked list
         last = None
         for n in nodes:
             if last:
                 last.relationships.create("Knows", n)
             last = n
-        #toss in a different relationship type to ensure the STOP_AT_END_OF_GRAPH
-        #didn't break traversing by type
+        # Toss in a different relationship type to ensure the
+        # STOP_AT_END_OF_GRAPH didn't break traversing by type
         nodes[-1].relationships.create("Test", self.gdb.nodes.create())
         types = [
             client.Undirected.Knows,
@@ -242,7 +242,7 @@ class TraversalsTestCase(IndexesTestCase):
         stop = constants.STOP_AT_END_OF_GRAPH
         traversal = nodes[0].traverse(types=types, stop=stop)
         self.assertTrue(len(traversal) == len(nodes) - 1)
-        #test an untyple traversal
+        # Test an untyple traversal
         traversal = nodes[0].traverse(stop=stop)
         self.assertTrue(len(traversal) == len(nodes))
 
