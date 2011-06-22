@@ -9,7 +9,7 @@ def read(*rnames):
     return open(os.path.join(os.path.dirname(__file__), *rnames)).read()
 
 # Dynamically get the constants.
-constants = __import__('neo4jrestclient').constants
+constants = __import__('neo4jrestclient.constants').constants
 
 setup(
     name='neo4jrestclient',
