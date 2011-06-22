@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
 import urllib
-import re
 
 import options
 from constants import (BREADTH_FIRST, DEPTH_FIRST,
@@ -12,6 +11,9 @@ from constants import (BREADTH_FIRST, DEPTH_FIRST,
                        NODE, RELATIONSHIP, PATH, POSITION,
                        INDEX_FULLTEXT)
 from request import Request, NotFoundError, StatusException
+
+__all__ = ["GraphDatabase", "Incoming", "Outgoing", "Undirected",
+           "StopAtDepth", "NotFoundError", "StatusException"]
 
 
 class StopAtDepth(object):
@@ -366,14 +368,14 @@ class Node(Base):
         if isinstance(stop, (int, float)):
             data.update({"max depth": stop})
         elif stop is STOP_AT_END_OF_GRAPH:
-            data.update({'prune evaluator':{
-                            'language':'javascript',
-                            'body':'false',
+            data.update({'prune evaluator': {
+                'language': 'javascript',
+                'body': 'false',
             }})
         if returnable in (BREADTH_FIRST, DEPTH_FIRST):
             data.update({"return filter": {
-                            "language": "builtin",
-                            "name": returnable,
+                "language": "builtin",
+                "name": returnable,
             }})
         if uniqueness in (NODE_GLOBAL, NODE_PATH, NODE_RECENT, NODE,
                           RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
@@ -656,6 +658,7 @@ class Index(object):
         else:
             key, query = args
             return self.get(key).query(query)
+
 
 class RelationshipsProxy(dict):
     """

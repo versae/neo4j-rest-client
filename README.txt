@@ -27,21 +27,28 @@ Getting started
 
 The main class is *GraphDatabase*, exactly how in neo4j.py_::
 
-  >>> from neo4jrestclient import GraphDatabase
+  >>> from neo4jrestclient.client import GraphDatabase
   
   >>> gdb = GraphDatabase("http://localhost:7474/db/data/")
 
-Two global options are available::
+Options
+-------
 
-  neo4jrestclient.request.CACHE = False # Default
-
+There some global options available::
 If CACHE is 'True', a '.cache' directory is created and the future request to
-the same URL will be taken from cache
-And::
+the same URL will be taken from cache::
 
-  neo4jrestclient.request.DEBUG = False # Default
+  neo4jrestclient.options.CACHE = False # Default
 
-If DEBUG is 'True', 'httplib2' is set to debuglevel = 1.
+If DEBUG is 'True', 'httplib2' is set to debuglevel = 1::
+
+  neo4jrestclient.options.DEBUG = False # Default
+
+And SMART_ERRORS, set to 'False' by default. In case of 'True', the standard
+HTTP errors will be replaced by more pythonic errors (i.e. 'KeyError' instead
+of 'NotFoundError' in some cases)::
+
+  neo4jrestclient.options.SMART_ERRORS = False # Default
 
 
 Node, Relationships and Properties
