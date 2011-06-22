@@ -653,6 +653,7 @@ class Index(object):
             raise TypeError('query() takes 2 or 3 arguments (a query or a key and'
                             ' a query) (%d given)' % (len(args) + 1))
         elif len(args) == 1:
+            # TODO: Add a Q class in order to do complex queries
             query, = args
             return self.get('ridiculouskey123').query(query)
         else:
