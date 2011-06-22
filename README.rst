@@ -27,7 +27,7 @@ Getting started
 
 The main class is *GraphDatabase*, exactly how in neo4j.py_::
 
-  >>> from neo4jrestclient import GraphDatabase
+  >>> from neo4jrestclient.client import GraphDatabase
   
   >>> gdb = GraphDatabase("http://localhost:7474/db/data/")
 

@@ -1,4 +1,5 @@
-import client, constants
+import client
+import constants
 import request
 import unittest
 
@@ -207,7 +208,6 @@ class IndexesTestCase(RelationshipsTestCase):
         self.assertTrue(n1 in results and n2 in results)
         results = index.query("surnames:do*")
         self.assertTrue(n1 in results and n2 in results)
-        
 
 
 class TraversalsTestCase(IndexesTestCase):
