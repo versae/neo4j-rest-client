@@ -1,6 +1,26 @@
 Changes
 -------
 
+1.3.4 (2011-06-22)
+------------------
+ - Fixed the setup.py and httplib2 import error during installing.
+ - Reordered the options variables in an options.py file.
+   Allows index.query() to be called with or without a key
+ - Fixed issue #15 regarding dependency to httplib2
+ - Patched index.query() so it can take a query without a key (to support, say,
+   mutli-field Lucene queries). Ultimately, query so probably be refactored to
+   Index (instead of IndexKey) because IndexKey doesn't actually help with
+   full-text queries.
+ - Fixed for issue #19 (missed that urllib.quote).
+ - Altered the test_query_index case to reflect how I think indexing should
+   work.
+ - Using assertTrue instead of failUnless in tests.py, failUnless is deprecated
+   in 2.7 and up, so I figured we might as well switch.
+ - Added SMART_ERRORS (aka "Django mode"). If you set SMART_ERROR to True it
+   will make the client throw KeyError instead of NotFoundError when a key is
+   missing.
+
+
 1.3.3 (2011-06-14)
 ------------------
  - Fixed an introspection when the results list of a traverse is empty.
