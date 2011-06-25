@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import urllib
+from lucenequerybuilder import Q
 
 import options
 from constants import (BREADTH_FIRST, DEPTH_FIRST,
@@ -13,7 +14,7 @@ from constants import (BREADTH_FIRST, DEPTH_FIRST,
 from request import Request, NotFoundError, StatusException
 
 __all__ = ["GraphDatabase", "Incoming", "Outgoing", "Undirected",
-           "StopAtDepth", "NotFoundError", "StatusException"]
+           "StopAtDepth", "NotFoundError", "StatusException", 'Q']
 
 
 class StopAtDepth(object):
@@ -654,12 +655,19 @@ class Index(object):
             raise TypeError('query() takes 2 or 3 arguments (a query or a key and'
                             ' a query) (%d given)' % (len(args) + 1))
         elif len(args) == 1:
-            # TODO: Add a Q class in order to do complex queries
             query, = args
-            return self.get('ridiculouskey123').query(query)
+            return self.get('text').query(str(query))
         else:
             key, query = args
-            return self.get(key).query(query)
+            indexkey = self.get(key)
+            if isinstance(query, basestring):
+                return indexkey.query(query)
+            else:
+                if query.fielded:
+                    raise ValueError('Queries with an included key should not '\
+                                     'include a field.')
+                return indexkey.query(str(query))
+
 
 
 class RelationshipsProxy(dict):
