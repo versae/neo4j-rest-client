@@ -250,8 +250,8 @@ using the convenience methods::
   [<Neo4j Node: http://localhost:7474/db/data/node/1>,
    <Neo4j Node: http://localhost:7474/db/data/node/2>]
 
-The advanced query is also supported if the index is created with the type
-'fulltext' ('lucene' is the default provider)::
+Advanced queries are also supported if the index is created with the type
+'fulltext' ('lucene' is the default provider) by entering a Lucene query::
 
   >>> n1 = gdb.nodes.create(name="John Doe", place="Texas")
   
@@ -260,12 +260,22 @@ The advanced query is also supported if the index is created with the type
   >>> i1 = gdb.nodes.indexes.create(name="do", type="fulltext")
   
   >>> i1["surnames"]["doe"] = n1
+
+  >>> i1["places"]["Texas"] = n1
   
   >>> i1["surnames"]["donald"] = n2
+
+  >>> i1["places"]["Tijuana"] = n2
   
   >>> i1.query("surnames", "do*")
   [<Neo4j Node: http://localhost:7474/db/data/node/295>,
    <Neo4j Node: http://localhost:7474/db/data/node/296>]
+
+...or by using the DSL described by lucene-querybuilder_ to support boolean
+operations and nested queries::
+
+  >>> i1.query(Q('surnames','do*') & Q('places','Tijuana'))
+  [<Neo4j Node: http://localhost:7474/db/data/node/295>]
 
 Deleting nodes from an index::
 
@@ -343,3 +353,4 @@ the Python client is not able to provide it.
 
 
 .. _neo4j.py: http://components.neo4j.org/neo4j.py/
+.. _lucene-querybuilder: http://github.com/scholrly/lucene-querybuilder
