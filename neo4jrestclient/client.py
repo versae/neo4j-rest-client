@@ -507,6 +507,25 @@ class Index(object):
     The returned object supports dict style lookups, eg index[key][value].
     """
 
+    @staticmethod
+    def _get_results(url, node_or_rel):
+        response, content = Request().get(url)
+        if response.status == 200:
+            data_list = json.loads(content)
+            if node_or_rel == NODE:
+                return [Node(n['self'], data=n['data'])
+                        for n in data_list]
+            else:
+                return [Relationship(r['self'], data=r['data'])
+                        for r in data_list]
+        elif response.status == 404:
+            raise NotFoundError(response.status,
+                                "Node or relationship not found")
+        else:
+            raise StatusException(response.status,
+                                    "Error requesting index with GET %s" \
+                                    % url)
+
     class IndexKey(object):
         """
         Intermediate object so that lookups can be done like:
@@ -525,7 +544,7 @@ class Index(object):
 
         def __getitem__(self, value):
             url = "%s/%s" % (self.url, value)
-            return self._get_results(url)
+            return Index._get_results(url, self._index_for)
 
         def __setitem__(self, value, item):
             # Neo4j hardly crush if you try to index a relationship in a
@@ -558,27 +577,9 @@ class Index(object):
                                       "Error requesting index with POST %s " \
                                       ", data %s" % (request_url, url_ref))
 
-        def _get_results(self, url):
-            response, content = Request().get(url)
-            if response.status == 200:
-                data_list = json.loads(content)
-                if self._index_for == NODE:
-                    return [Node(n['self'], data=n['data'])
-                            for n in data_list]
-                else:
-                    return [Relationship(r['self'], data=r['data'])
-                            for r in data_list]
-            elif response.status == 404:
-                raise NotFoundError(response.status,
-                                    "Node or relationship not found")
-            else:
-                raise StatusException(response.status,
-                                      "Error requesting index with GET %s" \
-                                       % url)
-
         def query(self, value):
             url = "%s?query=%s" % (self.url, urllib.quote(value))
-            return self._get_results(url)
+            return Index._get_results(url, self._index_for)
 
     def __init__(self, index_for, name, **kwargs):
         self._index_for = index_for
