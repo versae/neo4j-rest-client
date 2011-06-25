@@ -37,4 +37,7 @@ setup(
     install_requires=[
         'httplib2',
     ],
+    tests_require=[
+        'lucene-querybuilder>=0.1.1',
+    ],
 )
