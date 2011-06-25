@@ -3,6 +3,8 @@ import constants
 import request
 import unittest
 
+from lucenequerybuilder import Q
+
 
 class NodesTestCase(unittest.TestCase):
 
@@ -204,10 +206,20 @@ class IndexesTestCase(RelationshipsTestCase):
         index = self.gdb.nodes.indexes.create(name="do", type="fulltext")
         index["surnames"]["doe"] = n1
         index["surnames"]["donald"] = n2
+        index['place']['Texas'] = n1
+        index['place']['Tijuana'] = n2
         results = index.query("surnames", "do*")
         self.assertTrue(n1 in results and n2 in results)
         results = index.query("surnames:do*")
         self.assertTrue(n1 in results and n2 in results)
+        results = index.query('surnames', Q('do*'))
+        self.assertTrue(n1 in results and n2 in results)
+        results = index.query(Q('surnames','do*'))
+        self.assertTrue(n1 in results and n2 in results)
+        results = index.query(Q('surnames', 'do*') & Q('place', 'Tijuana'))
+        self.assertTrue(n1 not in results and n2 in results)
+        results = index.query(-Q('surnames', 'donald') +Q('place', 'Texas'))
+        self.assertTrue(n2 not in results and n1 in results)
 
 
 class TraversalsTestCase(IndexesTestCase):
