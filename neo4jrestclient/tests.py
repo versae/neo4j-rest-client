@@ -218,7 +218,7 @@ class IndexesTestCase(RelationshipsTestCase):
         self.assertTrue(n1 in results and n2 in results)
         results = index.query(Q('surnames', 'do*') & Q('place', 'Tijuana'))
         self.assertTrue(n1 not in results and n2 in results)
-        results = index.query(-Q('surnames', 'donald') +Q('place', 'Texas'))
+        results = index.query(-Q('surnames', 'donald') | +Q('place', 'Texas'))
         self.assertTrue(n2 not in results and n1 in results)
 
 
