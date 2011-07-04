@@ -14,7 +14,7 @@ from constants import (BREADTH_FIRST, DEPTH_FIRST,
 from request import Request, NotFoundError, StatusException
 
 __all__ = ["GraphDatabase", "Incoming", "Outgoing", "Undirected",
-           "StopAtDepth", "NotFoundError", "StatusException", 'Q']
+           "StopAtDepth", "NotFoundError", "StatusException", "Q"]
 
 
 class StopAtDepth(object):
@@ -271,6 +271,51 @@ class Base(object):
     properties = property(_get_properties, _set_properties, _del_properties)
 
 
+class Iterable(list):
+    """
+    Class to iterate among returned objects.
+    """
+
+    def __init__(self, cls, lst, attr):
+        self._list = lst
+        self._length = len(lst)
+        self._class = cls
+        self._attribute = attr
+        super(Iterable, self).__init__(lst)
+
+    def __getslice__(self, *args, **kwargs):
+        eltos = super(Iterable, self).__getslice__(*args, **kwargs)
+        if self._attribute:
+            return [self._class(elto[self._attribute]) for elto in eltos]
+        else:
+            return [self._class(elto) for elto in eltos]
+
+    def __getitem__(self, index):
+        elto = super(Iterable, self).__getitem__(index)
+        if self._attribute:
+            return self._class(elto[self._attribute])
+        else:
+            return self._class(elto)
+
+    def __repr__(self):
+        return self.__unicode__()
+
+    def __str__(self):
+        return self.__unicode__()
+
+    def __unicode__(self):
+        return u"<Neo4j %s: %s>" % (self.__class__.__name__,
+                                    self._class.__name__)
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self._length == 0:
+            raise StopIteration
+        self._length = self._length - 1
+        return self.__getitem__(self._length)
+
 class NodesProxy(dict):
     """
     Class proxy for node in order to allow get a node by id and
@@ -401,13 +446,13 @@ class Node(Base):
         if response.status == 200:
             results_list = json.loads(content)
             if returns is NODE:
-                return [Node(r["self"]) for r in results_list]
+                return Iterable(Node, results_list, "self")
             elif returns is RELATIONSHIP:
-                return [Relationship(r["self"]) for r in results_list]
+                return Iterable(Relationship, results_list, "self")
             elif returns is PATH:
-                return [Path(r) for r in results_list]
+                return Iterable(Path, results_list)
             elif returns is POSITION:
-                return [Position(r) for r in results_list]
+                return Iterable(Position, results_list)
         elif response.status == 404:
             raise NotFoundError(response.status, "Node or relationship not " \
                                                  "found")
@@ -514,11 +559,9 @@ class Index(object):
         if response.status == 200:
             data_list = json.loads(content)
             if node_or_rel == NODE:
-                return [Node(n['self'], data=n['data'])
-                        for n in data_list]
+                return Iterable(Node, data_list, "self")
             else:
-                return [Relationship(r['self'], data=r['data'])
-                        for r in data_list]
+                return Iterable(Relationship, data_list, "self")
         elif response.status == 404:
             raise NotFoundError(response.status,
                                 "Node or relationship not found")
@@ -669,7 +712,6 @@ class Index(object):
                 return indexkey.query(str(query))
 
 
-
 class RelationshipsProxy(dict):
     """
     Class proxy for relationships in order to allow get a relationship by id
@@ -730,8 +772,10 @@ class Relationships(object):
                 response, content = Request().get(url)
                 if response.status == 200:
                     relationship_list = json.loads(content)
-                    relationships = [Relationship(r["self"])
-                                     for r in relationship_list]
+                    relationships = Iterable(Relationship, relationship_list,
+                                             "self")
+                    # relationships = [Relationship(r["self"])
+                    #                  for r in relationship_list]
                     return relationships
                 elif response.status == 404:
                     raise NotFoundError(response.status,
@@ -945,13 +989,13 @@ class Extension(object):
                 returns = results_list[0].get("self", None)
             if results_list and returns:
                 if NODE in returns:
-                    return [Node(r["self"]) for r in results_list]
+                    return Iterable(Node, results_list, "self")
                 elif RELATIONSHIP in returns:
-                    return [Relationship(r["self"]) for r in results_list]
+                    return Iterable(Relationship, results_list, "self")
                 elif PATH in returns:
-                    return [Path(r) for r in results_list]
+                    return Iterable(Path, results_list)
                 elif POSITION in returns:
-                    return [Position(r) for r in results_list]
+                    return Iterable(Position, results_list)
             else:
                 return []
         elif response.status == 404:
