@@ -123,11 +123,15 @@ class GraphDatabase(object):
 
         return Traversal
 
-    def transaction(self, transaction_id=None, context=None):
+    def transaction(self, using_globals=True, commit=True, transaction_id=None,
+                    context=None):
         if transaction_id not in self._transactions:
             transaction_id = len(self._transactions.keys())
         self._transactions[transaction_id] = Transaction(self, transaction_id,
-                                                         context or {})
+                                                         context or {},
+                                                         commit=commit)
+        if using_globals:
+            globals()[options.TX_VARIABLE] = self._transactions[transaction_id]
         return self._transactions[transaction_id]
 
 
@@ -145,41 +149,74 @@ class Transaction(object):
     Transaction class.
     """
 
-    def __init__(self, cls, transaction_id, context):
+    def __init__(self, cls, transaction_id, context, commit=True):
         self.cls = cls
-        self.transaction_id = transaction_id
+        self.id = transaction_id
         self.context = context
+        self.auto_commit = commit
         self.operations = []
-        self.variables = {}
+        self.variable = None
 
     def __enter__(self):
         return self
 
     def __exit__(self, type, value, traceback):
-        result = self.commit(**self.context)
-        del self.cls._transactions[self.transaction_id]
-        return result
-
-    def subscribe(verb, url, data=None):
-        params = {
-            "verb": verb,
-            "url": url,
-            "data": data,
-            "id": len(self.operations)
-        }
-        self.operations.append(TransactionOperation(**params))
-
-    def commit(self, *args, **kwargs):
-        print self.operations
-        self.operations = []
+        if self.auto_commit:
+            return self.commit(type, value, traceback)
         return True
 
-    @staticmethod
-    def is_valid(tx):
-        if isinstance(tx, Transaction):
+    def __call__(self, variable):
+        """
+        In order to allow expresions like
+
+        >>> with gdb.transaction(using_globals=False) as tx:
+           ...:     n.delete("attribute", tx=tx(n))
+        """
+        self.variable = variable
+        return self
+
+    def commit(self, *args, **kwargs):
+        for operation in self.operations:
+            # TODO: Make the real request
+            method = operation["method"]
+            if method = TX_GET:
+                pass
+            elif method = TX_PUT:
+                pass
+            elif method = TX_POST:
+                pass
+            elif method = TX_DELETE:
+                pass
+        self.operations = []
+        del self.cls._transactions[self.id]
+        if options.TX_VARIABLE in globals():
+            del globals()[options.TX_VARIABLE]
+        self = None
+        if "type" in kwargs:
+            return isinstance(kwargs["type"], Exception)
+        else:
             return True
-        elif isinstance(tx, (list, tuple)) and len(tx) > 1:
-            return isinstance(tx[-1], Transaction)
+
+    def subscribe(self, method, url, data=None):
+        params = {
+            "method": method,
+            "url": url,
+            "data": data,
+            "id": len(self.operations),
+            "variable": self.variable,
+        }
+        self.variable = None
+        self.operations.append(TransactionOperation(**params))
+
+    @staticmethod
+    def get_transaction(tx=None):
+        if not tx:
+            return globals()[options.TX_VARIABLE]
+        if (isinstance(tx, Transaction)
+            or (isinstance(tx, (list, tuple)) and len(tx) > 1
+                and isinstance(tx[-1], Transaction))):
+            return tx
+        return None
 
 
 class Base(object):
@@ -193,7 +230,8 @@ class Base(object):
         if url.endswith("/"):
             url = url[:-1]
         if create:
-            if Transaction.is_valid(tx):
+            tx = Transaction.get_transaction(tx)
+            if tx:
                 return tx.subscribe(TX_POST, url, data)
             response, content = Request().post(url, data=data)
             if response.status == 201:
@@ -214,10 +252,11 @@ class Base(object):
 
     def delete(self, key=None, tx=None):
         if key:
-            self.__delitem__(key)
+            self.__delitem__(key, tx=tx)
             return
+        tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.subscribe(TX_DELETE, self.url)
+            return tx.subscribe(TX_DELETE, self.url, self)
         response, content = Request().delete(self.url)
         if response.status == 204:
             del self
@@ -267,13 +306,11 @@ class Base(object):
     def set(self, key, value):
         self.__setitem__(key, value)
 
-    def __delitem__(self, key):
-        if Transaction.is_valid(key):
-            key, tx = key
-            property_url = self._dic["property"].replace("{key}", key)
-            return tx.subscribe(TX_DELETE, properties_url)
-        else:
-            property_url = self._dic["property"].replace("{key}", key)
+    def __delitem__(self, key, tx=None):
+        property_url = self._dic["property"].replace("{key}", key)
+        tx = Transaction.get_transaction(tx)
+        if tx:
+            return tx.subscribe(TX_DELETE, property_url)
         response, content = Request().delete(property_url)
         if response.status == 204:
             del self._dic["data"][key]

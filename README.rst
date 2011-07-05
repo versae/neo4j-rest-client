@@ -348,8 +348,8 @@ An example using extensions over nodes::
 Transaction
 -----------
 
-Currently, the transaction support is not implemented in Neo4j REST server, so
-the Python client is not able to provide it.
+Currently, the transaction support is not implemented in this client, although
+a work in progress is being carried out.
 
 
 .. _neo4j.py: http://components.neo4j.org/neo4j.py/
