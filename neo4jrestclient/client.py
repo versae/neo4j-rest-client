@@ -51,6 +51,7 @@ class GraphDatabase(object):
     """
 
     def __init__(self, url):
+        self._transactions = {}
         self.url = None
         if url.endswith("/"):
             self.url = url
@@ -121,6 +122,41 @@ class GraphDatabase(object):
                 return self._items[self._index]
 
         return Traversal
+
+    def transaction(self, context=None):
+        cls = self
+
+        class Transaction(object):
+
+            def __init__(self, transaction_id, context):
+                self.transaction_id = transaction_id
+                self.context = context
+                self.operations = []
+                self.variables = {}
+
+            def __enter__(self):
+                pass
+
+            def __exit__(self, type, value, traceback):
+                self.operations = []
+                del cls._transactions[transaction_id]
+                return self.commit(**self.context)
+
+            def subscribe(verb, url, data=None):
+                self.operations.append({
+                    "verb": verb,
+                    "url": url,
+                    "data": data,
+                })
+
+            def commit(self, *args, **kwargs):
+                # print self.operations
+                return True
+
+        transaction_id = len(self._transactions.keys())
+        self._transactions[transaction_id] = Transaction(transaction_id,
+                                                         context or {})
+        return self._transactions[transaction_id]
 
 
 class Base(object):
@@ -278,7 +314,7 @@ class Iterable(list):
 
     def __init__(self, cls, lst, attr):
         self._list = lst
-        self._length = len(lst)
+        self._index = len(lst)
         self._class = cls
         self._attribute = attr
         super(Iterable, self).__init__(lst)
@@ -311,10 +347,10 @@ class Iterable(list):
         return self
 
     def next(self):
-        if self._length == 0:
+        if self._index == 0:
             raise StopIteration
-        self._length = self._length - 1
-        return self.__getitem__(self._length)
+        self._index = self._index - 1
+        return self.__getitem__(self._index)
 
 class NodesProxy(dict):
     """
