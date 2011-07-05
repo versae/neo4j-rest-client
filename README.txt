@@ -159,6 +159,14 @@ Others functions over 'relationships' attribute are possible. Like get all,
 incoming or outgoing relationships (typed or not)::
 
   >>> rels = n1.relationships.all()
+  <Neo4j Iterable: Relationship>
+
+In order improve the performance of the 'neo4jrestclient', minimizing the 
+number of HTTP requests that are made, all the functions that should return
+list of objects like Nodes, Relationships, Paths or Positions, they actually
+return an Iterable object that extends the Python 'list' type.
+
+  >>> rels = n1.relationships.all()[:]
   [<Neo4j Relationship: http://localhost:7474/db/data/relationship/35843>,
    <Neo4j Relationship: http://localhost:7474/db/data/relationship/35840>,
    <Neo4j Relationship: http://localhost:7474/db/data/relationship/35841>,
@@ -171,14 +179,14 @@ incoming or outgoing relationships (typed or not)::
    <Neo4j Relationship: http://localhost:7474/db/data/relationship/10>,
    <Neo4j Relationship: http://localhost:7474/db/data/relationship/9>]
   
-  >>> rels = n1.relationships.incoming(types=["Knows"])
+  >>> rels = n1.relationships.incoming(types=["Knows"])[:]
   [<Neo4j Relationship: http://localhost:7474/db/data/relationship/35843>,
    <Neo4j Relationship: http://localhost:7474/db/data/relationship/35840>,
    <Neo4j Relationship: http://localhost:7474/db/data/relationship/11>,
    <Neo4j Relationship: http://localhost:7474/db/data/relationship/10>,
    <Neo4j Relationship: http://localhost:7474/db/data/relationship/9>]
   
-  >>> rels = n1.relationships.outgoing(["Knows", "Loves"])
+  >>> rels = n1.relationships.outgoing(["Knows", "Loves"])[:]
   [<Neo4j Relationship: http://localhost:7474/db/data/relationship/35842>,
    <Neo4j Relationship: http://localhost:7474/db/data/relationship/35847>]
 
@@ -208,7 +216,7 @@ Added way (more ''pythonic'')::
   >>> n1.relationships.create("Knows", n2, since=1970)
   <Neo4j Relationship: http://localhost:7474/db/data/relationship/36009>
   
-  >>> n1.traverse(types=[neo4jrestclient.Undirected.Knows])
+  >>> n1.traverse(types=[neo4jrestclient.Undirected.Knows])[:]
   [<Neo4j Node: http://localhost:7474/db/data/node/15880>]
 
 
@@ -246,7 +254,7 @@ using the convenience methods::
   
   >>> i1.add("key", "value", n2)
   
-  >>> i1["key"]["value"]
+  >>> i1["key"]["value"][:]
   [<Neo4j Node: http://localhost:7474/db/data/node/1>,
    <Neo4j Node: http://localhost:7474/db/data/node/2>]
 
@@ -267,14 +275,14 @@ Advanced queries are also supported if the index is created with the type
 
   >>> i1["places"]["Tijuana"] = n2
   
-  >>> i1.query("surnames", "do*")
+  >>> i1.query("surnames", "do*")[:]
   [<Neo4j Node: http://localhost:7474/db/data/node/295>,
    <Neo4j Node: http://localhost:7474/db/data/node/296>]
 
 ...or by using the DSL described by lucene-querybuilder_ to support boolean
 operations and nested queries::
 
-  >>> i1.query(Q('surnames','do*') & Q('places','Tijuana'))
+  >>> i1.query(Q('surnames','do*') & Q('places','Tijuana'))[:]
   [<Neo4j Node: http://localhost:7474/db/data/node/295>]
 
 Deleting nodes from an index::
@@ -297,11 +305,12 @@ The server plugins are supported as extensions of GraphDatabase, Node or
 Relationship objects::
 
   >>> gdb.extensions
-  {u'GetAll': <Neo4j ExtensionModule: [u'get_all_nodes', u'getAllRelationships']>}
+  {u'GetAll': <Neo4j ExtensionModule: [u'get_all_nodes',
+                                       u'getAllRelationships']>}
   >>> gdb.extensions.GetAll
   <Neo4j ExtensionModule: [u'get_all_nodes', u'getAllRelationships']>
   
-  >>> gdb.extensions.GetAll.getAllRelationships()
+  >>> gdb.extensions.GetAll.getAllRelationships()[:]
   
   [<Neo4j Relationship: http://localhost:7474/db/data/relationship/0>,
    <Neo4j Relationship: http://localhost:7474/db/data/relationship/1>,
@@ -318,7 +327,10 @@ An example using extensions over nodes::
   >>> n1 = gdb.nodes.get(0)
   
   >>> n1.extensions
-  {u'DepthTwo': <Neo4j ExtensionModule: [u'nodesOnDepthTwo', u'relationshipsOnDepthTwo', u'pathsOnDepthTwo']>, u'ShortestPath': <Neo4j ExtensionModule: [u'shortestPath']>}
+  {u'DepthTwo': <Neo4j ExtensionModule: [u'nodesOnDepthTwo',
+                                         u'relationshipsOnDepthTwo',
+                                         u'pathsOnDepthTwo']>,
+   u'ShortestPath': <Neo4j ExtensionModule: [u'shortestPath']>}
   
   >>> n2 = gdb.nodes.get(1)
   
@@ -334,11 +346,11 @@ An example using extensions over nodes::
     u'name': u'target',
     u'optional': False,
     u'type': u'node'},
-   {u'description': u'The relationship types to follow when searching for the shortest path(s). Order is insignificant, if omitted all types are followed.',
+   {u'description': u'The relationship types to follow when searching for ...',
     u'name': u'types',
     u'optional': True,
     u'type': u'strings'},
-   {u'description': u'The maximum path length to search for, default value (if omitted) is 4.',
+   {u'description': u'The maximum path length to search for, ...',
     u'name': u'depth',
     u'optional': True,
     u'type': u'integer'}]

@@ -764,7 +764,7 @@ class Index(object):
 
     def query(self, *args):
         """
-        Query a fulltext index by key and query or just a plain Lucene query, eg
+        Query a fulltext index by key and query or just a plain Lucene query,
 
         i1 = gdb.nodes.indexes.get('people',type='fulltext', provider='lucene')
         i1.query('name','do*')
@@ -773,21 +773,21 @@ class Index(object):
         In this example, the last two line are equivalent.
         """
         if not args or len(args) > 2:
-            raise TypeError('query() takes 2 or 3 arguments (a query or a key and'
-                            ' a query) (%d given)' % (len(args) + 1))
+            raise TypeError('query() takes 2 or 3 arguments (a query or a key '
+                            'and a query) (%d given)' % (len(args) + 1))
         elif len(args) == 1:
             query, = args
             return self.get('text').query(str(query))
         else:
             key, query = args
-            indexkey = self.get(key)
+            index_key = self.get(key)
             if isinstance(query, basestring):
-                return indexkey.query(query)
+                return index_key.query(query)
             else:
                 if query.fielded:
-                    raise ValueError('Queries with an included key should not '\
-                                     'include a field.')
-                return indexkey.query(str(query))
+                    raise ValueError('Queries with an included key should '\
+                                     'not include a field.')
+                return index_key.query(str(query))
 
 
 class RelationshipsProxy(dict):
