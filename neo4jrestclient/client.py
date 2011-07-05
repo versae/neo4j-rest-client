@@ -10,7 +10,7 @@ from constants import (BREADTH_FIRST, DEPTH_FIRST,
                        RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
                        RELATIONSHIP_RECENT,
                        NODE, RELATIONSHIP, PATH, POSITION,
-                       INDEX_FULLTEXT)
+                       INDEX_FULLTEXT, TX_GET, TX_PUT, TX_POST, TX_DELETE)
 from request import Request, NotFoundError, StatusException
 
 __all__ = ["GraphDatabase", "Incoming", "Outgoing", "Undirected",
@@ -123,40 +123,63 @@ class GraphDatabase(object):
 
         return Traversal
 
-    def transaction(self, context=None):
-        cls = self
-
-        class Transaction(object):
-
-            def __init__(self, transaction_id, context):
-                self.transaction_id = transaction_id
-                self.context = context
-                self.operations = []
-                self.variables = {}
-
-            def __enter__(self):
-                pass
-
-            def __exit__(self, type, value, traceback):
-                self.operations = []
-                del cls._transactions[transaction_id]
-                return self.commit(**self.context)
-
-            def subscribe(verb, url, data=None):
-                self.operations.append({
-                    "verb": verb,
-                    "url": url,
-                    "data": data,
-                })
-
-            def commit(self, *args, **kwargs):
-                # print self.operations
-                return True
-
-        transaction_id = len(self._transactions.keys())
-        self._transactions[transaction_id] = Transaction(transaction_id,
+    def transaction(self, transaction_id=None, context=None):
+        if transaction_id not in self._transactions:
+            transaction_id = len(self._transactions.keys())
+        self._transactions[transaction_id] = Transaction(self, transaction_id,
                                                          context or {})
         return self._transactions[transaction_id]
+
+
+class TransactionOperation(dict):
+    """
+    TransactionOperation class.
+    """
+
+    def __init__(self, **kwargs):
+        super(TransactionOperation, self).__init__(kwargs)
+
+
+class Transaction(object):
+    """
+    Transaction class.
+    """
+
+    def __init__(self, cls, transaction_id, context):
+        self.cls = cls
+        self.transaction_id = transaction_id
+        self.context = context
+        self.operations = []
+        self.variables = {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        result = self.commit(**self.context)
+        del self.cls._transactions[self.transaction_id]
+        return result
+
+    def subscribe(verb, url, data=None):
+        params = {
+            "verb": verb,
+            "url": url,
+            "data": data,
+            "id": len(self.operations)
+        }
+        self.operations.append(TransactionOperation(**params))
+
+    def commit(self, *args, **kwargs):
+        print self.operations
+        self.operations = []
+        return True
+
+    @staticmethod
+    def is_valid(tx):
+        if isinstance(tx, Transaction):
+            return True
+        elif isinstance(tx, (list, tuple)) and len(tx) > 1:
+            return isinstance(tx[-1], Transaction)
 
 
 class Base(object):
@@ -164,12 +187,14 @@ class Base(object):
     Base class.
     """
 
-    def __init__(self, url, create=False, data={}):
+    def __init__(self, url, create=False, data={}, tx=None):
         self._dic = {}
         self.url = None
         if url.endswith("/"):
             url = url[:-1]
         if create:
+            if Transaction.is_valid(tx):
+                return tx.subscribe(TX_POST, url, data)
             response, content = Request().post(url, data=data)
             if response.status == 201:
                 self._dic.update(data.copy())
@@ -187,10 +212,12 @@ class Base(object):
         else:
             raise NotFoundError(response.status, "Unable get object")
 
-    def delete(self, key=None):
+    def delete(self, key=None, tx=None):
         if key:
             self.__delitem__(key)
             return
+        if tx:
+            return tx.subscribe(TX_DELETE, self.url)
         response, content = Request().delete(self.url)
         if response.status == 204:
             del self
@@ -241,7 +268,12 @@ class Base(object):
         self.__setitem__(key, value)
 
     def __delitem__(self, key):
-        property_url = self._dic["property"].replace("{key}", key)
+        if Transaction.is_valid(key):
+            key, tx = key
+            property_url = self._dic["property"].replace("{key}", key)
+            return tx.subscribe(TX_DELETE, properties_url)
+        else:
+            property_url = self._dic["property"].replace("{key}", key)
         response, content = Request().delete(property_url)
         if response.status == 204:
             del self._dic["data"][key]
