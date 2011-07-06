@@ -428,6 +428,15 @@ class Iterable(list):
         return u"<Neo4j %s: %s>" % (self.__class__.__name__,
                                     self._class.__name__)
 
+    def __contains__(self, value):
+        if isinstance(value, Base) and hasattr(value, "url"):
+            if self._attribute:
+                return value.url in [elto[self._attribute]
+                                     for elto in self._list]
+            else:
+                return value.url in self._list
+        return False
+
     def __iter__(self):
         return self
 
