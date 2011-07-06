@@ -179,19 +179,20 @@ class Transaction(object):
         for operation in self.operations:
             # TODO: Make the real request
             method = operation["method"]
-            if method = TX_GET:
+            if method == TX_GET:
                 pass
-            elif method = TX_PUT:
+            elif method == TX_PUT:
                 pass
-            elif method = TX_POST:
+            elif method == TX_POST:
                 pass
-            elif method = TX_DELETE:
+            elif method == TX_DELETE:
                 pass
         self.operations = []
         del self.cls._transactions[self.id]
         if options.TX_VARIABLE in globals():
             del globals()[options.TX_VARIABLE]
-        self = None
+        # TODO: Destroy the object after commit?
+        # self = None
         if "type" in kwargs:
             return isinstance(kwargs["type"], Exception)
         else:
@@ -205,12 +206,14 @@ class Transaction(object):
             "id": len(self.operations),
             "variable": self.variable,
         }
+        transaction_operation = TransactionOperation(**params)
         self.variable = None
-        self.operations.append(TransactionOperation(**params))
+        self.operations.append(transaction_operation)
+        return transaction_operation
 
     @staticmethod
     def get_transaction(tx=None):
-        if not tx:
+        if not tx and options.TX_VARIABLE in globals():
             return globals()[options.TX_VARIABLE]
         if (isinstance(tx, Transaction)
             or (isinstance(tx, (list, tuple)) and len(tx) > 1
@@ -225,12 +228,12 @@ class Base(object):
     """
 
     def __init__(self, url, create=False, data={}, tx=None):
+        tx = Transaction.get_transaction(tx)
         self._dic = {}
         self.url = None
         if url.endswith("/"):
             url = url[:-1]
         if create:
-            tx = Transaction.get_transaction(tx)
             if tx:
                 return tx.subscribe(TX_POST, url, data)
             response, content = Request().post(url, data=data)
@@ -241,6 +244,8 @@ class Base(object):
                 raise NotFoundError(response.status, "Invalid data sent")
         if not self.url:
             self.url = url
+        if tx:
+            return tx.subscribe(TX_GET, self.url)
         response, content = Request().get(self.url)
         if response.status == 200:
             self._dic.update(json.loads(content).copy())
@@ -256,7 +261,7 @@ class Base(object):
             return
         tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.subscribe(TX_DELETE, self.url, self)
+            return tx.subscribe(TX_DELETE, self.url)
         response, content = Request().delete(self.url)
         if response.status == 204:
             del self
@@ -267,8 +272,11 @@ class Base(object):
                                                    "deleted (still has " \
                                                    "relationships?)")
 
-    def __getitem__(self, key):
+    def __getitem__(self, key, tx=None):
         property_url = self._dic["property"].replace("{key}", key)
+        tx = Transaction.get_transaction(tx)
+        if tx:
+            return tx.subscribe(TX_GET, url)
         response, content = Request().get(property_url)
         if response.status == 200:
             self._dic["data"][key] = json.loads(content)
@@ -280,21 +288,28 @@ class Base(object):
                                     "Node or propery not found")
         return self._dic["data"][key]
 
-    def get(self, key, *args):
-        if args:
-            default = args[0]
-            try:
-                return self.__getitem__(key)
-            except (KeyError, NotFoundError, StatusException):
-                return default
-        else:
-            return self.__getitem__(key)
+    def get(self, key, *args, **kwargs):
+        tx = kwargs.get("tx", None)
+        try:
+            return self.__getitem__(key, tx=tx)
+        except (KeyError, NotFoundError, StatusException):
+            if args:
+                return args[0]
+            elif "default" in kwargs:
+                return kwargs["default"]
+            elif options.SMART_ERRORS:
+                raise KeyError(key)
+            else:
+                raise NotFoundError()
 
     def __contains__(self, obj):
         return obj in self._dic["data"]
 
     def __setitem__(self, key, value):
         property_url = self._dic["property"].replace("{key}", key)
+        # tx = Transaction.get_transaction(tx)
+        # if tx:
+        #     return tx.subscribe(TX_GET, url)
         response, content = Request().put(property_url, data=value)
         if response.status == 204:
             self._dic["data"].update({key: value})
@@ -373,6 +388,7 @@ class Base(object):
             self._dic["data"] = {}
         else:
             raise NotFoundError(response.status, "Properties not found")
+    # TODO: Create an own Property class to handle transactions
     properties = property(_get_properties, _set_properties, _del_properties)
 
 
