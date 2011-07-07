@@ -298,18 +298,59 @@ class ExtensionsTestCase(TraversalsTestCase):
 class TransactionsTestCase(ExtensionsTestCase):
 
     def test_transaction_delete(self):
-        n1 = self.gdb.nodes.create()
-        n1["age"] = 25
+        n = self.gdb.nodes.create()
+        n["age"] = 25
         with self.gdb.transaction():
-            n1.delete("age")
-        self.assertTrue(n1.get("age", True))
+            n.delete("age")
+        self.assertIsInstance(n, client.Node)
+        self.assertTrue("age" not in n.properties)
+
+    def test_transaction_properties(self):
+        n = self.gdb.nodes.create()
+        n["age"] = 25
+        n["place"] = "Houston"
+        with self.gdb.transaction():
+            n.delete("age")
+        self.assertIsInstance(n, client.Node)
+        self.assertTrue("age" not in n.properties)
+        self.assertTrue("place" in n.properties)
+
+    def test_transaction_properties_update(self):
+        n = self.gdb.nodes.create()
+        n["age"] = 25
+        with self.gdb.transaction(update=False):
+            n.delete("age")
+        self.assertIsInstance(n, client.Node)
+        self.assertTrue("age" in n.properties)
+
+    def test_transaction_create(self):
+        with self.gdb.transaction():
+            n = self.gdb.nodes.create(age=25)
+        self.assertIsInstance(n, client.Node)
+        self.assertTrue(n.get("age", True))
+
+    def test_transaction_get(self):
+        n1 = self.gdb.nodes.get(1)
+        with self.gdb.transaction():
+            n2 = self.gdb.nodes.get(1)
+        self.assertIsInstance(n1, client.Node)
+        self.assertIsInstance(n2, client.Node)
+        self.assertTrue(n1 == n2)
+
+    def test_transaction_update(self):
+        n = self.gdb.nodes.create()
+        with self.gdb.transaction():
+            n["age"] = 25
+        self.assertIsInstance(n, client.Node)
+        self.assertTrue("age" in n.properties)
+        self.assertTrue("place" not in n.properties)
 
     def test_transaction_relationship(self):
         n1 = self.gdb.nodes.create()
         n2 = self.gdb.nodes.create()
-        n1.relationships.create("Knows", n2, since=1970)
         with self.gdb.transaction():
             r = n1.relationships.create("Knows", n2, since=1970)
+        self.assertIsInstance(r, client.Relationship)
         self.assertTrue(r is not None)
 
 

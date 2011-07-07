@@ -126,13 +126,14 @@ class GraphDatabase(object):
 
         return Traversal
 
-    def transaction(self, using_globals=True, commit=True, transaction_id=None,
-                    context=None):
+    def transaction(self, using_globals=True, commit=True, update=True,
+                    transaction_id=None, context=None):
         if transaction_id not in self._transactions:
             transaction_id = len(self._transactions.keys())
         self._transactions[transaction_id] = Transaction(self, transaction_id,
                                                          context or {},
-                                                         commit=commit)
+                                                         commit=commit,
+                                                         update=update)
         if using_globals:
             globals()[options.TX_NAME] = self._transactions[transaction_id]
         return self._transactions[transaction_id]
@@ -146,18 +147,22 @@ class TransactionOperation(dict):
     def __init__(self, **kwargs):
         super(TransactionOperation, self).__init__(kwargs)
 
+    def _self(self, obj):
+        self = obj
+
 
 class Transaction(object):
     """
     Transaction class.
     """
 
-    def __init__(self, cls, transaction_id, context, commit=True):
+    def __init__(self, cls, transaction_id, context, commit=True, update=True):
         self._class = cls
         self.url = self._class._batch
         self.id = transaction_id
         self.context = context
         self.auto_commit = commit
+        self.auto_update = update
         self.operations = []
 
     def __enter__(self):
@@ -172,21 +177,17 @@ class Transaction(object):
         result_dict = {}
         for result in results:
             result_id = result.pop("id")
-            returns = (result["from"].split("/")[0]
-                       or result["from"].split("/")[1])
-            if returns == NODE:
-                result["returns"] = Node
-            elif returns == RELATIONSHIP:
-                result["returns"] = Relationship
-            elif returns == PATH:
-                result["returns"] = Path
-            elif returns == POSITION:
-                result["returns"] = Position
+            if "body" in result and "self" in result["body"]:
+                if NODE in result["body"]["self"]:
+                    result["returns"] = Node
+                elif RELATIONSHIP in result["body"]["self"]:
+                    result["returns"] = Relationship
             if "returns" in result:
                 result_dict[result_id] = result
         return result_dict
 
     def _batch(self):
+        print self.operations
         response, content = Request().post(self.url, data=self.operations)
         if response.status == 200:
             results_list = json.loads(content)
@@ -205,14 +206,19 @@ class Transaction(object):
         for variable, value in variables.items():
             if isinstance(value, (TransactionOperation)):
                 result = results[value["id"]]
-                if (value in (TX_GET, TX_POST)
+                if (value["method"] in (TX_GET, TX_POST)
                     and "returns" in result
                     and "body" in result):
                     returned = result["returns"](result["body"]["self"])
                     inspect.getargvalues(frame).locals[variable] = returned
+                    inspect.getargvalues(frame).locals[variable].update({"returns": returned})
+                    inspect.getargvalues(frame).locals[variable]._self(returned)
                 else:
                     inspect.getargvalues(frame).locals[variable] = None
-        # TODO: Search on lists and dicts
+            elif self.auto_update and isinstance(value, Base):
+                print inspect.getargvalues(frame).locals[variable]
+                inspect.getargvalues(frame).locals[variable]._update()
+        # TODO: Search on lists and dicts?
         self.operations = []
         del self._class._transactions[self.id]
         if options.TX_NAME in globals():
@@ -254,15 +260,12 @@ class Base(object):
     Base class.
     """
 
-    def __init__(self, url, create=False, data={}, tx=None):
-        tx = Transaction.get_transaction(tx)
+    def __init__(self, url, create=False, data={}):
         self._dic = {}
         self.url = None
         if url.endswith("/"):
             url = url[:-1]
         if create:
-            if tx:
-                return tx.subscribe(TX_POST, url, data)
             response, content = Request().post(url, data=data)
             if response.status == 201:
                 self._dic.update(data.copy())
@@ -271,14 +274,16 @@ class Base(object):
                 raise NotFoundError(response.status, "Invalid data sent")
         if not self.url:
             self.url = url
-        if tx:
-            return tx.subscribe(TX_GET, self.url)
+        self._update(extensions=True)
+
+    def _update(self, extensions=False):
         response, content = Request().get(self.url)
         if response.status == 200:
             self._dic.update(json.loads(content).copy())
-            self._extensions = self._dic.get('extensions', {})
-            if self._extensions:
-                self.extensions = ExtensionsProxy(self._extensions)
+            if extensions:
+                self._extensions = self._dic.get('extensions', {})
+                if self._extensions:
+                    self.extensions = ExtensionsProxy(self._extensions)
         else:
             raise NotFoundError(response.status, "Unable get object")
 
@@ -335,7 +340,8 @@ class Base(object):
         property_url = self._dic["property"].replace("{key}", key)
         tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.subscribe(TX_PUT, property_url)
+            transaction_url = self._dic["property"].replace("{key}", "")
+            return tx.subscribe(TX_PUT, transaction_url, {key: value})
         response, content = Request().put(property_url, data=value)
         if response.status == 204:
             self._dic["data"].update({key: value})
@@ -488,18 +494,25 @@ class NodesProxy(dict):
         self._node_index = node_index
 
     def __call__(self, **kwargs):
+        tx = Transaction.get_transaction(kwargs.get("tx", None))
         reference = kwargs.pop("reference", False)
         if reference and self._reference_node:
-            return Node(self._reference_node)
+            return self.__getitem__(self._reference_node, tx=tx)
         else:
             return self.create(**kwargs)
 
     def __getitem__(self, key, tx=None):
         tx = Transaction.get_transaction(tx)
-        if isinstance(key, (str, unicode)) and key.startswith(self._node):
-            return Node(key, tx=tx)
+        if tx:
+            if isinstance(key, (str, unicode)) and key.startswith(self._node):
+                return tx.subscribe(TX_GET, key)
+            else:
+                return tx.subscribe(TX_GET, "%s/%s/" % (self._node, key))
         else:
-            return Node("%s/%s/" % (self._node, key), tx=tx)
+            if isinstance(key, (str, unicode)) and key.startswith(self._node):
+                return Node(key)
+            else:
+                return Node("%s/%s/" % (self._node, key))
 
     def get(self, key, *args, **kwargs):
         tx = Transaction.get_transaction(kwargs.get("tx", None))
@@ -515,15 +528,18 @@ class NodesProxy(dict):
 
     def create(self, **kwargs):
         tx = Transaction.get_transaction(kwargs.get("tx", None))
-        return Node(self._node, create=True, data=kwargs, tx=tx)
+        if tx:
+            return tx.subscribe(TX_POST, self._node, data=kwargs)
+        else:
+            return Node(self._node, create=True, data=kwargs)
 
     def delete(self, key, tx=None):
         tx = Transaction.get_transaction(tx)
         if tx:
+            return self.__getitem__(key, tx=tx)
+        else:
             node = self.__getitem__(key)
             del node
-        else:
-            return self.__getitem__(key, tx=tx)
 
     def _indexes(self):
         if self._node_index:
@@ -771,8 +787,8 @@ class Index(object):
                 raise TypeError("%s is a %s and the index is for %ss"
                                 % (item, self._index_for.capitalize(),
                                    self._index_for))
-            #TODO
-            #value = urllib.quote(value.encode('utf-8')) #Needs more testing
+            # TODO: Needs more testing
+            # value = urllib.quote(value.encode('utf-8'))
             value = urllib.quote(value)
             if isinstance(item, Base):
                 url_ref = item.url

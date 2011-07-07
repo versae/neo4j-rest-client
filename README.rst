@@ -164,7 +164,7 @@ incoming or outgoing relationships (typed or not)::
 In order improve the performance of the 'neo4jrestclient', minimizing the 
 number of HTTP requests that are made, all the functions that should return
 list of objects like Nodes, Relationships, Paths or Positions, they actually
-return an Iterable object that extends the Python 'list' type.
+return an Iterable object that extends the Python 'list' type::
 
   >>> rels = n1.relationships.all()[:]
   [<Neo4j Relationship: http://localhost:7474/db/data/relationship/35843>,
@@ -189,6 +189,22 @@ return an Iterable object that extends the Python 'list' type.
   >>> rels = n1.relationships.outgoing(["Knows", "Loves"])[:]
   [<Neo4j Relationship: http://localhost:7474/db/data/relationship/35842>,
    <Neo4j Relationship: http://localhost:7474/db/data/relationship/35847>]
+
+There's a shortcut to access to the list of all relationships::
+
+  >>> rels = n1.relationships.all()[2]
+  <Neo4j Relationship: http://localhost:7474/db/data/relationship/47>
+
+It's the same to::
+
+  >>> rels = n1.relationships[2]
+  <Neo4j Relationship: http://localhost:7474/db/data/relationship/47>
+
+And::
+
+  >>> rels = n1.relationships.get(2)
+  <Neo4j Relationship: http://localhost:7474/db/data/relationship/47>
+
 
 
 Traversals
