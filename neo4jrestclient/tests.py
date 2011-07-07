@@ -343,7 +343,6 @@ class TransactionsTestCase(ExtensionsTestCase):
             n["age"] = 25
         self.assertIsInstance(n, client.Node)
         self.assertTrue("age" in n.properties)
-        self.assertTrue("place" not in n.properties)
 
     def test_transaction_relationship(self):
         n1 = self.gdb.nodes.create()
@@ -352,6 +351,76 @@ class TransactionsTestCase(ExtensionsTestCase):
             r = n1.relationships.create("Knows", n2, since=1970)
         self.assertIsInstance(r, client.Relationship)
         self.assertTrue(r is not None)
+
+    def test_transaction_commit(self):
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        initial_rels = len(n1.relationships)
+        rels_number = 10
+        with self.gdb.transaction(commit=False) as tx:
+            for i in range(1, 1 + rels_number):
+                n1.relationships.create("relation_%s" % i, n2)
+        pre_commit_rels = len(n1.relationships)
+        self.assertTrue(initial_rels == pre_commit_rels)
+        tx.commit()
+        post_commit_rels = len(n1.relationships)
+        self.assertTrue(initial_rels + rels_number == post_commit_rels)
+
+    def test_transaction_globals(self):
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        initial_rels = len(n1.relationships)
+        rels_number = 10
+        with self.gdb.transaction(using_globals=False) as tx:
+            for i in range(1, 1 + rels_number):
+                n1.relationships.create("relation_%s" % i, n2, tx=tx)
+        self.assertTrue(initial_rels + rels_number == len(n1.relationships))
+
+    def test_transaction_update(self):
+        n = self.gdb.nodes.create()
+        n["age"] = 25
+        with self.gdb.transaction(update=False):
+            n.delete("age")
+        self.assertIsInstance(n, client.Node)
+        self.assertTrue("age" in n.properties)
+        n.update()
+        self.assertTrue("age" not in n.properties)
+
+    def test_transaction_set(self):
+        n = self.gdb.nodes.create()
+        n["age"] = 25
+        n["name"] = "John"
+        n["place"] = "Houston"
+        with self.gdb.transaction(commit=False, using_globals=False) as tx:
+            n["name"] = tx("Jonathan")
+            n["age", tx] = 30
+            n.set("place", "Toronto", tx=tx)
+        self.assertTrue(n["age"] == 25)
+        self.assertTrue(n["name"] == "John")
+        self.assertTrue(n["place"] == "Houston")
+        tx.commit()
+        self.assertTrue(n["age"] == 30)
+        self.assertTrue(n["name"] == "Jonathan")
+        self.assertTrue(n["place"] == "Toronto")
+
+#    def test_transaction_multiple(self):
+#        n = self.gdb.nodes.create()
+#        n["age"] = 25
+#        n["name"] = "John"
+#        n["place"] = "Houston"
+#        with self.gdb.transaction(commit=False, using_globals=False) as tx1, \
+#             self.gdb.transaction(commit=False, using_globals=False) as tx2:
+#            n.delete("age", tx=tx1)
+#            n["name"] = tx2("Jonathan")
+#            n["place", tx2] = "Toronto"
+#        self.assertTrue("age" in n.properties)
+#        tx1.commit()
+#        self.assertTrue("age" not in n.properties)
+#        self.assertTrue(n["name"] == "John")
+#        self.assertTrue(n["place"] == "Houston")
+#        tx2.commit()
+#        self.assertTrue(n["name"] == "Jonathan")
+#        self.assertTrue(n["place"] == "Toronto")
 
 
 class Neo4jPythonClientTestCase(TransactionsTestCase):

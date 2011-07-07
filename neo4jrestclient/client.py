@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-import inspect
 import json
 import urllib
+from inspect import getargvalues, stack
 from lucenequerybuilder import Q
 
 import options
@@ -141,14 +141,30 @@ class GraphDatabase(object):
 
 class TransactionOperation(dict):
     """
-    TransactionOperation class.
+    TransactionOperation class. A proxy to convert transaction operations
+    into final instances of Node or Relationship.
     """
 
     def __init__(self, **kwargs):
+        self._self = None
         super(TransactionOperation, self).__init__(kwargs)
 
-    def _self(self, obj):
-        self = obj
+    def __getattribute__(self, attr):
+        try:
+            if attr != "_self":
+                return getattr(object.__getattribute__(self, "_self"), attr)
+        except AttributeError:
+            pass
+        return object.__getattribute__(self, attr)
+
+    def __setattr__(self, attr, val):
+        if attr != "_self":
+            setattr(self._true, attr, val)
+        else:
+            dict.__setattr__(self, attr, val)
+
+    def change(self, cls, url):
+        self._self = cls(url)
 
 
 class Transaction(object):
@@ -164,11 +180,28 @@ class Transaction(object):
         self.auto_commit = commit
         self.auto_update = update
         self.operations = []
+        self._value = None
+
+    def __call__(self, value):
+        """
+        Call method in order to allow expresions like
+
+        >>> with gdb.transaction(using_globals=False) as tx:
+           ...:     n[key] = tx(value)
+        """
+        self._value = value
+        return self
+
+    def get_value(self):
+        return self._value
 
     def __enter__(self):
         return self
 
     def __exit__(self, type, value, traceback):
+        del self._class._transactions[self.id]
+        if options.TX_NAME in globals():
+            del globals()[options.TX_NAME]
         if self.auto_commit:
             return self.commit(type, value, traceback)
         return True
@@ -187,7 +220,6 @@ class Transaction(object):
         return result_dict
 
     def _batch(self):
-        print self.operations
         response, content = Request().post(self.url, data=self.operations)
         if response.status == 200:
             results_list = json.loads(content)
@@ -198,10 +230,11 @@ class Transaction(object):
 
     def commit(self, *args, **kwargs):
         results = self._batch()
-        # TODO: Is there any way to do this better?
+        # TODO: Is there any way to do this better? Study the weakref
+        # module: http://docs.python.org/library/weakref.html
         # Get the frame which makes the "with" statement
-        frame = inspect.stack()[2][0]
-        variables = inspect.getargvalues(frame).locals
+        frame = stack()[2][0]
+        variables = getargvalues(frame).locals
         # Search in first level variables
         for variable, value in variables.items():
             if isinstance(value, (TransactionOperation)):
@@ -209,20 +242,16 @@ class Transaction(object):
                 if (value["method"] in (TX_GET, TX_POST)
                     and "returns" in result
                     and "body" in result):
-                    returned = result["returns"](result["body"]["self"])
-                    inspect.getargvalues(frame).locals[variable] = returned
-                    inspect.getargvalues(frame).locals[variable].update({"returns": returned})
-                    inspect.getargvalues(frame).locals[variable]._self(returned)
+                    cls = result["returns"]
+                    url = result["body"]["self"]
+                    getargvalues(frame).locals[variable]["returns"] = result
+                    getargvalues(frame).locals[variable].change(cls, url)
                 else:
-                    inspect.getargvalues(frame).locals[variable] = None
+                    getargvalues(frame).locals[variable] = None
             elif self.auto_update and isinstance(value, Base):
-                print inspect.getargvalues(frame).locals[variable]
-                inspect.getargvalues(frame).locals[variable]._update()
-        # TODO: Search on lists and dicts?
+                getargvalues(frame).locals[variable].update(extensions=True)
+        # TODO: Search on elementos inside lists and values in dicts?
         self.operations = []
-        del self._class._transactions[self.id]
-        if options.TX_NAME in globals():
-            del globals()[options.TX_NAME]
         # Destroy the object after commit
         self = None
         if "type" in kwargs and isinstance(kwargs["type"], Exception):
@@ -238,8 +267,20 @@ class Transaction(object):
         }
         if data:
             params.update({"body": data})
-        transaction_operation = TransactionOperation(**params)
-        self.operations.append(transaction_operation)
+        # Reunify PUT methods in just one
+        transaction_operation = None
+        for i, operation in enumerate(self.operations):
+            if (operation["method"] == params["method"] == TX_PUT
+                and operation["to"] == params["to"]):
+                if "body" in operation:
+                    self.operations[i]["body"].update(params["body"])
+                else:
+                    self.operations[i]["body"] = params["body"]
+                transaction_operation = operation
+                break
+        if not transaction_operation:
+            transaction_operation = TransactionOperation(**params)
+            self.operations.append(transaction_operation)
         return transaction_operation
 
     @staticmethod
@@ -274,9 +315,9 @@ class Base(object):
                 raise NotFoundError(response.status, "Invalid data sent")
         if not self.url:
             self.url = url
-        self._update(extensions=True)
+        self.update()
 
-    def _update(self, extensions=False):
+    def update(self, extensions=True):
         response, content = Request().get(self.url)
         if response.status == 200:
             self._dic.update(json.loads(content).copy())
@@ -337,6 +378,12 @@ class Base(object):
         return obj in self._dic["data"]
 
     def __setitem__(self, key, value, tx=None):
+        if isinstance(key, (list, tuple)):
+            tx = tx or key[1]
+            key = key[0]
+        if isinstance(value, Transaction):
+            tx = tx or value
+            value = value.get_value()
         property_url = self._dic["property"].replace("{key}", key)
         tx = Transaction.get_transaction(tx)
         if tx:
@@ -529,6 +576,9 @@ class NodesProxy(dict):
     def create(self, **kwargs):
         tx = Transaction.get_transaction(kwargs.get("tx", None))
         if tx:
+            if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
+                x = kwargs.pop("tx", None)
+                del x  # Makes pyflakes happy
             return tx.subscribe(TX_POST, self._node, data=kwargs)
         else:
             return Node(self._node, create=True, data=kwargs)
@@ -564,6 +614,9 @@ class Node(Base):
                 "to": to.url,
                 "type": relationship_name,
             }
+            if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
+                x = kwargs.pop("tx", None)
+                del x  # Makes pyflakes happy
             if kwargs:
                 data.update({"data": kwargs})
             if tx:
@@ -950,6 +1003,7 @@ class Relationships(object):
     def __init__(self, node):
         self._node = node
         self._pattern = "{-list|&|types}"
+        self._dict = {}
 
     def __getattr__(self, relationship_type):
 
@@ -972,7 +1026,8 @@ class Relationships(object):
                                              "self")
                     # relationships = [Relationship(r["self"])
                     #                  for r in relationship_list]
-                    return relationships
+                    self._dict[relationship_type] = relationships
+                    return self._dict[relationship_type]
                 elif options.SMART_ERRORS:
                     raise KeyError("Node or relationship not found")
                 elif response.status == 404:
@@ -983,6 +1038,18 @@ class Relationships(object):
             raise NameError("name %s is not defined" % relationship_type)
 
         return get_relationships
+
+    def __len__(self, tx=None):
+        tx = Transaction.get_transaction(tx)
+        if tx:
+            return len(self.__getattr__("all")(tx=tx))
+        elif "all" in self._dict:
+            return len(self._dic["all"])
+        else:
+            return len(self.__getattr__("all")())
+
+    def count(self, tx=None):
+        return self.__len__(tx=tx)
 
     def __getitem__(self, index, tx=None):
         tx = Transaction.get_transaction(tx)
