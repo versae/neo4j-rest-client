@@ -94,6 +94,13 @@ class StatusException(Exception):
         return self.__str__()
 
 
+class TransactionException(StatusException):
+
+    def __init__(self, value=None):
+        result = "Node, relationship or property not found"
+        super(TransactionException, self).__init__(value, result)
+
+
 class NotFoundError(StatusException):
 
     def __init__(self, value=None, result=None):

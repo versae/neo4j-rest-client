@@ -214,7 +214,7 @@ class IndexesTestCase(RelationshipsTestCase):
         self.assertTrue(n1 in results and n2 in results)
         results = index.query('surnames', Q('do*'))
         self.assertTrue(n1 in results and n2 in results)
-        results = index.query(Q('surnames','do*'))
+        results = index.query(Q('surnames', 'do*'))
         self.assertTrue(n1 in results and n2 in results)
         results = index.query(Q('surnames', 'do*') & Q('place', 'Tijuana'))
         self.assertTrue(n1 not in results and n2 in results)
@@ -295,7 +295,25 @@ class ExtensionsTestCase(TraversalsTestCase):
         self.assertTrue(not fail)
 
 
-class Neo4jPythonClientTestCase(ExtensionsTestCase):
+class TransactionsTestCase(ExtensionsTestCase):
+
+    def test_transaction_delete(self):
+        n1 = self.gdb.nodes.create()
+        n1["age"] = 25
+        with self.gdb.transaction():
+            n1.delete("age")
+        self.assertTrue(n1.get("age", True))
+
+    def test_transaction_relationship(self):
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        n1.relationships.create("Knows", n2, since=1970)
+        with self.gdb.transaction():
+            r = n1.relationships.create("Knows", n2, since=1970)
+        self.assertTrue(r is not None)
+
+
+class Neo4jPythonClientTestCase(TransactionsTestCase):
     pass
 
 if __name__ == '__main__':
