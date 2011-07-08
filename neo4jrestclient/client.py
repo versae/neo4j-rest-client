@@ -208,7 +208,7 @@ class Base(object):
             self._dic["data"][key] = json.loads(content)
         else:
             if options.SMART_ERRORS:
-                raise KeyError()
+                raise KeyError(response.status, "Node or propery not found")
             else:
                 raise NotFoundError(response.status,
                                     "Node or propery not found")
@@ -247,7 +247,7 @@ class Base(object):
             del self._dic["data"][key]
         elif response.status == 404:
             if options.SMART_ERRORS:
-                raise KeyError()
+                raise KeyError(response.status, "Node or propery not found")
             else:
                 raise NotFoundError(response.status,
                                     "Node or propery not found")
@@ -719,6 +719,16 @@ class Index(object):
                                 "%s not found" % self._index_for.capitalize())
         elif response.status != 204:
             raise StatusException(response.status)
+            
+#                    response, content = Request().delete(self.url)
+#        if response.status == 204:
+#            del self
+#        elif response.status == 404:
+#            raise NotFoundError(response.status, "Node or property not found")
+#        else:
+#            raise StatusException(response.status, "Node could not be "\
+#                                                   "deleted (still has " \
+#                                                   "relationships?)")
 
     def query(self, *args):
         """
