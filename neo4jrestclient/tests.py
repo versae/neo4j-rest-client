@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import client
 import constants
 import request
@@ -175,6 +177,18 @@ class IndexesTestCase(RelationshipsTestCase):
         index = self.gdb.nodes.indexes.create(name="doe")
         index["surnames"]["d"] = n1
         self.assertTrue(n1 in index["surnames"]["d"])
+        
+    def test_create_index_for_nodes_unicode(self):
+        n1 = self.gdb.nodes.create(name="Lemmy", band="Mötorhead")
+        index = self.gdb.nodes.indexes.create(name="doe")
+        index["band"]["Mötorhead"] = n1
+        self.assertTrue(n1 in index["band"]["Mötorhead"])
+        
+    def test_create_index_for_nodes_quote_plus(self):
+        n1 = self.gdb.nodes.create(name="Brian", band="AC/DC")
+        index = self.gdb.nodes.indexes.create(name="doe")
+        index["band"]["AC/DC"] = n1
+        self.assertTrue(n1 in index["band"]["AC/DC"])
 
     def test_create_index_for_relationships(self):
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")

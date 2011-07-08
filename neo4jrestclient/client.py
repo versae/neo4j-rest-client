@@ -276,7 +276,7 @@ class Base(object):
         property_url = self._dic["property"].replace("{key}", key)
         tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.subscribe(TX_GET, url)
+            return tx.subscribe(TX_GET, self.url)
         response, content = Request().get(property_url)
         if response.status == 200:
             self._dic["data"][key] = json.loads(content)
@@ -717,6 +717,7 @@ class Index(object):
             self.url = url
 
         def __getitem__(self, value):
+            value = urllib.quote_plus(value)
             url = "%s/%s" % (self.url, value)
             return Index._get_results(url, self._index_for)
 
@@ -730,9 +731,7 @@ class Index(object):
                 raise TypeError("%s is a %s and the index is for %ss"
                                 % (item, self._index_for.capitalize(),
                                    self._index_for))
-            #TODO
-            #value = urllib.quote(value.encode('utf-8')) #Needs more testing
-            value = urllib.quote(value)
+            value = urllib.quote_plus(value)
             if isinstance(item, Base):
                 url_ref = item.url
             else:
@@ -813,16 +812,6 @@ class Index(object):
                                 "%s not found" % self._index_for.capitalize())
         elif response.status != 204:
             raise StatusException(response.status)
-            
-#                    response, content = Request().delete(self.url)
-#        if response.status == 204:
-#            del self
-#        elif response.status == 404:
-#            raise NotFoundError(response.status, "Node or property not found")
-#        else:
-#            raise StatusException(response.status, "Node could not be "\
-#                                                   "deleted (still has " \
-#                                                   "relationships?)")
 
     def query(self, *args):
         """
