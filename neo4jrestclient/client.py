@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import urllib
+import weakref
 from inspect import getargvalues, stack
 from lucenequerybuilder import Q
 
@@ -139,15 +140,20 @@ class GraphDatabase(object):
         return self._transactions[transaction_id]
 
 
-class TransactionOperation(dict):
+class TransactionOperationProxy(dict, object):
     """
-    TransactionOperation class. A proxy to convert transaction operations
+    TransactionOperationProxy class. A proxy to convert transaction operations
     into final instances of Node or Relationship.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, obj=None, attr=None, **kwargs):
         self._self = None
-        super(TransactionOperation, self).__init__(kwargs)
+        if obj:
+            self._object_ref = weakref.ref(obj)
+        else:
+            self._object_ref = None
+        self._attribute = attr
+        super(TransactionOperationProxy, self).__init__(kwargs)
 
     def __getattribute__(self, attr):
         try:
@@ -157,14 +163,47 @@ class TransactionOperation(dict):
             pass
         return object.__getattribute__(self, attr)
 
-    def __setattr__(self, attr, val):
-        if attr != "_self":
-            setattr(self._true, attr, val)
+    def __setattribute__(self, attr, val):
+        if attr in ("_object_ref", "_attribute"):
+            object.__setattribute__(self, attr, val)
+        elif attr != "_self":
+            setattr(self._self, attr, val)
         else:
-            dict.__setattr__(self, attr, val)
+            dict.__setattribute__(self, attr, val)
 
-    def change(self, cls, url):
-        self._self = cls(url)
+    def __repr__(self):
+        return self.__unicode__()
+
+    def __str__(self):
+        return self.__unicode__()
+
+    def __unicode__(self):
+        attr = "__unicode__"
+        try:
+            return getattr(object.__getattribute__(self, "_self"), attr)()
+        except AttributeError:
+            pass
+        return object.__repr__(self)
+
+    def __getitem__(self, key):
+        attr = "__getitem__"
+        try:
+            return getattr(object.__getattribute__(self, "_self"), attr)(key)
+        except AttributeError:
+            pass
+        return dict.__getitem__(self, key)
+
+    def get_object(self):
+        if self._object_ref:
+            return self._object_ref()
+        else:
+            return None
+
+    def get_attribute(self):
+        return self._attribute
+
+    def change(self, cls, url, data=None):
+        self._self = cls(url, update_dict=data)
 
 
 class Transaction(object):
@@ -180,7 +219,9 @@ class Transaction(object):
         self.auto_commit = commit
         self.auto_update = update
         self.operations = []
+        self.references = []
         self._value = None
+        self._attribute = None
 
     def __call__(self, value):
         """
@@ -230,27 +271,26 @@ class Transaction(object):
 
     def commit(self, *args, **kwargs):
         results = self._batch()
-        # TODO: Is there any way to do this better? Study the weakref
-        # module: http://docs.python.org/library/weakref.html
-        # Get the frame which makes the "with" statement
-        frame = stack()[2][0]
-        variables = getargvalues(frame).locals
-        # Search in first level variables
-        for variable, value in variables.items():
-            if isinstance(value, (TransactionOperation)):
-                result = results[value["id"]]
-                if (value["method"] in (TX_GET, TX_POST)
-                    and "returns" in result
-                    and "body" in result):
-                    cls = result["returns"]
-                    url = result["body"]["self"]
-                    getargvalues(frame).locals[variable]["returns"] = result
-                    getargvalues(frame).locals[variable].change(cls, url)
-                else:
-                    getargvalues(frame).locals[variable] = None
-            elif self.auto_update and isinstance(value, Base):
-                getargvalues(frame).locals[variable].update(extensions=True)
-        # TODO: Search on elementos inside lists and values in dicts?
+        # Objects to update
+        if self.auto_update:
+            for operation in self.operations:
+                on_object = operation.get_object()
+                if hasattr(on_object, "update"):
+                    on_object.update(extensions=False)
+        # Objects to return
+        for referenced_object in self.references:
+                ref_object = referenced_object()
+                result = results[ref_object["id"]]
+                if "returns" in result:
+                    if "location" in result:
+                        cls = result["returns"]
+                        url = result["body"]["self"]
+                    elif "body" in result:
+                        cls = result["returns"]
+                        url = result["body"]["self"]
+                    if cls and url:
+                        ref_object.change(cls, url, data=result)
+        self.references = []
         self.operations = []
         # Destroy the object after commit
         self = None
@@ -259,7 +299,7 @@ class Transaction(object):
         else:
             return True
 
-    def subscribe(self, method, url, data=None):
+    def subscribe(self, method, url, data=None, obj=None):
         params = {
             "method": method,
             "to": "/%s" % url.replace(self._class.url, ""),
@@ -279,8 +319,11 @@ class Transaction(object):
                 transaction_operation = operation
                 break
         if not transaction_operation:
-            transaction_operation = TransactionOperation(**params)
+            transaction_operation = TransactionOperationProxy(obj=obj,
+                                                              **params)
             self.operations.append(transaction_operation)
+            if method in (TX_POST, TX_GET):
+                self.references.append(weakref.ref(transaction_operation))
         return transaction_operation
 
     @staticmethod
@@ -301,9 +344,11 @@ class Base(object):
     Base class.
     """
 
-    def __init__(self, url, create=False, data={}):
+    def __init__(self, url, create=False, data={}, update_dict={}):
         self._dic = {}
         self.url = None
+        # TODO: Allow update an object using only a new data dict of properties
+        self._update_dict =  update_dict
         if url.endswith("/"):
             url = url[:-1]
         if create:
@@ -333,7 +378,7 @@ class Base(object):
             return self.__delitem__(key, tx=tx)
         tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.subscribe(TX_DELETE, self.url)
+            return tx.subscribe(TX_DELETE, self.url, obj=self)
         response, content = Request().delete(self.url)
         if response.status == 204:
             del self
@@ -348,7 +393,7 @@ class Base(object):
         property_url = self._dic["property"].replace("{key}", key)
         tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.subscribe(TX_GET, property_url)
+            return tx.subscribe(TX_GET, property_url, obj=self)
         response, content = Request().get(property_url)
         if response.status == 200:
             self._dic["data"][key] = json.loads(content)
@@ -388,7 +433,7 @@ class Base(object):
         tx = Transaction.get_transaction(tx)
         if tx:
             transaction_url = self._dic["property"].replace("{key}", "")
-            return tx.subscribe(TX_PUT, transaction_url, {key: value})
+            return tx.subscribe(TX_PUT, transaction_url, {key: value}, obj=self)
         response, content = Request().put(property_url, data=value)
         if response.status == 204:
             self._dic["data"].update({key: value})
@@ -407,7 +452,7 @@ class Base(object):
         property_url = self._dic["property"].replace("{key}", key)
         tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.subscribe(TX_DELETE, property_url)
+            return tx.subscribe(TX_DELETE, property_url, obj=self)
         response, content = Request().delete(property_url)
         if response.status == 204:
             del self._dic["data"][key]
@@ -552,9 +597,9 @@ class NodesProxy(dict):
         tx = Transaction.get_transaction(tx)
         if tx:
             if isinstance(key, (str, unicode)) and key.startswith(self._node):
-                return tx.subscribe(TX_GET, key)
+                return tx.subscribe(TX_GET, key, obj=self)
             else:
-                return tx.subscribe(TX_GET, "%s/%s/" % (self._node, key))
+                return tx.subscribe(TX_GET, "%s/%s/" % (self._node, key), obj=self)
         else:
             if isinstance(key, (str, unicode)) and key.startswith(self._node):
                 return Node(key)
@@ -579,7 +624,7 @@ class NodesProxy(dict):
             if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
                 x = kwargs.pop("tx", None)
                 del x  # Makes pyflakes happy
-            return tx.subscribe(TX_POST, self._node, data=kwargs)
+            return tx.subscribe(TX_POST, self._node, data=kwargs, obj=self)
         else:
             return Node(self._node, create=True, data=kwargs)
 
@@ -621,7 +666,7 @@ class Node(Base):
                 data.update({"data": kwargs})
             if tx:
                 return tx.subscribe(TX_POST, create_relationship_url,
-                                    data=data)
+                                    data=data, obj=self)
             response, content = Request().post(create_relationship_url,
                                                data=data)
             if response.status == 201:
@@ -1018,7 +1063,7 @@ class Relationships(object):
                     key = "%s_relationships" % relationship_type
                     url = self._node._dic[key]
                 if tx:
-                    return tx.subscribe(TX_GET, url)
+                    return tx.subscribe(TX_GET, url, obj=self)
                 response, content = Request().get(url)
                 if response.status == 200:
                     relationship_list = json.loads(content)
