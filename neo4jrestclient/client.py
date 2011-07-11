@@ -1136,6 +1136,7 @@ class Path(object):
     def __init__(self, dic):
         self.start = property(Node(dic["start"]))
         self.end = property(Node(dic["end"]))
+        self.weight = property(dic.get("weight", None))
         self._length = int(dic["length"])
         nodes = []
         relationships = []
