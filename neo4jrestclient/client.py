@@ -938,7 +938,7 @@ class Index(object):
     def get(self, key, value=None):
         key = urllib.quote(key)
         if value:
-            value = urllib.quote(value)
+            value = urllib.quote_plus(value)
             return self.IndexKey(self._index_for,
                                  "%s/%s" % (self.url, key))[value]
         else:
@@ -949,7 +949,7 @@ class Index(object):
             raise TypeError("%s has no url attribute" % item)
         if key and value:
             key = urllib.quote(key)
-            value = urllib.quote(value)
+            value = urllib.quote_plus(value)
             url = self.template.replace("{key}", key).replace("{value}", value)
             url = "%s/%s" % (url, item.id)
         elif key and not value:
