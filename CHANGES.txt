@@ -1,6 +1,35 @@
 Changes
 -------
 
+1.4.0 (2011-07-11)
+------------------
+ - Updated version number for the new release.
+ - Updated documentation.
+ - Updated develpment requirements.
+ - Added support for paginated traversals.
+ - Passed pyflakes and pep08 on tests.
+ - Added weight to Path class.
+ - Index values now quoted_plus.
+ - Changed quote to quote_plus for index values.
+ - Added two tests for unicode and url chars in index values.
+ - Added initial documentacion for transactions.
+ - Added the transaction support and several tests.
+ - Fixed the implementation of __contains__ in Iterable class for evaluation of 'in' and 'not in' expressions.
+ - Added documentation for Iterable objects.
+ - Added more transactions features.
+ - Added requirements file for virtual environments in development.
+ - Improved number of queries slicing the returned objects in a Iterable
+   wrapper class.
+ - Added Q syntax for more complicated queries.
+ - Added support for the Q query syntax for indexes (resolving the TODO in
+   7513ce843f9...) using the DSL at http://github.com/scholrly/lucene-querybuilder
+   by @epurcell3.
+ - Fixed an error in the test_query_index case (forgot to include an 'or'.
+   between queries).
+ - Added lucene-querybuilder to the test requirements in setup.py.
+ - Added a test case for Q-based queries.
+
+
 1.3.4 (2011-06-22)
 ------------------
  - Fixed the setup.py and httplib2 import error during installing.
