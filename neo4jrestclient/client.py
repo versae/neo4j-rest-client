@@ -872,7 +872,7 @@ class Index(object):
             self.url = url
 
         def __getitem__(self, value):
-            url = "%s/%s" % (self.url, value)
+            url = "%s/%s" % (self.url, urllib.quote_plus(value))
             return Index._get_results(url, self._index_for)
 
         def __setitem__(self, value, item):
@@ -885,9 +885,7 @@ class Index(object):
                 raise TypeError("%s is a %s and the index is for %ss"
                                 % (item, self._index_for.capitalize(),
                                    self._index_for))
-            # TODO: Needs more testing
-            # value = urllib.quote(value.encode('utf-8'))
-            value = urllib.quote(value)
+            value = urllib.quote_plus(value)
             if isinstance(item, Base):
                 url_ref = item.url
             else:
@@ -907,7 +905,7 @@ class Index(object):
                                       ", data %s" % (request_url, url_ref))
 
         def query(self, value):
-            url = "%s?query=%s" % (self.url, urllib.quote(value))
+            url = "%s?query=%s" % (self.url, urllib.quote_plus(value))
             return Index._get_results(url, self._index_for)
 
     def __init__(self, index_for, name, **kwargs):
@@ -939,7 +937,7 @@ class Index(object):
     def get(self, key, value=None):
         key = urllib.quote(key)
         if value:
-            value = urllib.quote(value)
+            value = urllib.quote_plus(value)
             return self.IndexKey(self._index_for,
                                  "%s/%s" % (self.url, key))[value]
         else:
@@ -950,7 +948,7 @@ class Index(object):
             raise TypeError("%s has no url attribute" % item)
         if key and value:
             key = urllib.quote(key)
-            value = urllib.quote(value)
+            value = urllib.quote_plus(value)
             url = self.template.replace("{key}", key).replace("{value}", value)
             url = "%s/%s" % (url, item.id)
         elif key and not value:
