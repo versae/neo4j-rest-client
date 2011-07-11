@@ -235,16 +235,12 @@ Added way (the types of relationships are 'All', 'Incoming', 'Outgoing')::
   >>> n1.traverse(types=[client.All.Knows])[:]
   [<Neo4j Node: http://localhost:7474/db/data/node/15880>]
 
+
 For getting a paginated traversal is only needed one of the next parameters: 
 'paginated' to enable the pagination, 'page_size' to set the size of returned
 page, and 'time_out' to establish the lease time that the server will wait for.
 After set any of this parameters, the traversal call will return an iterable 
 object of traversals called 'PaginatedTraversal'::
-
-
-<client.PaginatedTraversal object at 0x2594a50>
-<client.PaginatedTraversal object at 0x2594a50>
-
 
   >>> pages = n1.traverse(types=[client.All.Knows], stop=stop, page_size=5)
   
@@ -517,8 +513,6 @@ There are many ways to set the transaction of a intruction (operation)::
   
   >>> n["place"] == "Houston"
   False
-
-
 
 
 
