@@ -5,4 +5,4 @@ DEBUG = False
 # Smart errors
 SMART_ERRORS = False
 # Transactions
-TX_VARIABLE = "_tx"
+TX_NAME = "_tx"
