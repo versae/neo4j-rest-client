@@ -2,7 +2,6 @@
 import json
 import urllib
 import weakref
-from inspect import getargvalues, stack
 from lucenequerybuilder import Q
 
 import options
@@ -10,9 +9,10 @@ from constants import (BREADTH_FIRST, DEPTH_FIRST,
                        STOP_AT_END_OF_GRAPH,
                        NODE_GLOBAL, NODE_PATH, NODE_RECENT,
                        RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
-                       RELATIONSHIP_RECENT,
+                       RELATIONSHIP_RECENT, NONE,
                        NODE, RELATIONSHIP, PATH, POSITION,
-                       INDEX_FULLTEXT, TX_GET, TX_PUT, TX_POST, TX_DELETE)
+                       INDEX_FULLTEXT, TX_GET, TX_PUT, TX_POST, TX_DELETE,
+                       RELATIONSHIPS_ALL, RELATIONSHIPS_IN, RELATIONSHIPS_OUT)
 from request import (Request, NotFoundError, StatusException,
                      TransactionException)
 
@@ -39,7 +39,7 @@ class MetaTraversal(type):
 
     def __new__(cls, name, bases, dic):
         for attr in ["types", "order", "stop", "returnable", "uniqueness",
-                     "returns"]:
+                     "paginated", "page_size", "time_out", "returns"]:
             dic[attr] = dic.get(attr, None)
         dic["is_returnable"] = dic.get("is_returnable",
                                        dic.get("isReturnable", None))
@@ -112,6 +112,9 @@ class GraphDatabase(object):
                                                    uniqueness=self.uniqueness,
                                                    is_stop_node=is_stop_node,
                                                    is_returnable=is_returnable,
+                                                   paginated=self.paginated,
+                                                   page_size=self.page_size,
+                                                   time_out=self.time_out,
                                                    returns=self.returns)
                 self._items = results
                 self._index = len(results)
@@ -284,7 +287,7 @@ class Transaction(object):
                 if "returns" in result:
                     if "location" in result:
                         cls = result["returns"]
-                        url = result["body"]["self"]
+                        url = result["location"]
                     elif "body" in result:
                         cls = result["returns"]
                         url = result["body"]["self"]
@@ -348,7 +351,7 @@ class Base(object):
         self._dic = {}
         self.url = None
         # TODO: Allow update an object using only a new data dict of properties
-        self._update_dict =  update_dict
+        self._update_dict = update_dict
         if url.endswith("/"):
             url = url[:-1]
         if create:
@@ -692,25 +695,26 @@ class Node(Base):
 
     def traverse(self, types=None, order=None, stop=None, returnable=None,
                  uniqueness=None, is_stop_node=None, is_returnable=None,
+                 paginated=False, page_size=None, time_out=None,
                  returns=None):
         data = {}
         if order in (BREADTH_FIRST, DEPTH_FIRST):
             data.update({"order": order})
         if isinstance(stop, (int, float)):
-            data.update({"max depth": stop})
+            data.update({"max_depth": stop})
         elif stop == STOP_AT_END_OF_GRAPH:
-            data.update({'prune evaluator': {
+            data.update({'prune_evaluator': {
                 'language': 'javascript',
                 'body': 'false',
             }})
         if returnable in (BREADTH_FIRST, DEPTH_FIRST):
-            data.update({"return filter": {
+            data.update({"return_filter": {
                 "language": "builtin",
                 "name": returnable,
             }})
         if uniqueness in (NODE_GLOBAL, NODE_PATH, NODE_RECENT, NODE,
                           RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
-                          RELATIONSHIP_RECENT):
+                          RELATIONSHIP_RECENT, NONE):
             data.update({"uniqueness": uniqueness})
         if types:
             if not isinstance(types, (list, tuple)):
@@ -726,23 +730,83 @@ class Node(Base):
                 data.update({"relationships": relationships})
         if returns not in (NODE, RELATIONSHIP, PATH, POSITION):
             returns = NODE
-        traverse_url = self._dic["traverse"].replace("{returnType}", returns)
-        response, content = Request().post(traverse_url, data=data)
-        if response.status == 200:
-            results_list = json.loads(content)
-            if returns == NODE:
-                return Iterable(Node, results_list, "self")
-            elif returns == RELATIONSHIP:
-                return Iterable(Relationship, results_list, "self")
-            elif returns == PATH:
-                return Iterable(Path, results_list)
-            elif returns == POSITION:
-                return Iterable(Position, results_list)
-        elif response.status == 404:
-            raise NotFoundError(response.status, "Node or relationship not " \
-                                                 "found")
+        if ((paginated or page_size or time_out)
+            and "paged_traverse" in self._dic):
+            traverse_params = []
+            if page_size:
+                traverse_params.append("pageSize=%s" % page_size)
+            if time_out:
+                traverse_params.append("leaseTime=%s" % time_out)
+            traverse_url = self._dic["paged_traverse"].replace("{returnType}",
+                                                               returns)
+            traverse_url = traverse_url.replace("{?pageSize,leaseTime}", "")
+            if traverse_params:
+                traverse_url = "%s?%s" % (traverse_url,
+                                          "&".join(traverse_params))
+            return PaginatedTraversal(traverse_url, returns, data=data)
         else:
-            raise StatusException(response.status, "Invalid data sent")
+            traverse_url = self._dic["traverse"].replace("{returnType}",
+                                                         returns)
+            response, content = Request().post(traverse_url, data=data)
+            if response.status == 200:
+                results_list = json.loads(content)
+                if returns == NODE:
+                    return Iterable(Node, results_list, "self")
+                elif returns == RELATIONSHIP:
+                    return Iterable(Relationship, results_list, "self")
+                elif returns == PATH:
+                    return Iterable(Path, results_list)
+                elif returns == POSITION:
+                    return Iterable(Position, results_list)
+            elif response.status == 404:
+                raise NotFoundError(response.status, "Node or relationship " \
+                                                     "not found")
+            else:
+                raise StatusException(response.status, "Invalid data sent")
+
+
+class PaginatedTraversal(object):
+    """
+    Class for paged traversals.
+    """
+
+    def __init__(self, url, returns, data=None):
+        self.url = url
+        self.returns = returns
+        self.data = data
+        self._results = []
+        response, content = Request().post(self.url, data=self.data)
+        if response.status == 201:
+            self._results = json.loads(content)
+            self._next_url = response.get("location")
+        else:
+            self._next_url = None
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self._results:
+            self._item = False
+            if self.returns == NODE:
+                results = Iterable(Node, self._results, "self")
+            elif self.returns == RELATIONSHIP:
+                results = Iterable(Relationship, self._results, "self")
+            elif self.returns == PATH:
+                results = Iterable(Path, self._results)
+            elif self.returns == POSITION:
+                results = Iterable(Position, self._results)
+            self._results = []
+            if self._next_url:
+                response, content = Request().get(self._next_url)
+                if response.status == 200:
+                    self._results = json.loads(content)
+                    self._next_url = response.get("location")
+                else:
+                    self._next_url = None
+            return results
+        else:
+            raise StopIteration
 
 
 class IndexesProxy(dict):
@@ -1071,13 +1135,17 @@ class Relationships(object):
                     #                  for r in relationship_list]
                     self._dict[relationship_type] = relationships
                     return self._dict[relationship_type]
-                elif options.SMART_ERRORS:
-                    raise KeyError("Node or relationship not found")
                 elif response.status == 404:
-                    raise NotFoundError(response.status,
-                                        "Node or relationship not found")
+                    if options.SMART_ERRORS:
+                        return []
+                    else:
+                        raise NotFoundError(response.status,
+                                            "Node or relationship not found")
                 else:
-                    raise StatusException(response.status, "Node not found")
+                    if options.SMART_ERRORS:
+                        raise KeyError("Node not found")
+                    else:
+                        raise StatusException(response.status, "Node not found")
             raise NameError("name %s is not defined" % relationship_type)
 
         return get_relationships
@@ -1195,9 +1263,10 @@ class BaseInAndOut(object):
             'type': property(lambda self: attr),
         })()
 
-Outgoing = BaseInAndOut(direction="out")
-Incoming = BaseInAndOut(direction="in")
-Undirected = BaseInAndOut(direction="both")
+All = BaseInAndOut(direction=RELATIONSHIPS_ALL)
+Incoming = BaseInAndOut(direction=RELATIONSHIPS_IN)
+Outgoing = BaseInAndOut(direction=RELATIONSHIPS_OUT)
+Undirected = BaseInAndOut(direction="both")  # Deprecated, use "All" instead
 
 
 class ExtensionsProxy(dict):

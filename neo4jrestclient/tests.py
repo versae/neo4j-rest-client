@@ -167,7 +167,7 @@ class RelationshipsTestCase(NodesTestCase):
         n2 = self.gdb.nodes.create()
         rel = n1.relationships.create("Knows", n2, since=1970)
         rel.delete()
-        self.assertTrue(len(n1.relationships.outgoing("Knows")) == 0)
+        self.assertEqual(len(n1.relationships.outgoing("Knows")), 0)
 
 
 class IndexesTestCase(RelationshipsTestCase):
@@ -263,14 +263,14 @@ class TraversalsTestCase(IndexesTestCase):
         # STOP_AT_END_OF_GRAPH didn't break traversing by type
         nodes[-1].relationships.create("Test", self.gdb.nodes.create())
         types = [
-            client.Undirected.Knows,
+            client.All.Knows,
         ]
         stop = constants.STOP_AT_END_OF_GRAPH
         traversal = nodes[0].traverse(types=types, stop=stop)
-        self.assertTrue(len(traversal) == len(nodes) - 1)
+        self.assertEqual(len(traversal), len(nodes) - 1)
         # Test an untyple traversal
         traversal = nodes[0].traverse(stop=stop)
-        self.assertTrue(len(traversal) == len(nodes))
+        self.assertEqual(len(traversal), len(nodes))
 
     def test_create_traversal_class(self):
         n1 = self.gdb.nodes.create()
@@ -280,13 +280,50 @@ class TraversalsTestCase(IndexesTestCase):
         class TraversalClass(self.gdb.Traversal):
 
             types = [
-                client.Undirected.Knows,
+                client.All.Knows,
             ]
 
         results = []
         for result in TraversalClass(n1):
             results.append(result)
         self.assertTrue(len(results) > 0)
+
+    def test_paginated_traversal(self):
+        """
+        Tests the use of paginated traversals.
+        """
+        nodes = [self.gdb.nodes.create() for i in xrange(10)]
+        # Chain them into a linked list
+        last = None
+        for n in nodes:
+            if last:
+                last.relationships.create("Knows", n)
+            last = n
+        # Toss in a different relationship type to ensure the
+        # STOP_AT_END_OF_GRAPH didn't break traversing by type
+        nodes[-1].relationships.create("Test", self.gdb.nodes.create())
+        types = [
+            client.All.Knows,
+        ]
+        stop = constants.STOP_AT_END_OF_GRAPH
+        pages = nodes[0].traverse(types=types, stop=stop, page_size=5)
+        traversal_length = 0
+        pages_count = 0
+        for traversal in pages:
+            traversal_length += len(traversal)
+            pages_count += 1
+        self.assertEqual(traversal_length, len(nodes) - 1)
+        self.assertEqual(pages_count, 2)
+        # And make the same test only passing "paginated" argument
+        pages = nodes[0].traverse(types=types, stop=stop, paginated=True)
+        traversal_length = 0
+        for traversal in pages:
+            traversal_length += len(traversal)
+        self.assertEqual(traversal_length, len(nodes) - 1)
+        # Set a ridiculous time_out for getting no results
+        pages = nodes[0].traverse(stop=stop, time_out=0.000001)
+        traversal_length = len([n for n in [t for t in pages]])
+        self.assertEqual(traversal_length, 0)
 
 
 class ExtensionsTestCase(TraversalsTestCase):
@@ -349,7 +386,7 @@ class TransactionsTestCase(ExtensionsTestCase):
             n2 = self.gdb.nodes.get(1)
         self.assertIsInstance(n1, client.Node)
         self.assertIsInstance(n2, client.Node)
-        self.assertTrue(n1 == n2)
+        self.assertEqual(n1, n2)
 
     def test_transaction_property(self):
         n = self.gdb.nodes.create()
@@ -375,10 +412,10 @@ class TransactionsTestCase(ExtensionsTestCase):
             for i in range(1, 1 + rels_number):
                 n1.relationships.create("relation_%s" % i, n2)
         pre_commit_rels = len(n1.relationships)
-        self.assertTrue(initial_rels == pre_commit_rels)
+        self.assertEqual(initial_rels, pre_commit_rels)
         tx.commit()
         post_commit_rels = len(n1.relationships)
-        self.assertTrue(initial_rels + rels_number == post_commit_rels)
+        self.assertEqual(initial_rels + rels_number, post_commit_rels)
 
     def test_transaction_globals(self):
         n1 = self.gdb.nodes.create()
@@ -388,7 +425,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         with self.gdb.transaction(using_globals=False) as tx:
             for i in range(1, 1 + rels_number):
                 n1.relationships.create("relation_%s" % i, n2, tx=tx)
-        self.assertTrue(initial_rels + rels_number == len(n1.relationships))
+        self.assertEqual(initial_rels + rels_number, len(n1.relationships))
 
     def test_transaction_update(self):
         n = self.gdb.nodes.create()
@@ -409,13 +446,13 @@ class TransactionsTestCase(ExtensionsTestCase):
             n["name"] = tx("Jonathan")
             n["age", tx] = 30
             n.set("place", "Toronto", tx=tx)
-        self.assertTrue(n["age"] == 25)
-        self.assertTrue(n["name"] == "John")
-        self.assertTrue(n["place"] == "Houston")
+        self.assertEqual(n["age"], 25)
+        self.assertEqual(n["name"], "John")
+        self.assertEqual(n["place"], "Houston")
         tx.commit()
-        self.assertTrue(n["age"] == 30)
-        self.assertTrue(n["name"] == "Jonathan")
-        self.assertTrue(n["place"] == "Toronto")
+        self.assertEqual(n["age"], 30)
+        self.assertEqual(n["name"], "Jonathan")
+        self.assertEqual(n["place"], "Toronto")
 
     def test_transaction_multiple(self):
         n = self.gdb.nodes.create()
@@ -430,11 +467,11 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertTrue("age" in n.properties)
         tx1.commit()
         self.assertTrue("age" not in n.properties)
-        self.assertTrue(n["name"] == "John")
-        self.assertTrue(n["place"] == "Houston")
+        self.assertEqual(n["name"], "John")
+        self.assertEqual(n["place"], "Houston")
         tx2.commit()
-        self.assertTrue(n["name"] == "Jonathan")
-        self.assertTrue(n["place"] == "Toronto")
+        self.assertEqual(n["name"], "Jonathan")
+        self.assertEqual(n["place"], "Toronto")
 
     def test_transaction_list(self):
         n1 = self.gdb.nodes.create()
@@ -447,7 +484,7 @@ class TransactionsTestCase(ExtensionsTestCase):
                 relation = n1.relationships.create("relation_%s" % i, n2)
                 relations.append(relation)
         tx.commit()
-        self.assertTrue(initial_rels + rels_number == len(n1.relationships))
+        self.assertEqual(initial_rels + rels_number, len(n1.relationships))
         self.assertTrue(all([isinstance(r, client.Relationship)]
                              for r in relations))
 
@@ -459,7 +496,7 @@ class TransactionsTestCase(ExtensionsTestCase):
                 nodes[i] = self.gdb.nodes.create(position=i)
         for position, node in nodes.items():
             self.assertIsInstance(node, client.Node)
-            self.assertTrue(position == node["position"])
+            self.assertEqual(position, node["position"])
 
 
 class Neo4jPythonClientTestCase(TransactionsTestCase):
