@@ -39,19 +39,11 @@ If CACHE is 'True', a '.cache' directory is created and the future request to
 the same URL will be taken from cache::
 
   neo4jrestclient.options.CACHE = False # Default
-<<<<<<< HEAD
 
 If DEBUG is 'True', 'httplib2' is set to debuglevel = 1::
 
   neo4jrestclient.options.DEBUG = False # Default
 
-=======
-
-If DEBUG is 'True', 'httplib2' is set to debuglevel = 1::
-
-  neo4jrestclient.options.DEBUG = False # Default
-
->>>>>>> 1150e3415ae3ce7cefcfdf1cc30e2462b0be5799
 And SMART_ERRORS, set to 'False' by default. In case of 'True', the standard
 HTTP errors will be replaced by more pythonic errors (i.e. 'KeyError' instead
 of 'NotFoundError' in some cases)::
@@ -172,11 +164,7 @@ incoming or outgoing relationships (typed or not)::
 In order improve the performance of the 'neo4jrestclient', minimizing the
 number of HTTP requests that are made, all the functions that should return
 list of objects like Nodes, Relationships, Paths or Positions, they actually
-<<<<<<< HEAD
-return an Iterable object that extends the Python 'list' type.
-=======
 return an Iterable object that extends the Python 'list' type::
->>>>>>> 1150e3415ae3ce7cefcfdf1cc30e2462b0be5799
 
   >>> rels = n1.relationships.all()[:]
   [<Neo4j Relationship: http://localhost:7474/db/data/relationship/35843>,
