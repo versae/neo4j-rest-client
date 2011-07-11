@@ -177,7 +177,7 @@ class IndexesTestCase(RelationshipsTestCase):
         index = self.gdb.nodes.indexes.create(name="doe")
         index["surnames"]["d"] = n1
         self.assertTrue(n1 in index["surnames"]["d"])
-        
+
     def test_create_index_for_nodes_unicode(self):
         n1 = self.gdb.nodes.create(name="Lemmy", band="Motörhead")
         index = self.gdb.nodes.indexes.create(name="doe")
@@ -351,7 +351,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertIsInstance(n2, client.Node)
         self.assertTrue(n1 == n2)
 
-    def test_transaction_update(self):
+    def test_transaction_property(self):
         n = self.gdb.nodes.create()
         with self.gdb.transaction():
             n["age"] = 25
