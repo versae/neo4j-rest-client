@@ -872,6 +872,7 @@ class Index(object):
             self.url = url
 
         def __getitem__(self, value):
+            value = urllib.quote_plus(value)
             url = "%s/%s" % (self.url, value)
             return Index._get_results(url, self._index_for)
 
@@ -885,9 +886,7 @@ class Index(object):
                 raise TypeError("%s is a %s and the index is for %ss"
                                 % (item, self._index_for.capitalize(),
                                    self._index_for))
-            # TODO: Needs more testing
-            # value = urllib.quote(value.encode('utf-8'))
-            value = urllib.quote(value)
+            value = urllib.quote_plus(value)
             if isinstance(item, Base):
                 url_ref = item.url
             else:

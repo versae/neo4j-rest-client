@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import client
 import constants
 import request
@@ -175,6 +177,18 @@ class IndexesTestCase(RelationshipsTestCase):
         index = self.gdb.nodes.indexes.create(name="doe")
         index["surnames"]["d"] = n1
         self.assertTrue(n1 in index["surnames"]["d"])
+        
+    def test_create_index_for_nodes_unicode(self):
+        n1 = self.gdb.nodes.create(name="Lemmy", band="Mötorhead")
+        index = self.gdb.nodes.indexes.create(name="doe")
+        index["bands"]["Mötorhead"] = n1
+        self.assertTrue(n1 in index["bands"]["Mötorhead"])
+        
+    def test_create_index_for_nodes_url_safe(self):
+        n1 = self.gdb.nodes.create(name="Brian", band="AC/DC")
+        index = self.gdb.nodes.indexes.create(name="doe")
+        index["bands"]["AC/DC"] = n1
+        self.assertTrue(n1 in index["bands"]["AC/DC"])
 
     def test_create_index_for_relationships(self):
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
@@ -408,11 +422,11 @@ class TransactionsTestCase(ExtensionsTestCase):
         n["age"] = 25
         n["name"] = "John"
         n["place"] = "Houston"
-        with self.gdb.transaction(commit=False, using_globals=False) as tx1, \
-             self.gdb.transaction(commit=False, using_globals=False) as tx2:
-            n.delete("age", tx=tx1)
-            n["name"] = tx2("Jonathan")
-            n["place", tx2] = "Toronto"
+        with self.gdb.transaction(commit=False, using_globals=False) as tx1:
+            with self.gdb.transaction(commit=False, using_globals=False) as tx2:
+                n.delete("age", tx=tx1)
+                n["name"] = tx2("Jonathan")    
+                n["place", tx2] = "Toronto"
         self.assertTrue("age" in n.properties)
         tx1.commit()
         self.assertTrue("age" not in n.properties)
