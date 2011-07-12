@@ -1,78 +1,85 @@
 Changes
 -------
 
+1.4.1 (2011-07-12)
+------------------
+ - Fixede an error retrieving relationships by id.
+ - Added control to handle exceptions raised by Request objects.
+ - Updated changes, manifest and readme files.
+
+
 1.4.0 (2011-07-11)
 ------------------
-- Updated version number for the new release.
-- Updated documentation.
-- Updated develpment requirements.
-- Added support for paginated traversals.
-- Passed pyflakes and pep08 on tests.
-- Added weight to Path class.
-- Index values now quoted_plus.
-- Changed quote to quote_plus for index values.
-- Added two tests for unicode and url chars in index values.
-- Added initial documentacion for transactions.
-- Added the transaction support and several tests.
-- Fixed the implementation of __contains__ in Iterable class for evaluation
-  of 'in' and 'not in' expressions.
-- Added documentation for Iterable objects.
-- Added more transactions features.
-- Added requirements file for virtual environments in development.
-- Improved number of queries slicing the returned objects in a Iterable
-  wrapper class.
-- Added Q syntax for more complicated queries.
-- Added support for the Q query syntax for indexes (resolving the TODO in
-  7513ce843f9...) using the DSL at http://github.com/scholrly/lucene-querybuilder
-  by @epurcell3.
-- Fixed an error in the test_query_index case (forgot to include an 'or'.
-  between queries).
-- Added lucene-querybuilder to the test requirements in setup.py.
-- Added a test case for Q-based queries.
+ - Updated version number for the new release.
+ - Updated documentation.
+ - Updated develpment requirements.
+ - Added support for paginated traversals.
+ - Passed pyflakes and pep08 on tests.
+ - Added weight to Path class.
+ - Index values now quoted_plus.
+ - Changed quote to quote_plus for index values.
+ - Added two tests for unicode and url chars in index values.
+ - Added initial documentacion for transactions.
+ - Added the transaction support and several tests.
+ - Fixed the implementation of __contains__ in Iterable class for evaluation
+   of 'in' and 'not in' expressions.
+ - Added documentation for Iterable objects.
+ - Added more transactions features.
+ - Added requirements file for virtual environments in development.
+ - Improved number of queries slicing the returned objects in a Iterable
+   wrapper class.
+ - Added Q syntax for more complicated queries.
+ - Added support for the Q query syntax for indexes (resolving the TODO in
+   7513ce843f9...) using the DSL at http://github.com/scholrly/lucene-querybuilder
+   by @epurcell3.
+ - Fixed an error in the test_query_index case (forgot to include an 'or'.
+   between queries).
+ - Added lucene-querybuilder to the test requirements in setup.py.
+ - Added a test case for Q-based queries.
 
 
 1.3.4 (2011-06-22)
 ------------------
-- Fixed the setup.py and httplib2 import error during installing.
-- Reordered the options variables in an options.py file.
-  Allows index.query() to be called with or without a key
-- Fixed issue #15 regarding dependency to httplib2
-- Patched index.query() so it can take a query without a key (to support, say,
-  mutli-field Lucene queries). Ultimately, query so probably be refactored to
-  Index (instead of IndexKey) because IndexKey doesn't actually help with
-  full-text queries.
-- Fixed for issue #19 (missed that urllib.quote).
-- Altered the test_query_index case to reflect how I think indexing should
-  work.
-- Using assertTrue instead of failUnless in tests.py, failUnless is deprecated
-  in 2.7 and up, so I figured we might as well switch.
-- Added SMART_ERRORS (aka "Django mode"). If you set SMART_ERROR to True it
-  will make the client throw KeyError instead of NotFoundError when a key is
-  missing.
+ - Fixed the setup.py and httplib2 import error during installing.
+ - Reordered the options variables in an options.py file.
+   Allows index.query() to be called with or without a key
+ - Fixed issue #15 regarding dependency to httplib2
+ - Patched index.query() so it can take a query without a key (to support, say,
+   mutli-field Lucene queries). Ultimately, query so probably be refactored to
+   Index (instead of IndexKey) because IndexKey doesn't actually help with
+   full-text queries.
+ - Fixed for issue #19 (missed that urllib.quote).
+ - Altered the test_query_index case to reflect how I think indexing should
+   work.
+ - Using assertTrue instead of failUnless in tests.py, failUnless is deprecated
+   in 2.7 and up, so I figured we might as well switch.
+ - Added SMART_ERRORS (aka "Django mode"). If you set SMART_ERROR to True it
+   will make the client throw KeyError instead of NotFoundError when a key is
+   missing.
 
 
 1.3.3 (2011-06-14)
 ------------------
-- Fixed an introspection when the results list of a traverse is empty.
-- Merge pull request #17 from mhluongo/master
-- Resolved the STOP_AT_END_OF_GRAPH traversal test case.
-  Calling .traverse(stop=STOP_AT_END_OF_GRAPH) will now traverse the graph
-  without a max depth (and without 500 errors).
-- Added a failing test case for traverse(stop=STOP_AT_END_OF_GRAPH).
+ - Fixed an introspection when the results list of a traverse is empty.
+ - Merge pull request #17 from mhluongo/master
+ - Resolved the STOP_AT_END_OF_GRAPH traversal test case.
+   Calling .traverse(stop=STOP_AT_END_OF_GRAPH) will now traverse the graph
+   without a max depth (and without 500 errors).
+ - Added a failing test case for traverse(stop=STOP_AT_END_OF_GRAPH).
 
 
 1.3.2 (2011-05-30)
 ------------------
-- Added a test for deleting relationships.
-- Fixing an Index compatibility issue with Python 2.6.1.
-- Fixing an error in extensions support with named params.
+ - Added a test for deleting relationships.
+ - Fixing an Index compatibility issue with Python 2.6.1.
+ - Fixing an error in extensions support with named params.
 
 
 1.3.1 (2011-04-16)
 ------------------
-- Fixing setup.py.
+ - Fixing setup.py.
 
 
 1.3.0 (2011-04-15)
 ------------------
-- First Python Index Package release with full support for Neo4j 1.3.
+ - First Python Index Package release with full support for Neo4j 1.3.
