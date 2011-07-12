@@ -60,7 +60,11 @@ class GraphDatabase(object):
             self.url = url
         else:
             self.url = "%s/" % url
-        response, content = Request().get(url)
+        response, content = None, None
+        try:
+            response, content = Request().get(url)
+        except Exception:
+            raise NotFoundError(result="Unable get root")
         if response.status == 200:
             response_json = json.loads(content)
             self._relationship_index = response_json['relationship_index']
@@ -1071,7 +1075,11 @@ class RelationshipsProxy(dict):
 
     def __getitem__(self, key, tx=None):
         tx = Transaction.get_transaction(tx)
-        return Relationship("%s/%s" % (self._relationship, key), tx=tx)
+        if tx:
+            return tx.subscribe(TX_GET, "%s/%s" % (self._relationship, key),
+                                obj=self)
+        else:
+            return Relationship("%s/%s" % (self._relationship, key))
 
     def get(self, key, *args, **kwargs):
         tx = Transaction.get_transaction(kwargs.get("tx", None))
