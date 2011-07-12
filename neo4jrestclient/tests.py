@@ -176,6 +176,15 @@ class RelationshipsTestCase(NodesTestCase):
         r = self.gdb.relationships.get(0)
         self.assertIsInstance(r, client.Relationship)
 
+    def test_delete_relationship(self):
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        rel = n1.relationships.create("Knows", n2, since=1970)
+        rel_id = rel.id
+        rel.delete()
+        self.assertRaises(request.NotFoundError, self.gdb.relationships.get,
+                          rel_id)
+
 
 class IndexesTestCase(RelationshipsTestCase):
 
