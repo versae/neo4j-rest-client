@@ -362,12 +362,22 @@ class Base(object):
             response, content = Request().post(url, data=data)
             if response.status == 201:
                 self._dic.update(data.copy())
+                self._update_dict_data()
                 self.url = response.get("location")
             else:
                 raise NotFoundError(response.status, "Invalid data sent")
         if not self.url:
             self.url = url
         self.update()
+
+    def _update_dict_data(self):
+        if "data" in self._dic:
+            self._dic["data"] = dict((self._safe_string(k),
+                                      self._safe_string(v))
+                                      for k, v in self._dic["data"].items())
+
+    def _safe_string(self, s):
+        return unicode(s.decode("utf-8"))
 
     def update(self, extensions=True):
         response, content = Request().get(self.url)
@@ -397,7 +407,8 @@ class Base(object):
                                                    "relationships?)")
 
     def __getitem__(self, key, tx=None):
-        property_url = self._dic["property"].replace("{key}", key)
+        property_url = self._dic["property"].replace("{key}",
+                                                     urllib.quote_plus(key))
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_GET, property_url, obj=self)
@@ -436,7 +447,8 @@ class Base(object):
         if isinstance(value, Transaction):
             tx = tx or value
             value = value.get_value()
-        property_url = self._dic["property"].replace("{key}", key)
+        property_url = self._dic["property"].replace("{key}",
+                                                     urllib.quote_plus(key))
         tx = Transaction.get_transaction(tx)
         if tx:
             transaction_url = self._dic["property"].replace("{key}", "")
@@ -509,6 +521,7 @@ class Base(object):
         response, content = Request().put(properties_url, data=props)
         if response.status == 204:
             self._dic["data"] = props.copy()
+            self._update_dict_data()
             return props
         elif response.status == 400:
             raise StatusException(response.status, "Invalid data sent")
@@ -1196,7 +1209,7 @@ class Relationship(Base):
     end = property(_get_end)
 
     def _get_type(self):
-        return self._dic['type']
+        return self._dic['type'].encode("utf8")
     type = property(_get_type)
 
     def _get_id(self):
