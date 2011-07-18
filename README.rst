@@ -1,7 +1,7 @@
 Neo4j Python REST Client
 ========================
 
-:synopsis: Allows interact with Neo4j standalone REST server from Python.
+:synopsis: Object-oriented Python library to interact with Neo4j standalone REST server.
 
 The first objective of Neo4j Python REST Client is to make transparent for
 Python programmers the use of a local database through neo4j.py_ or a remote
@@ -327,6 +327,9 @@ same::
 
   >>> i3 =  gdb.relationships.indexes.create("index3")
 
+For deleting an index just call 'delete' with no arguments::
+
+  >>> i3.delete()
 
 
 Extensions
@@ -393,7 +396,7 @@ Transactions
 
 Currently, the transaction support is not complete in this client, although
 a work in progress is being carried out, and hopefully the capacity to
-handle objects created in the same transaction will be done::
+handle objects created in the same transaction will be done.
 
 Basic usage for deletion::
 

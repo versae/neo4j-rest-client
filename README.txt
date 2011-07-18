@@ -327,6 +327,9 @@ same::
 
   >>> i3 =  gdb.relationships.indexes.create("index3")
 
+For deleting an index just call 'delete' with no arguments::
+
+  >>> i3.delete()
 
 
 Extensions
@@ -393,7 +396,7 @@ Transactions
 
 Currently, the transaction support is not complete in this client, although
 a work in progress is being carried out, and hopefully the capacity to
-handle objects created in the same transaction will be done::
+handle objects created in the same transaction will be done.
 
 Basic usage for deletion::
 
