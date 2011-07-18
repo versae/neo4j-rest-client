@@ -246,6 +246,14 @@ class IndexesTestCase(RelationshipsTestCase):
         index["bands"]["AC/DC"] = n1
         self.assertTrue(n1 in index["bands"]["AC/DC"])
 
+    def test_delete_index_for_nodes(self):
+        n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
+        index = self.gdb.nodes.indexes.create(name="doe")
+        index["surnames"]["d"] = n1
+        index.delete()
+        self.assertRaises(request.NotFoundError,
+                          index["surnames"].__getitem__, "d")
+
     def test_create_index_for_relationships(self):
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
         n2 = self.gdb.nodes.create(name="Michael Doe", place="Tijuana")
@@ -269,6 +277,16 @@ class IndexesTestCase(RelationshipsTestCase):
         index["feeling"]["hate"] = r1
         index.delete("feeling", "hate", r1)
         self.assertTrue(r1 not in index["feeling"]["hate"])
+
+    def test_delete_index_for_relationships(self):
+        n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
+        n2 = self.gdb.nodes.create(name="Michael Doe", place="Tijuana")
+        r1 = self.gdb.relationships.create(n1, "Hates", n2)
+        index = self.gdb.relationships.indexes.create(name="brothers")
+        index["feeling"]["hate"] = r1
+        index.delete()
+        self.assertRaises(request.NotFoundError,
+                          index["feeling"].__getitem__, "hate")
 
     def test_query_index(self):
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")

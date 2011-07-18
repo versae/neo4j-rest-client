@@ -1024,27 +1024,34 @@ class Index(object):
         else:
             return self.IndexKey(self._index_for, "%s/%s" % (self.url, key))
 
-    def delete(self, key, value, item):
-        if not isinstance(item, Base):
-            raise TypeError("%s has no url attribute" % item)
-        if key and value:
-            key = urllib.quote(key)
-            value = urllib.quote_plus(value)
-            url = self.template.replace("{key}", key).replace("{value}", value)
-            url = "%s/%s" % (url, item.id)
-        elif key and not value:
-            key = urllib.quote(key)
-            url = "%s/%s" % (self.template.replace("{key}", key), item.id)
-        elif not key and not value:
-            url = self.template.replace("{key}/{value}", item.id)
+    def delete(self, key=None, value=None, item=None):
+        if not key and not value and not item:
+            url = self.template.replace("/{key}/{value}", "")
         else:
-            raise TypeError("remove() take at least 2 arguments, the key " \
-                            "of the index and the %s to remove"
-                            % self._index_for)
+            if not isinstance(item, Base):
+                raise TypeError("%s has no url attribute" % item)
+            if key and value:
+                key = urllib.quote(key)
+                value = urllib.quote_plus(value)
+                url = self.template.replace("{key}", key).replace("{value}",
+                                                                  value)
+                url = "%s/%s" % (url, item.id)
+            elif key and not value:
+                key = urllib.quote(key)
+                url = "%s/%s" % (self.template.replace("{key}", key), item.id)
+            elif not key and not value:
+                url = self.template.replace("{key}/{value}", item.id)
+            else:
+                raise TypeError("remove() take at least 2 arguments, the " \
+                                "key of the index and the %s to remove"
+                                % self._index_for)
         response, content = Request().delete(url)
         if response.status == 404:
-            raise NotFoundError(response.status,
-                                "%s not found" % self._index_for.capitalize())
+            if options.SMART_ERRORS:
+                raise KeyError(self._index_for.capitalize())
+            else:
+                raise NotFoundError(response.status,
+                                    "%s not found" % self._index_for.capitalize())
         elif response.status != 204:
             raise StatusException(response.status)
 
