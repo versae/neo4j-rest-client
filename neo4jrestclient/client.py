@@ -966,7 +966,11 @@ class Index(object):
                 raise TypeError("%s is a %s and the index is for %ss"
                                 % (item, self._index_for.capitalize(),
                                    self._index_for))
-            value = urllib.quote_plus(value)
+            # TODO: Improve the unicode checking
+            try:
+                value = urllib.quote_plus(value)
+            except (KeyError, UnicodeEncodeError, UnicodeError):
+                value = urllib.quote_plus(value.encode("utf8"))
             if isinstance(item, Base):
                 url_ref = item.url
             else:
@@ -1195,7 +1199,12 @@ class Relationships(object):
         return self.__getattr__("all")(tx=tx)[index]
 
     def create(self, relationship_name, to, **kwargs):
-        return getattr(self._node, relationship_name)(to, **kwargs)
+        # TODO: Improve the unicode checking
+        try:
+            return getattr(self._node, relationship_name)(to, **kwargs)
+        except (KeyError, UnicodeEncodeError, UnicodeError):
+            safe_name = urllib.quote_plus(relationship_name.encode("utf8"))
+            return getattr(self._node, safe_name)(to, **kwargs)
 
     def get(self, index, tx=None):
         tx = Transaction.get_transaction(tx)
