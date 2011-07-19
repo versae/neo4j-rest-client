@@ -407,8 +407,12 @@ class Base(object):
                                                    "relationships?)")
 
     def __getitem__(self, key, tx=None):
-        property_url = self._dic["property"].replace("{key}",
-                                                     urllib.quote_plus(key))
+        # TODO: Improve the unicode checking
+        try:
+            safe_key = urllib.quote(key)
+        except (KeyError, UnicodeEncodeError, UnicodeError):
+            safe_key = urllib.quote(key.encode("utf8"))
+        property_url = self._dic["property"].replace("{key}", safe_key)
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_GET, property_url, obj=self)
@@ -449,9 +453,9 @@ class Base(object):
             value = value.get_value()
         # TODO: Improve the unicode checking
         try:
-            url_key = urllib.quote_plus(key)
+            url_key = urllib.quote(key)
         except (KeyError, UnicodeEncodeError, UnicodeError):
-            url_key = urllib.quote_plus(key.encode("utf8"))
+            url_key = urllib.quote(key.encode("utf8"))
         property_url = self._dic["property"].replace("{key}", url_key)
         tx = Transaction.get_transaction(tx)
         if tx:
@@ -472,7 +476,11 @@ class Base(object):
         self.__setitem__(key, value)
 
     def __delitem__(self, key, tx=None):
-        property_url = self._dic["property"].replace("{key}", key)
+        try:
+            url_key = urllib.quote(key)
+        except (KeyError, UnicodeEncodeError, UnicodeError):
+            url_key = urllib.quote(key.encode("utf8"))
+        property_url = self._dic["property"].replace("{key}", url_key)
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_DELETE, property_url, obj=self)
@@ -1207,7 +1215,7 @@ class Relationships(object):
         try:
             return getattr(self._node, relationship_name)(to, **kwargs)
         except (KeyError, UnicodeEncodeError, UnicodeError):
-            safe_name = urllib.quote_plus(relationship_name.encode("utf8"))
+            safe_name = urllib.quote(relationship_name.encode("utf8"))
             return getattr(self._node, safe_name)(to, **kwargs)
 
     def get(self, index, tx=None):
