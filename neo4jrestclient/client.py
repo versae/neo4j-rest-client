@@ -447,8 +447,12 @@ class Base(object):
         if isinstance(value, Transaction):
             tx = tx or value
             value = value.get_value()
-        property_url = self._dic["property"].replace("{key}",
-                                                     urllib.quote_plus(key))
+        # TODO: Improve the unicode checking
+        try:
+            url_key = urllib.quote_plus(key)
+        except (KeyError, UnicodeEncodeError, UnicodeError):
+            url_key = urllib.quote_plus(key.encode("utf8"))
+        property_url = self._dic["property"].replace("{key}", url_key)
         tx = Transaction.get_transaction(tx)
         if tx:
             transaction_url = self._dic["property"].replace("{key}", "")
