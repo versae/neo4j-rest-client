@@ -409,9 +409,9 @@ class Base(object):
     def __getitem__(self, key, tx=None):
         # TODO: Improve the unicode checking
         try:
-            safe_key = urllib.quote(key)
+            safe_key = urllib.quote(key, safe="")
         except (KeyError, UnicodeEncodeError, UnicodeError):
-            safe_key = urllib.quote(key.encode("utf8"))
+            safe_key = urllib.quote(key.encode("utf8"), safe="")
         property_url = self._dic["property"].replace("{key}", safe_key)
         tx = Transaction.get_transaction(tx)
         if tx:
@@ -453,9 +453,9 @@ class Base(object):
             value = value.get_value()
         # TODO: Improve the unicode checking
         try:
-            url_key = urllib.quote(key)
+            url_key = urllib.quote(key, safe="")
         except (KeyError, UnicodeEncodeError, UnicodeError):
-            url_key = urllib.quote(key.encode("utf8"))
+            url_key = urllib.quote(key.encode("utf8"), safe="")
         property_url = self._dic["property"].replace("{key}", url_key)
         tx = Transaction.get_transaction(tx)
         if tx:
@@ -477,9 +477,9 @@ class Base(object):
 
     def __delitem__(self, key, tx=None):
         try:
-            url_key = urllib.quote(key)
+            url_key = urllib.quote(key, safe="")
         except (KeyError, UnicodeEncodeError, UnicodeError):
-            url_key = urllib.quote(key.encode("utf8"))
+            url_key = urllib.quote(key.encode("utf8"), safe="")
         property_url = self._dic["property"].replace("{key}", url_key)
         tx = Transaction.get_transaction(tx)
         if tx:
@@ -965,7 +965,7 @@ class Index(object):
             self.url = url
 
         def __getitem__(self, value):
-            url = "%s/%s" % (self.url, urllib.quote_plus(value))
+            url = "%s/%s" % (self.url, urllib.quote(value, safe=""))
             return Index._get_results(url, self._index_for)
 
         def __setitem__(self, value, item):
@@ -980,9 +980,9 @@ class Index(object):
                                    self._index_for))
             # TODO: Improve the unicode checking
             try:
-                value = urllib.quote_plus(value)
+                value = urllib.quote(value, safe="")
             except (KeyError, UnicodeEncodeError, UnicodeError):
-                value = urllib.quote_plus(value.encode("utf8"))
+                value = urllib.quote(value.encode("utf8"), safe="")
             if isinstance(item, Base):
                 url_ref = item.url
             else:
@@ -1002,7 +1002,7 @@ class Index(object):
                                       ", data %s" % (request_url, url_ref))
 
         def query(self, value):
-            url = "%s?query=%s" % (self.url, urllib.quote_plus(value))
+            url = "%s?query=%s" % (self.url, urllib.quote(value, safe=""))
             return Index._get_results(url, self._index_for)
 
     def __init__(self, index_for, name, **kwargs):
@@ -1032,9 +1032,9 @@ class Index(object):
         self.get(key)[value] = item
 
     def get(self, key, value=None):
-        key = urllib.quote(key)
+        key = urllib.quote(key, safe="")
         if value:
-            value = urllib.quote_plus(value)
+            value = urllib.quote(value, safe="")
             return self.IndexKey(self._index_for,
                                  "%s/%s" % (self.url, key))[value]
         else:
@@ -1047,13 +1047,13 @@ class Index(object):
             if not isinstance(item, Base):
                 raise TypeError("%s has no url attribute" % item)
             if key and value:
-                key = urllib.quote(key)
-                value = urllib.quote_plus(value)
+                key = urllib.quote(key, safe="")
+                value = urllib.quote(value, safe="")
                 url = self.template.replace("{key}", key).replace("{value}",
                                                                   value)
                 url = "%s/%s" % (url, item.id)
             elif key and not value:
-                key = urllib.quote(key)
+                key = urllib.quote(key, safe="")
                 url = "%s/%s" % (self.template.replace("{key}", key), item.id)
             elif not key and not value:
                 url = self.template.replace("{key}/{value}", item.id)
@@ -1215,7 +1215,7 @@ class Relationships(object):
         try:
             return getattr(self._node, relationship_name)(to, **kwargs)
         except (KeyError, UnicodeEncodeError, UnicodeError):
-            safe_name = urllib.quote(relationship_name.encode("utf8"))
+            safe_name = urllib.quote(relationship_name.encode("utf8"), safe="")
             return getattr(self._node, safe_name)(to, **kwargs)
 
     def get(self, index, tx=None):
