@@ -214,7 +214,7 @@ class RelationshipsTestCase(NodesTestCase):
         n1 = self.gdb.nodes.create()
         n2 = self.gdb.nodes.create()
         rel = n1.relationships.create("Knows", n2, since=1970)
-        self.assertIsInstance(rel, client.Relationship)
+        self.assertTrue(isinstance(rel, client.Relationship))
 
     def test_delete_relationship_not_found(self):
         n1 = self.gdb.nodes.create()
@@ -427,8 +427,24 @@ class TransactionsTestCase(ExtensionsTestCase):
         n["age"] = 25
         with self.gdb.transaction():
             n.delete("age")
-        self.assertIsInstance(n, client.Node)
+        self.assertTrue(isinstance(n, client.Node))
         self.assertTrue("age" not in n.properties)
+
+    def test_transaction_delete_node(self):
+        n = self.gdb.nodes.create()
+        with self.gdb.transaction():
+            n.delete()
+        self.assertFalse(n)
+        self.assertEqual(n, None)
+
+    def test_transaction_delete_node(self):
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        r = n1.relationships.create("relation", n2)
+        with self.gdb.transaction():
+            r.delete()
+        self.assertFalse(r)
+        self.assertEqual(r, None)
 
     def test_transaction_properties(self):
         n = self.gdb.nodes.create()
@@ -436,7 +452,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         n["place"] = "Houston"
         with self.gdb.transaction():
             n.delete("age")
-        self.assertIsInstance(n, client.Node)
+        self.assertTrue(isinstance(n, client.Node))
         self.assertTrue("age" not in n.properties)
         self.assertTrue("place" in n.properties)
 
@@ -445,28 +461,28 @@ class TransactionsTestCase(ExtensionsTestCase):
         n["age"] = 25
         with self.gdb.transaction(update=False):
             n.delete("age")
-        self.assertIsInstance(n, client.Node)
+        self.assertTrue(isinstance(n, client.Node))
         self.assertTrue("age" in n.properties)
 
     def test_transaction_create(self):
         with self.gdb.transaction():
             n = self.gdb.nodes.create(age=25)
-        self.assertIsInstance(n, client.Node)
+        self.assertTrue(isinstance(n, client.Node))
         self.assertTrue(n.get("age", True))
 
     def test_transaction_get(self):
         n1 = self.gdb.nodes.get(1)
         with self.gdb.transaction():
             n2 = self.gdb.nodes.get(1)
-        self.assertIsInstance(n1, client.Node)
-        self.assertIsInstance(n2, client.Node)
+        self.assertTrue(isinstance(n1, client.Node))
+        self.assertTrue(isinstance(n2, client.Node))
         self.assertEqual(n1, n2)
 
     def test_transaction_property(self):
         n = self.gdb.nodes.create()
         with self.gdb.transaction():
             n["age"] = 25
-        self.assertIsInstance(n, client.Node)
+        self.assertTrue(isinstance(n, client.Node))
         self.assertTrue("age" in n.properties)
 
     def test_transaction_relationship(self):
@@ -474,7 +490,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         n2 = self.gdb.nodes.create()
         with self.gdb.transaction():
             r = n1.relationships.create("Knows", n2, since=1970)
-        self.assertIsInstance(r, client.Relationship)
+        self.assertTrue(isinstance(r, client.Relationship))
         self.assertTrue(r is not None)
 
     def test_transaction_commit(self):
@@ -506,7 +522,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         n["age"] = 25
         with self.gdb.transaction(update=False):
             n.delete("age")
-        self.assertIsInstance(n, client.Node)
+        self.assertTrue(isinstance(n, client.Node))
         self.assertTrue("age" in n.properties)
         n.update()
         self.assertTrue("age" not in n.properties)
@@ -569,7 +585,7 @@ class TransactionsTestCase(ExtensionsTestCase):
             for i in range(1, 1 + nodes_number):
                 nodes[i] = self.gdb.nodes.create(position=i)
         for position, node in nodes.items():
-            self.assertIsInstance(node, client.Node)
+            self.assertTrue(isinstance(node, client.Node))
             self.assertEqual(position, node["position"])
 
 

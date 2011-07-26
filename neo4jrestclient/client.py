@@ -283,7 +283,7 @@ class Transaction(object):
             for operation in self.operations:
                 on_object = operation.get_object()
                 if hasattr(on_object, "update"):
-                    on_object.update(extensions=False)
+                    on_object.update(extensions=False, delete_on_not_found=True)
         # Objects to return
         for referenced_object in self.references:
                 ref_object = referenced_object()
@@ -379,7 +379,7 @@ class Base(object):
     def _safe_string(self, s):
         return unicode(s.decode("utf-8"))
 
-    def update(self, extensions=True):
+    def update(self, extensions=True, delete_on_not_found=False):
         response, content = Request().get(self.url)
         if response.status == 200:
             self._dic.update(json.loads(content).copy())
@@ -387,6 +387,11 @@ class Base(object):
                 self._extensions = self._dic.get('extensions', {})
                 if self._extensions:
                     self.extensions = ExtensionsProxy(self._extensions)
+        elif delete_on_not_found and response.status == 404:
+            self.url = None
+            self._dic = {}
+            self = None
+            del self
         else:
             raise NotFoundError(response.status, "Unable get object")
 
@@ -489,10 +494,13 @@ class Base(object):
         return self._dic["data"].__iter__()
 
     def __eq__(self, obj):
-        return (hasattr(obj, "url")
-                and self.url == obj.url
-                and hasattr(obj, "__class__")
-                and self.__class__ == obj.__class__)
+        if not self.url and not self._dic:
+            return (obj == None)
+        else:
+            return (hasattr(obj, "url")
+                    and self.url == obj.url
+                    and hasattr(obj, "__class__")
+                    and self.__class__ == obj.__class__)
 
     def __ne__(self, obj):
         return not self.__cmp__(obj)
@@ -507,7 +515,10 @@ class Base(object):
         return self.__unicode__()
 
     def __unicode__(self):
-        return u"<Neo4j %s: %s>" % (self.__class__.__name__, self.url)
+        if not self.url and not self._dic:
+            return None
+        else:
+            return u"<Neo4j %s: %s>" % (self.__class__.__name__, self.url)
 
     def _get_properties(self):
         return self._dic["data"]
