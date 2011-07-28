@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
+try:
+    import cPickle as pickle
+except:
+    import pickle
 import json
 import urllib
 import weakref
+import warnings
 from lucenequerybuilder import Q
 
 import options
@@ -680,6 +685,10 @@ class Node(Base):
         """
         HACK: Allow to set node relationship
         """
+        warnings.warn("Deprecated, in favor of pythonic style to declare "
+                      "relationships: n2.relationships.create(rel_name, n2). "
+                      "This is needed in order to handle pickling in nodes.",
+                      DeprecationWarning)
 
         def relationship(to, *args, **kwargs):
             tx = Transaction.get_transaction(kwargs.get("tx", None))
@@ -707,6 +716,21 @@ class Node(Base):
             else:
                 raise StatusException(response.status, "Invalid data sent")
         return relationship
+
+    # HACK: Special methods for handle pickling manually
+    def __getstate__(self):
+        data = {}
+        for key, value in self.__dict__.items():
+            try:
+                encoded = pickle.dumps(value)
+            except pickle.PicklingError:
+                encoded = cPickle.dumps(pickle.Unpickable())
+            data[key] = encoded
+        return data
+
+    def __setstate__(self, state):
+        for key, value in state.items():
+            self.__dict__[key] = pickle.loads(value)
 
     def _get_relationships(self):
         """

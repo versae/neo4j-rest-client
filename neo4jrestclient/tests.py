@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+try:
+    import cPickle as pickle
+except:
+    import pickle
+from cStringIO import StringIO
 
 import client
 import constants
@@ -589,7 +594,23 @@ class TransactionsTestCase(ExtensionsTestCase):
             self.assertEqual(position, node["position"])
 
 
-class Neo4jPythonClientTestCase(TransactionsTestCase):
+class PickleTestCase(TransactionsTestCase):
+
+    def test_node_pickle(self):
+        import ipdb; ipdb.set_trace()
+        n = self.gdb.nodes.create()
+        p = pickle.dumps(n)
+        self.assertEqual(n, pickle.loads(p))
+
+    def test_relationship_pickle(self):
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        r = n1.relationships.create("related", n2)
+        p = pickle.dumps(r)
+        self.assertEqual(r, pickle.loads(p))
+
+
+class Neo4jPythonClientTestCase(PickleTestCase):
     pass
 
 if __name__ == '__main__':
