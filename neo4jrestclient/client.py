@@ -1317,6 +1317,9 @@ class BaseInAndOut(object):
 
     def __init__(self, direction):
         self.direction = direction
+        if direction == "both"
+            warnings.warn("Deprecated, use \"All\" ('both') instead.",
+                          DeprecationWarning)
 
     def get(self, attr):
         return self.__getattr__(attr)
