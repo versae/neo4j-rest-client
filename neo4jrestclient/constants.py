@@ -12,7 +12,7 @@ __credits__ = [
     "Andy Denmark, https://github.com/denmark",
 ]
 __license__ = "GPL 3"
-__version__ = "1.4.2"
+__version__ = "1.4.3"
 __email__ = "versae@gmail.com"
 __url__ = "https://github.com/versae/neo4j-rest-client"
 __description__ = """Object-oriented Python library to interact with """ \

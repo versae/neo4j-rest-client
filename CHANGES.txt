@@ -1,17 +1,25 @@
 Changes
 -------
 
+1.4.3 (2011-07-28)
+------------------
+- Added some deprecation warnings.
+- Added support for pickling ans some tests.
+- Fixed an error deleting nodes and relationships on transactions.
+- Finishied and refactored the full unicode support.
+
+
 1.4.2 (2011-07-18)
 ------------------
-- Updating the documentation and version.
-- Adding support for indices deletion.
-- Improving Unicode support in properties keys and values and relationships
+- Updated the documentation and version.
+- Added support for indices deletion.
+- Improved Unicode support in properties keys and values and relationships
   types. Adding some tests.
 
 
 1.4.1 (2011-07-12)
 ------------------
-- Fixede an error retrieving relationships by id.
+- Fixed an error retrieving relationships by id.
 - Added control to handle exceptions raised by Request objects.
 - Updated changes, manifest and readme files.
 
@@ -22,7 +30,7 @@ Changes
 - Updated documentation.
 - Updated develpment requirements.
 - Added support for paginated traversals.
-- Passed pyflakes and pep08 on tests.
+- Passed pyflakes and PEP8 on tests.
 - Added weight to Path class.
 - Index values now quoted_plus.
 - Changed quote to quote_plus for index values.

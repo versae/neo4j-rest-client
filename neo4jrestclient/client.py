@@ -724,7 +724,7 @@ class Node(Base):
             try:
                 encoded = pickle.dumps(value)
             except pickle.PicklingError:
-                encoded = cPickle.dumps(pickle.Unpickable())
+                encoded = pickle.dumps(pickle.Unpickable())
             data[key] = encoded
         return data
 
@@ -1317,7 +1317,7 @@ class BaseInAndOut(object):
 
     def __init__(self, direction):
         self.direction = direction
-        if direction == "both"
+        if direction == "both":
             warnings.warn("Deprecated, use \"All\" ('both') instead.",
                           DeprecationWarning)
 

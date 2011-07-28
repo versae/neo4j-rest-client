@@ -597,7 +597,6 @@ class TransactionsTestCase(ExtensionsTestCase):
 class PickleTestCase(TransactionsTestCase):
 
     def test_node_pickle(self):
-        import ipdb; ipdb.set_trace()
         n = self.gdb.nodes.create()
         p = pickle.dumps(n)
         self.assertEqual(n, pickle.loads(p))
