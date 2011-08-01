@@ -805,9 +805,9 @@ class Node(Base):
                 elif returns == RELATIONSHIP:
                     return Iterable(Relationship, results_list, "self")
                 elif returns == PATH:
-                    return Iterable(Path, results_list)
+                    return Iterable(Path, results_list, "self")
                 elif returns == POSITION:
-                    return Iterable(Position, results_list)
+                    return Iterable(Position, results_list, "self")
             elif response.status == 404:
                 raise NotFoundError(response.status, "Node or relationship " \
                                                      "not found")
