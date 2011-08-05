@@ -17,7 +17,8 @@ from constants import (BREADTH_FIRST, DEPTH_FIRST,
                        RELATIONSHIP_RECENT, NONE,
                        NODE, RELATIONSHIP, PATH, POSITION,
                        INDEX_FULLTEXT, TX_GET, TX_PUT, TX_POST, TX_DELETE,
-                       RELATIONSHIPS_ALL, RELATIONSHIPS_IN, RELATIONSHIPS_OUT)
+                       RELATIONSHIPS_ALL, RELATIONSHIPS_IN, RELATIONSHIPS_OUT,
+                       RETURN_ALL_NODES, RETURN_ALL_BUT_START_NODE)
 from request import (Request, NotFoundError, StatusException,
                      TransactionException)
 
@@ -757,10 +758,15 @@ class Node(Base):
                 'language': 'javascript',
                 'body': 'false',
             }})
-        if returnable in (BREADTH_FIRST, DEPTH_FIRST):
+        if returnable in (RETURN_ALL_NODES, RETURN_ALL_BUT_START_NODE):
             data.update({"return_filter": {
                 "language": "builtin",
                 "name": returnable,
+            }})
+        elif returnable:
+            data.update({"return_filter": {
+                "language": "javascript",
+                "body": returnable,
             }})
         if uniqueness in (NODE_GLOBAL, NODE_PATH, NODE_RECENT, NODE,
                           RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
