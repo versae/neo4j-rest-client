@@ -3,7 +3,6 @@ try:
     import cPickle as pickle
 except:
     import pickle
-from cStringIO import StringIO
 
 import client
 import constants
@@ -350,6 +349,27 @@ class TraversalsTestCase(IndexesTestCase):
         # Test an untyple traversal
         traversal = nodes[0].traverse(stop=stop)
         self.assertEqual(len(traversal), len(nodes))
+
+    def test_traversal_return_filter(self):
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        n3 = self.gdb.nodes.create(name='test name')
+        n1.KNOWS(n2)
+        n2.KNOWS(n3)
+        #all traversal
+        traversal = n1.traverse(stop=3,\
+                                returnable=constants.RETURN_ALL_NODES)
+        self.assertEqual(len(traversal), 3)
+        #all but start traversal
+        traversal = n1.traverse(stop=3,\
+                                returnable=constants.RETURN_ALL_BUT_START_NODE)
+        self.assertEqual(len(traversal), 2)
+        #custom javascript return filter
+        return_filter_body = 'position.endNode().has_property("name")&&'\
+                             'position.endNode().getProperty("name")=="'\
+                             'test name";'
+        traversal = n1.traverse(stop=3,returnable=return_filter_body)
+        self.assertEqual(len(traversal), 1)
 
     def test_create_traversal_class(self):
         n1 = self.gdb.nodes.create()
