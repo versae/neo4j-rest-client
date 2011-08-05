@@ -365,7 +365,7 @@ class TraversalsTestCase(IndexesTestCase):
                                 returnable=constants.RETURN_ALL_BUT_START_NODE)
         self.assertEqual(len(traversal), 2)
         #custom javascript return filter
-        return_filter_body = 'position.endNode().has_property("name")&&'\
+        return_filter_body = 'position.endNode().hasProperty("name")&&'\
                              'position.endNode().getProperty("name")=="'\
                              'test name";'
         traversal = n1.traverse(stop=3,returnable=return_filter_body)
