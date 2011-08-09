@@ -746,6 +746,9 @@ class Node(Base):
         return int(self.url.split("/")[-1])
     id = property(_get_id)
 
+    def __hash__(self):
+        return hash(self.id)
+
     def traverse(self, types=None, order=None, stop=None, returnable=None,
                  uniqueness=None, is_stop_node=None, is_returnable=None,
                  paginated=False, page_size=None, time_out=None,
