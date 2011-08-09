@@ -1323,14 +1323,15 @@ class BaseInAndOut(object):
 
     def __init__(self, direction):
         self.direction = direction
-        if direction == "both":
-            warnings.warn("Deprecated, use \"All\" ('both') instead.",
-                          DeprecationWarning)
+       
 
     def get(self, attr):
         return self.__getattr__(attr)
 
     def __getattr__(self, attr):
+        if self.direction == "both":
+            warnings.warn("Deprecated, use \"All\" ('both') instead.",
+                          DeprecationWarning)
         # Using an anonymous class
         direction = self.direction
         return type("", (object, ), {
