@@ -321,7 +321,7 @@ class TraversalsTestCase(IndexesTestCase):
         n2 = self.gdb.nodes.create()
         n1.relationships.create("Knows", n2, since=1970)
         types = [
-            client.Undirected.Knows,
+            client.All.Knows,
         ]
         traversal = n1.traverse(types=types)
         self.assertTrue(len(traversal) > 0)
