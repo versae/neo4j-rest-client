@@ -152,6 +152,12 @@ class NodesTestCase(unittest.TestCase):
         except request.NotFoundError, request.StatusException:
             pass
 
+    def test_node_hash(self):
+        n1 = self.gdb.node()
+        n2 = self.gdb.node[n1.id]
+        self.assertEqual(len(set([n1, n2])), 1)
+        self.assertEqual(hash(n1), hash(n2))
+
 
 class RelationshipsTestCase(NodesTestCase):
 
