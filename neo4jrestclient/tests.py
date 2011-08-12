@@ -152,6 +152,12 @@ class NodesTestCase(unittest.TestCase):
         except request.NotFoundError, request.StatusException:
             pass
 
+    def test_node_hash(self):
+        n1 = self.gdb.node()
+        n2 = self.gdb.node[n1.id]
+        self.assertEqual(len(set([n1, n2])), 1)
+        self.assertEqual(hash(n1), hash(n2))
+
 
 class RelationshipsTestCase(NodesTestCase):
 
@@ -321,7 +327,7 @@ class TraversalsTestCase(IndexesTestCase):
         n2 = self.gdb.nodes.create()
         n1.relationships.create("Knows", n2, since=1970)
         types = [
-            client.Undirected.Knows,
+            client.All.Knows,
         ]
         traversal = n1.traverse(types=types)
         self.assertTrue(len(traversal) > 0)
