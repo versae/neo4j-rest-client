@@ -682,7 +682,7 @@ class Node(Base):
     Node class.
     """
 
-    def __getattr__(self, relationship_name, *args, **kwargs):
+    def __getattr__(self, *args, **kwargs):
         """
         HACK: Allow to set node relationship
         """
@@ -690,7 +690,9 @@ class Node(Base):
                       "relationships: n2.relationships.create(rel_name, n2). "
                       "This is needed in order to handle pickling in nodes.",
                       DeprecationWarning)
+        return self._create_relationship(*args, **kwargs)
 
+    def _create_relationship(self, relationship_name, *args, **kwargs):
         def relationship(to, *args, **kwargs):
             tx = Transaction.get_transaction(kwargs.get("tx", None))
             create_relationship_url = self._dic["create_relationship"]
@@ -743,6 +745,9 @@ class Node(Base):
     def _get_id(self):
         return int(self.url.split("/")[-1])
     id = property(_get_id)
+
+    def __hash__(self):
+        return hash(self.id)
 
     def traverse(self, types=None, order=None, stop=None, returnable=None,
                  uniqueness=None, is_stop_node=None, is_returnable=None,
@@ -1236,7 +1241,7 @@ class Relationships(object):
     def create(self, relationship_name, to, **kwargs):
         # TODO: Improve the unicode checking
         try:
-            return getattr(self._node, relationship_name)(to, **kwargs)
+            return self._node._create_relationship(relationship_name)(to, **kwargs)
         except (KeyError, UnicodeEncodeError, UnicodeError):
             safe_name = smart_quote(relationship_name)
             return getattr(self._node, safe_name)(to, **kwargs)
@@ -1323,14 +1328,15 @@ class BaseInAndOut(object):
 
     def __init__(self, direction):
         self.direction = direction
-        if direction == "both":
-            warnings.warn("Deprecated, use \"All\" ('both') instead.",
-                          DeprecationWarning)
+       
 
     def get(self, attr):
         return self.__getattr__(attr)
 
     def __getattr__(self, attr):
+        if self.direction == "both":
+            warnings.warn("Deprecated, use \"All\" ('both') instead.",
+                          DeprecationWarning)
         # Using an anonymous class
         direction = self.direction
         return type("", (object, ), {
