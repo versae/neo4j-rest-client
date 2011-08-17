@@ -4,6 +4,7 @@ The PRIMARY AUTHORS are (ordered by aproximated LOC number):
 
 APPRECIATED CONTRIBUTORS:
 
+    * Matt Luongo, https://github.com/mhluongo
     * Yashh, https://github.com/yashh
     * timClicks, https://github.com/timClicks
     * Mark Henderson, https://github.com/emehrkay
