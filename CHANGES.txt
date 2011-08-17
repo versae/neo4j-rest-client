@@ -1,6 +1,27 @@
 Changes
 -------
 
+1.4.4 (2011-08-17)
+------------------
+- Merge pull request #28 from mhluongo/master
+- Made the DeprecationWarnings a bit more specific.
+- Nodes can now be used in set and as dict keys, differentiated by id.
+- Added a test for node hashing on id.
+- Removed the 'Undirected' reference from tests to avoid a DepreactionWarning.
+- Moved the relationship creation DeprecationWarning so creating a relationship
+  the preferred way won't raise it.
+- Got rid of the DeprecationWarning on import- moved in to whenever using
+  Undirected.*.
+- Fixed traversal return filters.
+- Enabled return filters, including those with custom javascript bodies.
+  Eventually a more elegant (Python instead of string based) solution for
+  return filter bodies is in order.
+- Fixed a mispelling in the test_traversal_return_filter case.
+- Added a test for builtin and custom traversal return filters.
+- Small bug fix for traversal
+- Fixed bug in traverse method for POSITION and PATH return types.
+
+
 1.4.3 (2011-07-28)
 ------------------
 - Added some deprecation warnings.
