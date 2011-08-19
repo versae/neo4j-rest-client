@@ -1290,7 +1290,7 @@ class Path(object):
             node = Node(dic["nodes"][i])
             self._nodes.append(node)
             relationship = Relationship(dic["relationships"][i])
-            self._relationships.append(node)
+            self._relationships.append(relationship)
             self._iterable.append(node)
             self._iterable.append(relationship)
         node = Node(dic["nodes"][-1])
