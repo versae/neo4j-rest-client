@@ -559,7 +559,7 @@ class Iterable(list):
     Class to iterate among returned objects.
     """
 
-    def __init__(self, cls, lst, attr):
+    def __init__(self, cls, lst, attr=None):
         self._list = lst
         self._index = len(lst)
         self._class = cls
@@ -1279,25 +1279,23 @@ class Path(object):
     """
 
     def __init__(self, dic):
-        self.start = property(Node(dic["start"]))
-        self.end = property(Node(dic["end"]))
-        self.weight = property(dic.get("weight", None))
+        self._dic = dic
         self._length = int(dic["length"])
-        nodes = []
-        relationships = []
+        self._nodes = []
+        self._relationships = []
         self._iterable = []
+        self._start = Node(self._dic["start"])
+        self._end = Node(self._dic["end"])
         for i in range(0, len(dic["relationships"])):
             node = Node(dic["nodes"][i])
-            nodes.append(node)
+            self._nodes.append(node)
             relationship = Relationship(dic["relationships"][i])
-            relationships.append(node)
+            self._relationships.append(node)
             self._iterable.append(node)
             self._iterable.append(relationship)
         node = Node(dic["nodes"][-1])
-        nodes.append(node)
+        self._nodes.append(node)
         self._iterable.append(node)
-        self.nodes = property(nodes)
-        self.relationships = property(relationships)
 
     def __len__(self):
         return self._length
@@ -1307,6 +1305,26 @@ class Path(object):
             for obj in self._iterable:
                 yield obj
 
+    def _get_start(self):
+        return self._start
+    start = property(_get_start)
+
+    def _get_end(self):
+        return self._end
+    end = property(_get_end)
+
+    def _get_weight(self):
+        return self._dic.get("weight", None)
+    weight = property(_get_weight)
+
+    def _get_nodes(self):
+        return self._get_nodes
+    nodes = property(_get_nodes)
+
+    def _get_relationships(self):
+        return self._relationships
+    relationships = property(_get_relationships)
+
 
 class Position(object):
     """
@@ -1314,11 +1332,28 @@ class Position(object):
     """
 
     def __init__(self, dic):
-        self.node = property(Node(dic["node"]))
-        self.depth = int(dic["depth"])
-        relationship = Relationship(dic["last relationship"])
-        self.last_relationship = property(relationship)
-        self.path = property(Path(dic["path"]))
+        self._node = Node(dic["node"])
+        self._depth = int(dic["depth"])
+        relationship = Relationship(dic.get("last relationship",
+                                    dic.get("last_relationship", None)))
+        self._last_relationship = relationship
+        self._path = Path(dic["path"])
+
+    def _get_node(self):
+        return self._node
+    node = property(_get_node)
+
+    def _get_depth(self):
+        return self._depth
+    depth = property(_get_depth)
+
+    def _get_last_relationship(self):
+        return self._last_relationship
+    last_relationship = property(_get_last_relationship)
+
+    def _get_path(self):
+        return self._path
+    path = property(_get_path)
 
 
 class BaseInAndOut(object):
@@ -1463,6 +1498,8 @@ class Extension(object):
                     return Iterable(Path, results_list)
                 elif POSITION in returns:
                     return Iterable(Position, results_list)
+            elif results_list:
+                return results_list
             else:
                 return []
         elif response.status == 404:
