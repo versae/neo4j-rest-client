@@ -1,0 +1,9 @@
+.DS_Store
+*.pyc
+*.log
+*.log.*
+*.bak
+*~
+settings_local.py
+static/uploads/
+*.sublime-project
