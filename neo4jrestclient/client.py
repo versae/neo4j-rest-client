@@ -1086,7 +1086,7 @@ class Index(object):
             elif not key and not value:
                 url = self.template.replace("{key}/{value}", item.id)
             else:
-                raise TypeError("remove() take at least 2 arguments, the " \
+                raise TypeError("delete() takes at least 2 arguments, the " \
                                 "key of the index and the %s to remove"
                                 % self._index_for)
         response, content = Request().delete(url)
