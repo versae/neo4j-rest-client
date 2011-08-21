@@ -279,6 +279,13 @@ class IndexesTestCase(RelationshipsTestCase):
         index.delete("surnames", "d", n1)
         self.assertTrue(n1 not in index["surnames"]["d"])
 
+    def test_delete_node_from_index_with_no_value(self):
+        n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
+        index = self.gdb.nodes.indexes.create(name="doe")
+        index["surnames"]["d"] = n1
+        index.delete("surnames", None, n1)
+        self.assertTrue(n1 not in index["surnames"]["d"])
+
     def test_delete_relationship_from_index(self):
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
         n2 = self.gdb.nodes.create(name="Michael Doe", place="Tijuana")

@@ -1082,7 +1082,8 @@ class Index(object):
                 url = "%s/%s" % (url, item.id)
             elif key and not value:
                 key = smart_quote(key)
-                url = "%s/%s" % (self.template.replace("{key}", key), item.id)
+                url = "%s/%s" % (self.template.replace("{key}/{value}", key),
+                                 item.id)
             elif not key and not value:
                 url = self.template.replace("{key}/{value}", item.id)
             else:
@@ -1094,8 +1095,8 @@ class Index(object):
             if options.SMART_ERRORS:
                 raise KeyError(self._index_for.capitalize())
             else:
-                raise NotFoundError(response.status,
-                                    "%s not found" % self._index_for.capitalize())
+                index_for = self._index_for.capitalize()
+                raise NotFoundError(response.status, "%s not found" % index_for)
         elif response.status != 204:
             raise StatusException(response.status)
 
