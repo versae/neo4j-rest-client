@@ -1477,14 +1477,14 @@ class Extension(object):
             raise NotFoundError(response.status, "Unable get extension")
 
     def __call__(self, *args, **kwargs):
+        # The returns param is a temporary solution while
+        # a proper way to get the data type of returned values by
+        # the extensions is implemented in Neo4j
+        returns = kwargs.pop("returns", None)
         parameters = self._parse_parameters(args, kwargs)
         response, content = Request().post(self.url, data=parameters)
         if response.status == 200:
             results_list = json.loads(content)
-            # The returns param is a temporary solution while
-            # a proper way to get the data type of returned values by
-            # the extensions is implemented in Neo4j
-            returns = kwargs.pop("returns", None)
             # Another option is to inspect the results
             if (not returns and isinstance(results_list, (tuple, list))
                 and len(results_list) > 0):
