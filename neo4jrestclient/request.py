@@ -83,6 +83,8 @@ class StatusException(Exception):
         }
         if result:
             self.result = "\n%s" % result
+        else:
+            self.result = None # pedantic, but needed for __str__()
 
     def __str__(self):
         return u"Error [%s]: %s. %s.%s" % (self.value,
