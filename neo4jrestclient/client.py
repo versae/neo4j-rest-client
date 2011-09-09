@@ -1485,22 +1485,33 @@ class Extension(object):
         parameters = self._parse_parameters(args, kwargs)
         response, content = Request().post(self.url, data=parameters)
         if response.status == 200:
-            results_list = json.loads(content)
+            result = json.loads(content)
             # Another option is to inspect the results
-            if (not returns and isinstance(results_list, (tuple, list))
-                and len(results_list) > 0):
-                returns = results_list[0].get("self", None)
-            if results_list and returns:
+            if not returns:
+                if isinstance(result, (tuple, list)) and len(result) > 0:
+                    returns = result[0].get("self", None)
+                elif isinstance(result, dict) and "self" in result:
+                    returns = result.get("self", None)
+            if isinstance(result, (tuple, list)) and returns:
                 if NODE in returns:
-                    return Iterable(Node, results_list, "self")
+                    return Iterable(Node, result, "self")
                 elif RELATIONSHIP in returns:
-                    return Iterable(Relationship, results_list, "self")
-                elif PATH in returns:
-                    return Iterable(Path, results_list)
+                    return Iterable(Relationship, result, "self")
+                elif PATH in returns or FULLPATH in returns:
+                    return Iterable(Path, result)
                 elif POSITION in returns:
-                    return Iterable(Position, results_list)
-            elif results_list:
-                return results_list
+                    return Iterable(Position, result)
+            if isinstance(result, dict) and returns:
+                if NODE in returns:
+                    return Node(result["self"], data=result)
+                elif RELATIONSHIP in returns:
+                    return Relationship(result["self"], data=result)
+                elif PATH in returns:
+                    return Path(result)
+                elif POSITION in returns:
+                    return Position(result)
+            elif result:
+                return result
             else:
                 return []
         elif response.status == 404:

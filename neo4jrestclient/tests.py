@@ -457,6 +457,18 @@ class ExtensionsTestCase(TraversalsTestCase):
             fail = True
         self.assertTrue(not fail)
 
+    def test_gremlin_extension_reference_node(self):
+        # Assuming the GremlinPlugin installed
+        ext = self.gdb.extensions.GremlinPlugin
+        n = ext.execute_script(script='g.v(0)', returns=constants.NODE)
+        self.assertTrue(isinstance(n, client.Node))
+
+    def test_gremlin_extension_reference_node(self):
+        # Assuming the GremlinPlugin installed
+        ext = self.gdb.extensions.GremlinPlugin
+        n = ext.execute_script(script='g.v(0)', returns=constants.NODE)
+        self.assertTrue(isinstance(n, client.Node))
+
 
 class TransactionsTestCase(ExtensionsTestCase):
 
