@@ -460,14 +460,41 @@ class ExtensionsTestCase(TraversalsTestCase):
     def test_gremlin_extension_reference_node(self):
         # Assuming the GremlinPlugin installed
         ext = self.gdb.extensions.GremlinPlugin
-        n = ext.execute_script(script='g.v(0)', returns=constants.NODE)
+        n = ext.execute_script(script='g.v(0)')
         self.assertTrue(isinstance(n, client.Node))
 
-    def test_gremlin_extension_reference_node(self):
+    def test_gremlin_extension_reference_node_returns(self):
         # Assuming the GremlinPlugin installed
         ext = self.gdb.extensions.GremlinPlugin
         n = ext.execute_script(script='g.v(0)', returns=constants.NODE)
         self.assertTrue(isinstance(n, client.Node))
+
+    def test_gremlin_extension_relationships(self):
+        # Assuming the GremlinPlugin installed
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        n3 = self.gdb.nodes.create()
+        r1 = n1.relationships.create("related", n2)
+        r2 = n1.relationships.create("related", n3)
+        gremlin = self.gdb.extensions.GremlinPlugin.execute_script
+        rels = gremlin(script='g.v(%s).outE' % n1.id)
+        self.assertEqual(len(rels), 2)
+        for rel in rels:
+            self.assertTrue(isinstance(rel, client.Relationship))
+
+    def test_gremlin_extension_relationships_returns(self):
+        # Assuming the GremlinPlugin installed
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        n3 = self.gdb.nodes.create()
+        r1 = n1.relationships.create("related", n2)
+        r2 = n1.relationships.create("related", n3)
+        gremlin = self.gdb.extensions.GremlinPlugin.execute_script
+        rels = gremlin(script='g.v(%s).outE' % n1.id,
+                       returns=constants.RELATIONSHIP)
+        self.assertEqual(len(rels), 2)
+        for rel in rels:
+            self.assertTrue(isinstance(rel, client.Relationship))
 
 
 class TransactionsTestCase(ExtensionsTestCase):
