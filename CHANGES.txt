@@ -1,6 +1,22 @@
 Changes
 -------
 
+1.4.5 (2011-09-15)
+------------------
+- Adding more testing to returns parameter in the extensions.
+- Fixes 32. It needs some more testing, maybe.
+- Updated to using lucene-querybuilder 0.1.5 (bugfixes and better wildcard support).
+- Fixed the test issue found in #34, and updated the REST client to using lucene-querybuilder 0.1.5.
+- Fixes #34. Fixing dependency of lucene-querybuilder version
+- Fixes #30. Fixing an issue deleting all index entries for a node.
+- Fixing an issue with parameters in extensions.
+- Ensure that self.result is always present on the object, even if it's None.
+- Fixing naming glitch in exception message
+- Ensure that self.result is always present on the object, even if it's None
+- Fixing an error retrieving relationships in paths.
+- Fixing an error in extensions, Path and Position.
+
+
 1.4.4 (2011-08-17)
 ------------------
 - Merge pull request #28 from mhluongo/master
