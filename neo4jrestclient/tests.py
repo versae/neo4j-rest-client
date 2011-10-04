@@ -665,6 +665,16 @@ class TransactionsTestCase(ExtensionsTestCase):
             self.assertTrue(isinstance(node, client.Node))
             self.assertEqual(position, node["position"])
 
+    def test_transaction_related_nodes(self):
+        r = None
+        with self.gdb.transaction():
+            n1 = self.gdb.nodes.create()
+            n2 = self.gdb.nodes.create()
+            r = n1.relationships.create("Knows", n2, since=1970)
+        self.assertTrue(r is not None)
+        self.assertTrue(isinstance(r, client.Relationship))
+        self.assertTrue(r['since'] == 1970)
+
 
 class PickleTestCase(TransactionsTestCase):
 
