@@ -5,6 +5,7 @@ except:
     import pickle
 import json
 import urllib
+import urlparse
 import weakref
 import warnings
 from lucenequerybuilder import Q
@@ -351,36 +352,95 @@ class Transaction(object):
         else:
             return None
 
+class RequestBuilder(dict):
+    """
+    Base class to build request URLs for operations on Neo4j objects over REST.
+
+    This class was created to separate operation URL creation from the state
+    maintenance required of classes like Node and Relationship.
+    """
+    def __init__(self, url, dic={}):
+        super(RequestBuilder, self).__init__(**dic)
+        if url is not None and url.endswith("/"):
+            url = url[:-1]
+        self._url = url
+        self.update(dic)
+
+    def __getitem__(self, item):
+        if item == 'data' and item not in self:
+            self[item] = {}
+            return self[item]
+        return super(RequestBuilder, self).__getitem__(item)
+
+    def url(self):
+        return self._url
+
+    def property_url(self, key):
+        return self['property'].replace("{key}", smart_quote(key))
+
+    def properties_url(self):
+        return self['properties']
+
+    def transaction_url(self):
+        return self.property_url('')
+
+    def update_url(self, url):
+        self._url = url
+
+    def copy(self):
+        return type(self)(self.url, dic=self)
+
+class NodeRequestBuilder(RequestBuilder):
+    def create_relationship_url(self):
+        return self['create_relationship']
+
+    def traverse_url(self, return_type):
+        return self["traverse"].replace("{returnType}", return_type)
+
+    def paged_traverse_url(self, return_type, page_size=None, time_out=None):
+        url = self["paged_traverse"].replace("{returnType}", return_type)
+        url = url.replace("{?pageSize,leaseTime}", "")
+        parts = urlparse.urlsplit(url)
+        query = urlparse.parse_qsl(parts[3])
+        if page_size is not None:
+            query.append(('pageSize', str(page_size)))
+        if time_out is not None:
+            query.append(('leaseTime', str(time_out)))
+        return urlparse.urlunsplit(parts[:3] + (urllib.urlencode(query),) 
+                                   + parts[-1:])
+
+class RelationshipRequestBuilder(RequestBuilder):
+    pass
 
 class Base(object):
     """
     Base class.
     """
 
-    def __init__(self, url, create=False, data={}, update_dict={}):
-        self._dic = {}
-        self.url = None
+    def __init__(self, url, create=False, update_dict={}, data={},
+                 request_builder=None):
+        if request_builder is not None:
+            self._dic = request_builder
+        else:
+            self._dic = RequestBuilder(url)
         # TODO: Allow update an object using only a new data dict of properties
-        self._update_dict = update_dict
-        if url.endswith("/"):
-            url = url[:-1]
         if create:
             response, content = Request().post(url, data=data)
             if response.status == 201:
                 self._dic.update(data.copy())
                 self._update_dict_data()
-                self.url = response.get("location")
+                self._dic.update_url(response.get("location"))
             else:
                 raise NotFoundError(response.status, "Invalid data sent")
-        if not self.url:
-            self.url = url
         self.update()
 
+    @property
+    def url(self):
+        return self._dic.url()
+
     def _update_dict_data(self):
-        if "data" in self._dic:
-            self._dic["data"] = dict((self._safe_string(k),
-                                      self._safe_string(v))
-                                      for k, v in self._dic["data"].items())
+        self._dic['data'] = dict((self._safe_string(k), self._safe_string(v))
+                          for k, v in self._dic['data'].items())
 
     def _safe_string(self, s):
         return unicode(s.decode("utf-8"))
@@ -388,14 +448,15 @@ class Base(object):
     def update(self, extensions=True, delete_on_not_found=False):
         response, content = Request().get(self.url)
         if response.status == 200:
-            self._dic.update(json.loads(content).copy())
+            data = json.loads(content).copy()
+            self._dic.update(data)
             if extensions:
-                self._extensions = self._dic.get('extensions', {})
+                self._extensions = data.get('extensions', {})
                 if self._extensions:
                     self.extensions = ExtensionsProxy(self._extensions)
         elif delete_on_not_found and response.status == 404:
-            self.url = None
-            self._dic = {}
+            self._dic.update_url(None)
+            self._dic = type(self._dic)(None)
             self = None
             del self
         else:
@@ -418,20 +479,20 @@ class Base(object):
                                                    "relationships?)")
 
     def __getitem__(self, key, tx=None):
-        property_url = self._dic["property"].replace("{key}", smart_quote(key))
+        property_url = self._dic.property_url(key)
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_GET, property_url, obj=self)
         response, content = Request().get(property_url)
         if response.status == 200:
-            self._dic["data"][key] = json.loads(content)
+            self._dic['data'][key] = json.loads(content)
         else:
             if options.SMART_ERRORS:
                 raise KeyError()
             else:
                 raise NotFoundError(response.status,
                                     "Node or propery not found")
-        return self._dic["data"][key]
+        return self._dic['data'][key]
 
     def get(self, key, *args, **kwargs):
         tx = kwargs.get("tx", None)
@@ -448,7 +509,7 @@ class Base(object):
                 raise NotFoundError()
 
     def __contains__(self, obj):
-        return obj in self._dic["data"]
+        return obj in self._dic['data']
 
     def __setitem__(self, key, value, tx=None):
         if isinstance(key, (list, tuple)):
@@ -457,14 +518,14 @@ class Base(object):
         if isinstance(value, Transaction):
             tx = tx or value
             value = value.get_value()
-        property_url = self._dic["property"].replace("{key}", smart_quote(key))
+        property_url = self._dic.property_url(key)
         tx = Transaction.get_transaction(tx)
         if tx:
-            transaction_url = self._dic["property"].replace("{key}", "")
+            transaction_url = self._dic.transaction_url()
             return tx.subscribe(TX_PUT, transaction_url, {key: value}, obj=self)
         response, content = Request().put(property_url, data=value)
         if response.status == 204:
-            self._dic["data"].update({key: value})
+            self._dic['data'].update({key: value})
         elif response.status == 404:
             raise NotFoundError(response.status, "Node or property not found")
         else:
@@ -477,13 +538,13 @@ class Base(object):
         self.__setitem__(key, value)
 
     def __delitem__(self, key, tx=None):
-        property_url = self._dic["property"].replace("{key}", smart_quote(key))
+        property_url = self._dic.property_url(key)
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_DELETE, property_url, obj=self)
         response, content = Request().delete(property_url)
         if response.status == 204:
-            del self._dic["data"][key]
+            del self._dic['data'][key]
         elif response.status == 404:
             if options.SMART_ERRORS:
                 raise KeyError()
@@ -494,13 +555,13 @@ class Base(object):
             raise StatusException(response.status, "Node or propery not found")
 
     def __len__(self):
-        return len(self._dic["data"])
+        return len(self._dic['data'])
 
     def __iter__(self):
-        return self._dic["data"].__iter__()
+        return self._dic['data'].__iter__()
 
     def __eq__(self, obj):
-        if not self.url and not self._dic:
+        if not self.url and not self._dic['data']:
             return (obj == None)
         else:
             return (hasattr(obj, "url")
@@ -512,7 +573,7 @@ class Base(object):
         return not self.__cmp__(obj)
 
     def __nonzero__(self):
-        return bool(self._dic)
+        return bool(self.url) or bool(self._dic['data'])
 
     def __repr__(self):
         return self.__unicode__()
@@ -527,15 +588,15 @@ class Base(object):
             return u"<Neo4j %s: %s>" % (self.__class__.__name__, self.url)
 
     def _get_properties(self):
-        return self._dic["data"]
+        return self._dic.get('data',{})
 
     def _set_properties(self, props={}):
         if not props:
             return None
-        properties_url = self._dic["properties"]
+        properties_url = self._dic.properties_url()
         response, content = Request().put(properties_url, data=props)
         if response.status == 204:
-            self._dic["data"] = props.copy()
+            self._dic['data'] = props.copy()
             self._update_dict_data()
             return props
         elif response.status == 400:
@@ -544,10 +605,10 @@ class Base(object):
             raise NotFoundError(response.status, "Properties not found")
 
     def _del_properties(self):
-        properties_url = self._dic["properties"]
+        properties_url = self._dic.properties_url()
         response, content = Request().delete(properties_url)
         if response.status == 204:
-            self._dic["data"] = {}
+            self._dic['data'] = {}
         else:
             raise NotFoundError(response.status, "Properties not found")
     # TODO: Create an own Property class to handle transactions
@@ -676,11 +737,14 @@ class NodesProxy(dict):
             return IndexesProxy(self._node_index, NODE)
     indexes = property(_indexes)
 
-
 class Node(Base):
     """
     Node class.
     """
+
+    def __init__(self, url, *args, **kwargs):
+        kwargs['request_builder'] = NodeRequestBuilder(url)
+        super(Node, self).__init__(url, *args, **kwargs)
 
     def __getattr__(self, *args, **kwargs):
         """
@@ -695,7 +759,7 @@ class Node(Base):
     def _create_relationship(self, relationship_name, *args, **kwargs):
         def relationship(to, *args, **kwargs):
             tx = Transaction.get_transaction(kwargs.get("tx", None))
-            create_relationship_url = self._dic["create_relationship"]
+            create_relationship_url = self._dic.create_relationship_url()
             data = {
                 "to": to.url,
                 "type": relationship_name,
@@ -791,23 +855,14 @@ class Node(Base):
                 data.update({"relationships": relationships})
         if returns not in (NODE, RELATIONSHIP, PATH, POSITION):
             returns = NODE
-        if ((paginated or page_size or time_out)
-            and "paged_traverse" in self._dic):
-            traverse_params = []
-            if page_size:
-                traverse_params.append("pageSize=%s" % page_size)
-            if time_out:
-                traverse_params.append("leaseTime=%s" % time_out)
-            traverse_url = self._dic["paged_traverse"].replace("{returnType}",
-                                                               returns)
-            traverse_url = traverse_url.replace("{?pageSize,leaseTime}", "")
-            if traverse_params:
-                traverse_url = "%s?%s" % (traverse_url,
-                                          "&".join(traverse_params))
+        if (paginated or page_size or time_out)\
+            and "paged_traverse" in self._dic:
+            traverse_url = self._dic.paged_traverse_url(returns,
+                                                                    page_size,
+                                                                    time_out)
             return PaginatedTraversal(traverse_url, returns, data=data)
         else:
-            traverse_url = self._dic["traverse"].replace("{returnType}",
-                                                         returns)
+            traverse_url = self._dic.traverse_url(returns)
             response, content = Request().post(traverse_url, data=data)
             if response.status == 200:
                 results_list = json.loads(content)
@@ -1384,7 +1439,6 @@ All = BaseInAndOut(direction=RELATIONSHIPS_ALL)
 Incoming = BaseInAndOut(direction=RELATIONSHIPS_IN)
 Outgoing = BaseInAndOut(direction=RELATIONSHIPS_OUT)
 Undirected = BaseInAndOut(direction="both")  # Deprecated, use "All" instead
-
 
 class ExtensionsProxy(dict):
     """
