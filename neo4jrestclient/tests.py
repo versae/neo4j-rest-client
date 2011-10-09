@@ -514,7 +514,6 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertFalse(n)
         self.assertEqual(n, None)
 
-    def test_transaction_delete_node(self):
         n1 = self.gdb.nodes.create()
         n2 = self.gdb.nodes.create()
         r = n1.relationships.create("relation", n2)
@@ -674,7 +673,43 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertTrue(r is not None)
         self.assertTrue(isinstance(r, client.Relationship))
         self.assertTrue(r['since'] == 1970)
+    
+    def test_transaction_index_creation(self):
+        with self.gdb.transaction():
+            i1 = self.gdb.nodes.indexes.create('index_from_tx')
+        self.assertTrue(i1 is not None)
+        self.assertTrue(isinstance(i1, client.Index))
+        i2 = self.gdb.nodes.indexes.get('index_from_tx')
+        self.assertTrue(i1 == i2)
 
+    def test_transaction_index_node(self):
+        """
+        Tests whether the REST client transaction methods work with indexes. 
+
+        Note that it does not prove that index operations happen on the proper 
+        transaction, merely that they appear to work within the client, similar 
+        to other tests in this class.
+        """
+        #test nodes
+        n1 = self.gdb.nodes.create()
+        index = self.gdb.nodes.indexes.create('index')
+        with self.gdb.transaction():
+            index.add('test1','test1', n1)
+
+        self.assertTrue(index['test1']['test1'][-1] == n1)
+
+        n2 = self.gdb.nodes.create()
+        index.add('test2','test2',n2)
+        #test getting nodes from index during transaction
+        with self.gdb.transaction():
+            n3 = index['test2']['test2'][-1]
+        self.assertTrue(n2 == n3)
+
+        #test nodes created in transaction
+        with self.gdb.transaction():
+            n4 = self.gdb.nodes.create()
+            index.add('test3','test3',n4)
+        self.assertTrue(index['test3']['test3'][-1] == n4)
 
 class PickleTestCase(TransactionsTestCase):
 

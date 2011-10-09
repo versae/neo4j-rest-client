@@ -1174,6 +1174,12 @@ class Index(object):
     def __repr__(self):
         return self.__unicode__()
 
+    def __eq__(self, other):
+        return isinstance(other, Index) and self.url == other.url
+
+    def __hash__(self):
+        return hash(self.url)
+
     def __str__(self):
         return self.__unicode__()
 
