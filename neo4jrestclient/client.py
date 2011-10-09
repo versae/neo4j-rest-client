@@ -192,7 +192,7 @@ class TransactionOperationProxy(dict, object):
     into final instances of Node or Relationship.
     """
 
-    def __init__(self, obj=None, attr=None, **kwargs):
+    def __init__(self, obj=None, callback=None, attr=None, **kwargs):
         #TODO it would be good is proxies knew the class they'll be changed to
         #for further emulating of the Node/Relationship/Path/Position interface
         # - @mhluongo
@@ -202,6 +202,7 @@ class TransactionOperationProxy(dict, object):
         else:
             self._object_ref = None
         self._attribute = attr
+        self._callback = callback
         super(TransactionOperationProxy, self).__init__(kwargs)
 
     def __getattribute__(self, attr):
@@ -252,7 +253,10 @@ class TransactionOperationProxy(dict, object):
         return self._attribute
 
     def change(self, cls, url, data=None):
-        self._self = cls(url, update_dict=data)
+        method = cls.from_url if hasattr(cls, 'from_url') else cls
+        self._self = method(url, update_dict=data)
+        if self._callback:
+            self._callback(self._self)
 
     #####################################
     # MOCK NODE/RELATIONSHIP ATTRIBUTES #
@@ -305,17 +309,23 @@ class Transaction(object):
             del globals()[options.TX_NAME]
         if self.auto_commit:
             return self.commit(type, value, traceback)
+        #TODO It would be good if this only returned True for tx-related errors 
+        #and not, say, AssertionError, to allow predictable python debugging
         return True
 
     def _results_list_to_dict(self, results):
         result_dict = {}
         for result in results:
             result_id = result.pop("id")
-            if "body" in result and "self" in result["body"]:
-                if NODE in result["body"]["self"]:
-                    result["returns"] = Node
-                elif RELATIONSHIP in result["body"]["self"]:
-                    result["returns"] = Relationship
+            if "body" in result:
+                if "self" in result["body"]:
+                    if NODE in result["body"]["self"]:
+                        result["returns"] = Node
+                    elif RELATIONSHIP in result["body"]["self"]:
+                        result["returns"] = Relationship
+                else:
+                    if 'provider' in result['body']:
+                        result['returns'] = Index
             if "returns" in result:
                 result_dict[result_id] = result
         return result_dict
@@ -359,7 +369,7 @@ class Transaction(object):
         else:
             return True
 
-    def subscribe(self, method, url, data=None, obj=None):
+    def subscribe(self, method, url, data=None, obj=None, callback=None):
         to_url = url.replace(self._class.url, "")
         if not to_url.startswith('{'):
             to_url += '/'
@@ -383,6 +393,7 @@ class Transaction(object):
                 break
         if not transaction_operation:
             transaction_operation = TransactionOperationProxy(obj=obj,
+                                                              callback=callback,
                                                               **params)
             self.operations.append(transaction_operation)
             if method in (TX_POST, TX_GET):
@@ -787,8 +798,7 @@ class NodesProxy(dict):
         tx = Transaction.get_transaction(kwargs.get("tx", None))
         if tx:
             if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
-                x = kwargs.pop("tx", None)
-                del x  # Makes pyflakes happy
+                kwargs.pop("tx", None)
             return tx.subscribe(TX_POST, self._node, data=kwargs, obj=self)
         else:
             return Node(self._node, create=True, data=kwargs)
@@ -1045,16 +1055,26 @@ class IndexesProxy(dict):
                 'provider': kwargs.get("provider", "lucene"),
             }
         }
+
         if name not in self._dict:
-            response, content = Request().post(self.url, data=data)
-            if response.status == 201:
-                loaded_dict = json.loads(content)
-                result_dict = {}
-                for key, val in loaded_dict.items():
-                    result_dict[str(key)] = val
-                self._dict[name] = Index(self._index_for, name, **result_dict)
+            #TODO add transactionality - @mhluongo
+            tx = Transaction.get_transaction(kwargs.get("tx", None))
+            if tx:
+                if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
+                    kwargs.pop("tx", None)
+                callback = lambda new_obj: self._dict.update({name:new_obj})
+                return tx.subscribe(TX_POST, self.url, data=data, obj=self,
+                                    callback=callback)
             else:
-                raise StatusException(response.status, "Invalid data sent")
+                response, content = Request().post(self.url, data=data)
+                if response.status == 201:
+                    loaded_dict = json.loads(content)
+                    result_dict = {}
+                    for key, val in loaded_dict.items():
+                        result_dict[str(key)] = val
+                    self._dict[name] = Index(self._index_for, name, **result_dict)
+                else:
+                    raise StatusException(response.status, "Invalid data sent")
         return self._dict[name]
 
     def get(self, attr, *args, **kwargs):
@@ -1086,9 +1106,10 @@ class Index(object):
     key/value indexed lookups. Create an index object with GraphDatabase.index.
     The returned object supports dict style lookups, eg index[key][value].
     """
-
+    #TODO Abstracting url building could be done here, as well. -@mhluongo
     @staticmethod
     def _get_results(url, node_or_rel):
+        #TODO add transactionality
         response, content = Request().get(url)
         if response.status == 200:
             data_list = json.loads(content)
@@ -1140,6 +1161,7 @@ class Index(object):
             else:
                 url_ref = item
             request_url = "%s/%s" % (self.url, value)
+            #TODO add transactionality
             response, content = Request().post(request_url, data=url_ref)
             if response.status == 201:
                 # Returns object that was indexed
@@ -1167,6 +1189,28 @@ class Index(object):
         if url[-1] == '/':
             url = url[:-1]
         self.url = url
+
+    @classmethod
+    def from_url(cls, url, update_dict={}):
+        init_kwargs = {}
+
+        path = urlparse.urlparse(url).path
+        if path[-1] == '/':
+            path = path[:-1]
+        _, path_type, path_name = path.rsplit('/',2)
+
+        if 'name' in update_dict:
+            name = update_dict['name']
+        else:
+            #infer name from url (should be last part of path)
+            name = path_name
+        # infer index type from url
+        index_for = NODE
+        if path_type == 'relationship':
+            index_for = RELATIONSHIP
+
+        init_kwargs.update(update_dict.get('body', {}))
+        return cls(index_for, name, **init_kwargs)
 
     def __getitem__(self, key):
         return self.get(key)
@@ -1220,6 +1264,7 @@ class Index(object):
                 raise TypeError("delete() takes at least 2 arguments, the " \
                                 "key of the index and the %s to remove"
                                 % self._index_for)
+        #TODO add transactionality
         response, content = Request().delete(url)
         if response.status == 404:
             if options.SMART_ERRORS:
