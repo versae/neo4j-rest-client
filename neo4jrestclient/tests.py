@@ -14,9 +14,23 @@ from lucenequerybuilder import Q
 
 class NodesTestCase(unittest.TestCase):
 
-    def setUp(self):
-        self.url = "http://localhost:7474/db/data/"
-        self.gdb = client.GraphDatabase(self.url)
+    @classmethod
+    def setUpClass(cls):
+        cls.url = "http://localhost:7474/db/data/"
+        cls.gdb = client.GraphDatabase(cls.url)
+        cls.clean_after_test = True
+
+        def cleandb():
+            cleandb_url = 'http://localhost:7474/cleandb/supersecretdebugkey!'
+            response, content = request.Request().delete(cleandb_url)
+            if response.status != 200:
+                print "\nTest database couldn't be cleared - have you installed the cleandb extension at https://github.com/jexp/neo4j-clean-remote-db-addon?"
+                cls.clean_after_test = False
+        cls.gdb.cleandb = cleandb
+
+    def tearDown(self):
+        if self.clean_after_test:
+            self.gdb.cleandb()
 
     def test_connection_cache(self):
         import options as clientCache
