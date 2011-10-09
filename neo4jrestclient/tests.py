@@ -701,7 +701,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         """
         #test nodes
         n1 = self.gdb.nodes.create()
-        index = self.gdb.nodes.indexes.create('index')
+        index = self.gdb.nodes.indexes.create('index1')
         with self.gdb.transaction():
             index.add('test1','test1', n1)
             transactionality_test = not(index['test1']['test1'][-1] == n1)
@@ -709,19 +709,31 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertTrue(transactionality_test)
         self.assertTrue(index['test1']['test1'][-1] == n1)
 
-        n2 = self.gdb.nodes.create()
-        index.add('test2','test2',n2)
+    def test_transaction_index_query(self):
+        """
+        Tests whether the transaction methods work with index queries.
+
+        Note- this test does not prove query transactionality.
+        """
+        #TODO show transactionality
+        n1 = self.gdb.nodes.create()
+        index = self.gdb.nodes.indexes.create('index2')
+        index.add('test2','test2',n1)
         #test getting nodes from index during transaction
         with self.gdb.transaction():
-            n3 = index['test2']['test2'][-1]
+            n2 = index['test2']['test2'][-1]
 
-        self.assertTrue(n2 == n3)
+        self.assertTrue(n1 == n2)
 
+    def test_transaction_query_index_for_new_node(self):
         #test nodes created in transaction
+        index = self.gdb.nodes.indexes.create('index3')
         with self.gdb.transaction():
             n4 = self.gdb.nodes.create()
             index.add('test3','test3',n4)
         self.assertTrue(index['test3']['test3'][-1] == n4)
+
+
 
 class PickleTestCase(TransactionsTestCase):
 
