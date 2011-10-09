@@ -27,6 +27,31 @@ __all__ = ["GraphDatabase", "Incoming", "Outgoing", "Undirected",
            "StopAtDepth", "NotFoundError", "StatusException", "Q"]
 
 
+DEFAULT_NEO_NODE_DIC = {
+    "outgoing_relationships" : "{URL}/relationships/out",
+    "traverse" : "{URL}/traverse/{returnType}",
+    "all_typed_relationships" : "{URL}/relationships/all/{-list|&|types}",
+    "property" : "{URL}/properties/{key}",
+    "self" : "{URL}",
+    "properties" : "{URL}/properties",
+    "outgoing_typed_relationships" : "{URL}/relationships/out/{-list|&|types}",
+    "incoming_relationships" : "{URL}/relationships/in",
+    "extensions" : {},
+    "create_relationship" : "{URL}/relationships",
+    "paged_traverse" : "{URL}/paged/traverse/{returnType}{?pageSize,leaseTime}",
+    "all_relationships" : "{URL}/relationships/all",
+    "incoming_typed_relationships" : "{URL}/relationships/in/{-list|&|types}"
+}
+
+DEFAULT_NEO_RELATIONSHIP_DIC = {
+    "start" : "{START_URL}",
+    "self" : "{URL}",
+    "property" : "{URL}/properties/{key}",
+    "properties" : "{URL}/properties",
+    "extensions" : {},
+    "end" : "{END_URL}"
+}
+
 class StopAtDepth(object):
     """
     Only traverse to a certain depth.
@@ -60,6 +85,13 @@ class GraphDatabase(object):
     Main class for connection to Ne4j standalone REST server.
     """
 
+    @property
+    def default_neo_dic(self):
+        """
+
+        """
+        pass
+    
     def __init__(self, url):
         self._transactions = {}
         self.url = None
@@ -161,6 +193,9 @@ class TransactionOperationProxy(dict, object):
     """
 
     def __init__(self, obj=None, attr=None, **kwargs):
+        #TODO it would be good is proxies knew the class they'll be changed to
+        #for further emulating of the Node/Relationship/Path/Position interface
+        # - @mhluongo
         self._self = None
         if obj:
             self._object_ref = weakref.ref(obj)
@@ -219,6 +254,17 @@ class TransactionOperationProxy(dict, object):
     def change(self, cls, url, data=None):
         self._self = cls(url, update_dict=data)
 
+    #####################################
+    # MOCK NODE/RELATIONSHIP ATTRIBUTES #
+    #####################################
+
+    @property
+    def url(self):
+        return '{%d}' % self['id']
+
+    @property
+    def relationships(self):
+        return Node(self.url, update=False).relationships
 
 class Transaction(object):
     """
@@ -314,9 +360,12 @@ class Transaction(object):
             return True
 
     def subscribe(self, method, url, data=None, obj=None):
+        to_url = url.replace(self._class.url, "")
+        if not to_url.startswith('{'):
+            to_url += '/'
         params = {
             "method": method,
-            "to": "/%s" % url.replace(self._class.url, ""),
+            "to": to_url,
             "id": len(self.operations),
         }
         if data:
@@ -359,21 +408,27 @@ class RequestBuilder(dict):
     This class was created to separate operation URL creation from the state
     maintenance required of classes like Node and Relationship.
     """
+    fallback_dic = {}
+
     def __init__(self, url, dic={}):
         super(RequestBuilder, self).__init__(**dic)
         if url is not None and url.endswith("/"):
             url = url[:-1]
-        self._url = url
+        self.url = url
         self.update(dic)
 
     def __getitem__(self, item):
         if item == 'data' and item not in self:
             self[item] = {}
             return self[item]
-        return super(RequestBuilder, self).__getitem__(item)
-
-    def url(self):
-        return self._url
+        else:
+            try:
+                return super(RequestBuilder, self).__getitem__(item)
+            except KeyError:
+                if item in self.fallback_dic:
+                    return self._fallback_template(self.fallback_dic[item])
+                else:
+                    raise
 
     def property_url(self, key):
         return self['property'].replace("{key}", smart_quote(key))
@@ -384,13 +439,15 @@ class RequestBuilder(dict):
     def transaction_url(self):
         return self.property_url('')
 
-    def update_url(self, url):
-        self._url = url
+    def _fallback_template(self, template_url):
+        return template_url.replace('{URL}',self.url)
 
     def copy(self):
         return type(self)(self.url, dic=self)
 
 class NodeRequestBuilder(RequestBuilder):
+    fallback_dic = DEFAULT_NEO_NODE_DIC
+
     def create_relationship_url(self):
         return self['create_relationship']
 
@@ -410,14 +467,25 @@ class NodeRequestBuilder(RequestBuilder):
                                    + parts[-1:])
 
 class RelationshipRequestBuilder(RequestBuilder):
-    pass
+    fallback_dic = DEFAULT_NEO_RELATIONSHIP_DIC
+
+    def __init__(self, url, start_url, end_url, **kwargs):
+        super(RelationshipRequestBuilder, self).__init__(url, **kwargs)
+        self.start_url = start_url
+        self.end_url = end_url
+
+    def _fallback_template(self, template_url):
+        temp = super(RelationshipRequestBuilder, self).\
+                _fallback_template(template_url)
+        return temp.replace('{START_URL}', self.start_url)\
+                .replace('{END_URL}', self.end_url)
 
 class Base(object):
     """
     Base class.
     """
 
-    def __init__(self, url, create=False, update_dict={}, data={},
+    def __init__(self, url, create=False, update=True, update_dict={}, data={},
                  request_builder=None):
         if request_builder is not None:
             self._dic = request_builder
@@ -429,14 +497,15 @@ class Base(object):
             if response.status == 201:
                 self._dic.update(data.copy())
                 self._update_dict_data()
-                self._dic.update_url(response.get("location"))
+                self._dic.url = response.get("location")
             else:
                 raise NotFoundError(response.status, "Invalid data sent")
-        self.update()
+        if update:
+            self.update()
 
     @property
     def url(self):
-        return self._dic.url()
+        return self._dic.url
 
     def _update_dict_data(self):
         self._dic['data'] = dict((self._safe_string(k), self._safe_string(v))
@@ -455,7 +524,7 @@ class Base(object):
                 if self._extensions:
                     self.extensions = ExtensionsProxy(self._extensions)
         elif delete_on_not_found and response.status == 404:
-            self._dic.update_url(None)
+            self._dic.url = None
             self._dic = type(self._dic)(None)
             self = None
             del self
@@ -1626,3 +1695,22 @@ def smart_quote(val):
     except (KeyError, UnicodeEncodeError, UnicodeError):
         safe_key = urllib.quote(val.encode("utf8"), safe="")
     return safe_key
+
+def deep_replace(seq_or_mapping, match, replacement):
+    """
+    Performs a string replace on all values in a collection, and returns a 
+    copy of the collection. Note that while all containers will be copies of 
+    the originally nested containers, non-str values will not be adjusted.
+
+    In the case of a mapping, the keys are not adjusted- only the values.
+    """
+    #base case, if string
+    if isinstance(seq_or_mapping, basestring):
+        return set_or_mapping.replace(match, replacement) 
+    elif hasattr(seq_or_mapping, 'items'):
+        new_coll = {}
+        for k, v in seq_or_mapping.items():
+            new_coll[k] = deep_replace(v, match, replacement)
+        return new_coll
+    else:
+        return [deep_replace(v, match, replacement) for v in seq_or_mapping]
