@@ -675,27 +675,38 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertTrue(r['since'] == 1970)
     
     def test_transaction_index_creation(self):
+        """
+        Tests whether indexes are properly created during a transaction. 
+        Asserts the creation also behaves transactionally (ie, not until
+        commit).
+        """
         with self.gdb.transaction():
             i1 = self.gdb.nodes.indexes.create('index_from_tx')
+            i2 = self.gdb.nodes.indexes.get('index_from_tx')
+            #this shouldn't be true until after commit
+            transactionality_test = not(i1.url and i1 == i2)
+
+        self.assertTrue(transactionality_test) 
         self.assertTrue(i1 is not None)
         self.assertTrue(isinstance(i1, client.Index))
-        i2 = self.gdb.nodes.indexes.get('index_from_tx')
-        self.assertTrue(i1 == i2)
+
+        i3 = self.gdb.nodes.indexes.get('index_from_tx')
+        self.assertTrue(i1 == i3)
 
     def test_transaction_index_node(self):
         """
         Tests whether the REST client transaction methods work with indexes. 
-
-        Note that it does not prove that index operations happen on the proper 
-        transaction, merely that they appear to work within the client, similar 
-        to other tests in this class.
+        Asserts the creation also behaves transactionally (ie, not until
+        commit).
         """
         #test nodes
         n1 = self.gdb.nodes.create()
         index = self.gdb.nodes.indexes.create('index')
         with self.gdb.transaction():
             index.add('test1','test1', n1)
+            transactionality_test = not(index['test1']['test1'][-1] == n1)
 
+        self.assertTrue(transactionality_test)
         self.assertTrue(index['test1']['test1'][-1] == n1)
 
         n2 = self.gdb.nodes.create()
@@ -703,6 +714,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         #test getting nodes from index during transaction
         with self.gdb.transaction():
             n3 = index['test2']['test2'][-1]
+
         self.assertTrue(n2 == n3)
 
         #test nodes created in transaction
