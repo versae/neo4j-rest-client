@@ -756,7 +756,7 @@ class TransactionsTestCase(ExtensionsTestCase):
 
         with self.gdb.transaction():
             index.add('test1','test1', r)
-            index['test2']['test2'] =r 
+            index['test2']['test2'] = r
 
         self.assertTrue(index['test1']['test1'][-1] == r)
         self.assertTrue(index['test2']['test2'][-1] == r)
@@ -777,13 +777,38 @@ class TransactionsTestCase(ExtensionsTestCase):
 
         self.assertTrue(n1 == n2)
 
+    def test_transaction_remove_node_from_index(self):
+        index = self.gdb.nodes.indexes.create('index3')
+        n = self.gdb.nodes.create()
+        index.add('test3','test3',n)
+
+        tx = self.gdb.transaction(using_globals=False)
+        index.delete('test3', 'test3', n, tx=tx)
+        #assert transactional
+        self.assertTrue(n in index['test3']['test3'])
+        tx.commit()
+
+        self.assertTrue(n not in index['test3']['test3'])
+
     def test_transaction_query_index_for_new_node(self):
         #test nodes created in transaction
         index = self.gdb.nodes.indexes.create('index3')
-        with self.gdb.transaction():
-            n4 = self.gdb.nodes.create()
-            index.add('test3','test3',n4)
+
+        tx = self.gdb.transaction(using_globals=False)
+        n4 = self.gdb.nodes.create(tx=tx)
+        index.add('test3','test3',n4, tx=tx)
+        #assert transactional
+        transactional = True
+        try:
+            index['test3']['test3']
+            transactional = False
+        except:
+            pass
+        self.assertTrue(transactional)
+        tx.commit()
+
         self.assertTrue(index['test3']['test3'][-1] == n4)
+
 
 
 
