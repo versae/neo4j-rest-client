@@ -1058,7 +1058,6 @@ class IndexesProxy(dict):
         }
 
         if name not in self._dict:
-            #TODO add transactionality - @mhluongo
             tx = Transaction.get_transaction(kwargs.get("tx", None))
             if tx:
                 if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
@@ -1252,7 +1251,7 @@ class Index(object):
         else:
             return self.IndexKey(self._index_for, "%s/%s" % (self.url, key))
 
-    def delete(self, key=None, value=None, item=None):
+    def delete(self, key=None, value=None, item=None, **kwargs):
         if not key and not value and not item:
             url = self.template.replace("/{key}/{value}", "")
         else:
@@ -1274,16 +1273,21 @@ class Index(object):
                 raise TypeError("delete() takes at least 2 arguments, the " \
                                 "key of the index and the %s to remove"
                                 % self._index_for)
-        #TODO add transactionality
-        response, content = Request().delete(url)
-        if response.status == 404:
-            if options.SMART_ERRORS:
-                raise KeyError(self._index_for.capitalize())
-            else:
-                index_for = self._index_for.capitalize()
-                raise NotFoundError(response.status, "%s not found" % index_for)
-        elif response.status != 204:
-            raise StatusException(response.status)
+        tx = Transaction.get_transaction(kwargs.get("tx", None))
+        if tx:
+            if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
+                kwargs.pop("tx", None)
+            return tx.subscribe(TX_DELETE, url)
+        else:
+            response, content = Request().delete(url)
+            if response.status == 404:
+                if options.SMART_ERRORS:
+                    raise KeyError(self._index_for.capitalize())
+                else:
+                    index_for = self._index_for.capitalize()
+                    raise NotFoundError(response.status, "%s not found" % index_for)
+            elif response.status != 204:
+                raise StatusException(response.status)
 
     def query(self, *args):
         """
