@@ -84,13 +84,6 @@ class GraphDatabase(object):
     """
     Main class for connection to Ne4j standalone REST server.
     """
-
-    @property
-    def default_neo_dic(self):
-        """
-
-        """
-        pass
     
     def __init__(self, url):
         self._transactions = {}
@@ -192,11 +185,13 @@ class TransactionOperationProxy(dict, object):
     into final instances of Node or Relationship.
     """
 
-    def __init__(self, obj=None, callback=None, attr=None, **kwargs):
+    def __init__(self, return_type=None, obj=None, callback=None, attr=None,
+                 **kwargs):
         #TODO it would be good is proxies knew the class they'll be changed to
         #for further emulating of the Node/Relationship/Path/Position interface
         # - @mhluongo
         self._self = None
+        self._return_type = return_type
         if obj:
             self._object_ref = weakref.ref(obj)
         else:
@@ -254,7 +249,10 @@ class TransactionOperationProxy(dict, object):
 
     def change(self, cls, url, data=None):
         method = cls.from_url if hasattr(cls, 'from_url') else cls
-        self._self = method(url, update_dict=data)
+        self.change_to_object(method(url, update_dict=data))
+
+    def change_to_object(self, obj):
+        self._self = obj
         if self._callback:
             self._callback(self._self)
             del self._callback
@@ -262,6 +260,8 @@ class TransactionOperationProxy(dict, object):
     #####################################
     # MOCK NODE/RELATIONSHIP ATTRIBUTES #
     #####################################
+    
+    #these are hacks
 
     @property
     def url(self):
@@ -315,15 +315,26 @@ class Transaction(object):
         return True
 
     def _results_list_to_dict(self, results):
+        def returns(dic):
+            if RELATIONSHIP in dic['self']:
+                return Relationship
+            elif NODE in dic['self']:
+                return Node
+            else:
+                return None
+
         result_dict = {}
         for result in results:
             result_id = result.pop("id")
             if "body" in result:
-                if "self" in result["body"]:
-                    if NODE in result["body"]["self"]:
-                        result["returns"] = Node
-                    elif RELATIONSHIP in result["body"]["self"]:
-                        result["returns"] = Relationship
+                if not isinstance(result['body'], dict)\
+                   and len(result['body']) > 0:
+                    result_dict[result_id] = []
+                    for result_el in result['body']:
+                        result_el['returns'] = returns(result_el)
+                        result_dict[result_id].append(result_el)
+                elif "self" in result["body"]:
+                    result["returns"] = returns(result['body'])
                 else:
                     if 'provider' in result['body']:
                         result['returns'] = Index
@@ -340,6 +351,12 @@ class Transaction(object):
         else:
             raise TransactionException(response.status)
 
+    def cancel(self):
+        del self._class._transactions[self.id]
+        if options.TX_NAME in globals():
+            del globals()[options.TX_NAME]
+        del self
+
     def commit(self, *args, **kwargs):
         results = self._batch()
         # Objects to update
@@ -352,7 +369,10 @@ class Transaction(object):
         for referenced_object in self.references:
                 ref_object = referenced_object()
                 result = results[ref_object["id"]]
-                if "returns" in result:
+                if not isinstance(result, dict):
+                    iter_for = result[0]['returns']
+                    ref_object.change_to_object(Iterable(iter_for, result))
+                elif "returns" in result:
                     if "location" in result:
                         cls = result["returns"]
                         url = result["location"]
@@ -503,7 +523,8 @@ class Base(object):
             self._dic = request_builder
         else:
             self._dic = RequestBuilder(url)
-        # TODO: Allow update an object using only a new data dict of properties
+        self._dic.update(update_dict)
+        self._update_dict_data()
         if create:
             response, content = Request().post(url, data=data)
             if response.status == 201:
@@ -708,19 +729,21 @@ class Iterable(list):
         self._attribute = attr
         super(Iterable, self).__init__(lst)
 
-    def __getslice__(self, *args, **kwargs):
-        eltos = super(Iterable, self).__getslice__(*args, **kwargs)
+    def _get_object(self, element):
         if self._attribute:
-            return [self._class(elto[self._attribute]) for elto in eltos]
+            element = element[self._attribute]
+        if isinstance(element, dict):
+            return self._class(element['self'], update_dict=element, update=False)
         else:
-            return [self._class(elto) for elto in eltos]
+            return self._class(element)
 
     def __getitem__(self, index):
-        elto = super(Iterable, self).__getitem__(index)
-        if self._attribute:
-            return self._class(elto[self._attribute])
+        if isinstance(index, slice):
+            indices = index.indices(len(self))
+            return [self[i] for i in range(*indices)]
         else:
-            return self._class(elto)
+            elto = super(Iterable, self).__getitem__(index)
+            return self._get_object(elto)
 
     def __repr__(self):
         return self.__unicode__()
@@ -749,7 +772,6 @@ class Iterable(list):
             raise StopIteration
         self._index = self._index - 1
         return self.__getitem__(self._index)
-
 
 class NodesProxy(dict):
     """
@@ -1108,22 +1130,27 @@ class Index(object):
     """
     #TODO Abstracting url building could be done here, as well. -@mhluongo
     @staticmethod
-    def _get_results(url, node_or_rel):
-        #TODO add transactionality
-        response, content = Request().get(url)
-        if response.status == 200:
-            data_list = json.loads(content)
-            if node_or_rel == NODE:
-                return Iterable(Node, data_list, "self")
-            else:
-                return Iterable(Relationship, data_list, "self")
-        elif response.status == 404:
-            raise NotFoundError(response.status,
-                                "Node or relationship not found")
+    def _get_results(url, node_or_rel, **kwargs):
+        tx = Transaction.get_transaction(kwargs.get("tx", None))
+        if tx:
+            if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
+                kwargs.pop("tx", None)
+            return tx.subscribe(TX_GET, url)
         else:
-            raise StatusException(response.status,
-                                    "Error requesting index with GET %s" \
-                                    % url)
+            response, content = Request().get(url)
+            if response.status == 200:
+                data_list = json.loads(content)
+                if node_or_rel == NODE:
+                    return Iterable(Node, data_list, "self")
+                else:
+                    return Iterable(Relationship, data_list, "self")
+            elif response.status == 404:
+                raise NotFoundError(response.status,
+                                    "Node or relationship not found")
+            else:
+                raise StatusException(response.status,
+                                        "Error requesting index with GET %s" \
+                                        % url)
 
     class IndexKey(object):
         """
@@ -1142,8 +1169,11 @@ class Index(object):
             self.url = url
 
         def __getitem__(self, value):
+            return self._get(value)
+
+        def _get(self, value, tx=None):
             url = "%s/%s" % (self.url, smart_quote(value))
-            return Index._get_results(url, self._index_for)
+            return Index._get_results(url, self._index_for, tx=tx)
 
         def _set(self, value, item, **kwargs):
             # Neo4j hardly crush if you try to index a relationship in a

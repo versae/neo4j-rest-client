@@ -29,6 +29,10 @@ class NodesTestCase(unittest.TestCase):
         cls.gdb.cleandb = cleandb
 
     def tearDown(self):
+        tx = client.Transaction.get_transaction(tx=None)
+        if tx:
+            print "\nLast test left a transaction open! Closing..."
+            tx.cancel()
         if self.clean_after_test:
             self.gdb.cleandb()
 
@@ -561,9 +565,9 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertTrue(n.get("age", True))
 
     def test_transaction_get(self):
-        n1 = self.gdb.nodes.get(1)
+        n1 = self.gdb.node()
         with self.gdb.transaction():
-            n2 = self.gdb.nodes.get(1)
+            n2 = self.gdb.nodes.get(n1.id)
         self.assertTrue(isinstance(n1, client.Node))
         self.assertTrue(isinstance(n2, client.Node))
         self.assertEqual(n1, n2)
@@ -771,11 +775,12 @@ class TransactionsTestCase(ExtensionsTestCase):
         n1 = self.gdb.nodes.create()
         index = self.gdb.nodes.indexes.create('index2')
         index.add('test2','test2',n1)
-        #test getting nodes from index during transaction
-        with self.gdb.transaction():
-            n2 = index['test2']['test2'][-1]
 
-        self.assertTrue(n1 == n2)
+        #test getting nodes from index during transaction
+        tx = self.gdb.transaction()
+        index_hits = index['test2']['test2']
+        tx.commit()
+        self.assertTrue(n1 == index_hits[:][-1])
 
     def test_transaction_remove_node_from_index(self):
         index = self.gdb.nodes.indexes.create('index3')
