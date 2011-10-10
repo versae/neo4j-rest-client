@@ -725,9 +725,9 @@ class TransactionsTestCase(ExtensionsTestCase):
 
         self.assertTrue(i1 == i2)
 
-    def test_transaction_add_to_index(self):
+    def test_transaction_add_node_to_index(self):
         """
-        Tests whether the REST client transaction methods work with indexes.
+        Tests whether a node can be added to an index within a transaction.
 
         Does not assert transactionality.
         """
@@ -741,6 +741,25 @@ class TransactionsTestCase(ExtensionsTestCase):
 
         self.assertTrue(index['test1']['test1'][-1] == n1)
         self.assertTrue(index['test2']['test2'][-1] == n1)
+
+    def test_transaction_index_add_rel_to_index(self):
+        """
+        Tests whether a relationship can be added to an index within a transaction.
+
+        Does not assert transactionality.
+        """
+        #test nodes
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        r = n1.relationships.create('Knows', n2)
+        index = self.gdb.relationships.indexes.create('index1')
+
+        with self.gdb.transaction():
+            index.add('test1','test1', r)
+            index['test2']['test2'] =r 
+
+        self.assertTrue(index['test1']['test1'][-1] == r)
+        self.assertTrue(index['test2']['test2'][-1] == r)
 
     def test_transaction_index_query(self):
         """
