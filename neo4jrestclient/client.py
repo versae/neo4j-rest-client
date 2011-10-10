@@ -207,14 +207,14 @@ class TransactionOperationProxy(dict, object):
 
     def __getattribute__(self, attr):
         try:
-            if attr != "_self":
+            if attr not in ("_self", "_callback"):
                 return getattr(object.__getattribute__(self, "_self"), attr)
         except AttributeError:
             pass
         return object.__getattribute__(self, attr)
 
     def __setattribute__(self, attr, val):
-        if attr in ("_object_ref", "_attribute"):
+        if attr in ("_object_ref", "_attribute", "_callback"):
             object.__setattribute__(self, attr, val)
         elif attr != "_self":
             setattr(self._self, attr, val)
@@ -257,6 +257,7 @@ class TransactionOperationProxy(dict, object):
         self._self = method(url, update_dict=data)
         if self._callback:
             self._callback(self._self)
+            del self._callback
 
     #####################################
     # MOCK NODE/RELATIONSHIP ATTRIBUTES #
@@ -1145,7 +1146,7 @@ class Index(object):
             url = "%s/%s" % (self.url, smart_quote(value))
             return Index._get_results(url, self._index_for)
 
-        def __setitem__(self, value, item):
+        def _set(self, value, item, **kwargs):
             # Neo4j hardly crush if you try to index a relationship in a
             # node index and viceversa.
             is_node_index = self._index_for == NODE and isinstance(item, Node)
@@ -1161,7 +1162,13 @@ class Index(object):
             else:
                 url_ref = item
             request_url = "%s/%s" % (self.url, value)
-            #TODO add transactionality
+
+            tx = Transaction.get_transaction(kwargs.get("tx", None))
+            if tx:
+                if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
+                    kwargs.pop("tx", None)
+                return tx.subscribe(TX_POST, request_url, data=url_ref, obj=self)
+
             response, content = Request().post(request_url, data=url_ref)
             if response.status == 201:
                 # Returns object that was indexed
@@ -1174,6 +1181,9 @@ class Index(object):
                 raise StatusException(response.status,
                                       "Error requesting index with POST %s " \
                                       ", data %s" % (request_url, url_ref))
+
+        def __setitem__(self, value, item):
+            return self._set(value, item)
 
         def query(self, value):
             url = "%s?query=%s" % (self.url, smart_quote(value))
@@ -1230,8 +1240,8 @@ class Index(object):
     def __unicode__(self):
         return u"<Neo4j %s: %s>" % (self.__class__.__name__, self.url)
 
-    def add(self, key, value, item):
-        self.get(key)[value] = item
+    def add(self, key, value, item, tx=None):
+        self.get(key)._set(value, item, tx=tx)
 
     def get(self, key, value=None):
         key = smart_quote(key)

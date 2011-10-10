@@ -725,21 +725,22 @@ class TransactionsTestCase(ExtensionsTestCase):
 
         self.assertTrue(i1 == i2)
 
-    def test_transaction_index_node(self):
+    def test_transaction_add_to_index(self):
         """
-        Tests whether the REST client transaction methods work with indexes. 
-        Asserts the creation also behaves transactionally (ie, not until
-        commit).
+        Tests whether the REST client transaction methods work with indexes.
+
+        Does not assert transactionality.
         """
         #test nodes
         n1 = self.gdb.nodes.create()
         index = self.gdb.nodes.indexes.create('index1')
+
         with self.gdb.transaction():
             index.add('test1','test1', n1)
-            transactionality_test = not(index['test1']['test1'][-1] == n1)
+            index['test2']['test2'] = n1
 
-        self.assertTrue(transactionality_test)
         self.assertTrue(index['test1']['test1'][-1] == n1)
+        self.assertTrue(index['test2']['test2'][-1] == n1)
 
     def test_transaction_index_query(self):
         """
