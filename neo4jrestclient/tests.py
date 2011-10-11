@@ -805,13 +805,13 @@ class TransactionsTestCase(ExtensionsTestCase):
         #assert transactional
         transactional = True
         try:
-            index['test3']['test3']
+            index['test3']['test3'][0]
             transactional = False
         except:
             pass
-        self.assertTrue(transactional)
         tx.commit()
 
+        self.assertTrue(transactional)
         self.assertTrue(index['test3']['test3'][-1] == n4)
 
 

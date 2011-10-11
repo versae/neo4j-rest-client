@@ -1181,12 +1181,13 @@ class Index(object):
             is_node_index = self._index_for == NODE and isinstance(item, Node)
             is_relationship_index = (self._index_for == RELATIONSHIP
                                      and isinstance(item, Relationship))
-            if not (is_node_index or is_relationship_index):
+            is_proxy = isinstance(item, TransactionOperationProxy)
+            if not (is_node_index or is_relationship_index or is_proxy):
                 raise TypeError("%s is a %s and the index is for %ss"
                                 % (item, self._index_for.capitalize(),
                                    self._index_for))
             value = smart_quote(value)
-            if isinstance(item, Base):
+            if hasattr(item, 'url'):
                 url_ref = item.url
             else:
                 url_ref = item
@@ -1196,7 +1197,8 @@ class Index(object):
             if tx:
                 if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
                     kwargs.pop("tx", None)
-                return tx.subscribe(TX_POST, request_url, data=url_ref, obj=self)
+                return tx.subscribe(TX_POST, request_url, data=url_ref,
+                                    obj=self)
 
             response, content = Request().post(request_url, data=url_ref)
             if response.status == 201:
