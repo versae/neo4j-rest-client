@@ -796,6 +796,23 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertTrue(transactional)
         self.assertTrue(index['test3']['test3'][-1] == n4)
 
+    def test_transaction_add_to_new_index(self):
+        """
+        Tests whether a node can be added to an index that was created earlier
+        in the transaction.
+
+        Does not assert transactionality.
+        """
+        #test nodes
+        n1 = self.gdb.nodes.create()
+
+        with self.gdb.transaction():
+            index = self.gdb.nodes.indexes.create('index1')
+            index.add('test1','test1', n1)
+
+        self.assertTrue(index['test1']['test1'][-1] == n1)
+        self.assertTrue(index['test2']['test2'][-1] == n1)
+
     def test_transaction_traversal(self):
         nodes = [self.gdb.nodes.create() for i in xrange(10)]
         # Chain them into a linked list
