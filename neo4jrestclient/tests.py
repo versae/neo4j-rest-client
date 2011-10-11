@@ -806,12 +806,13 @@ class TransactionsTestCase(ExtensionsTestCase):
         #test nodes
         n1 = self.gdb.nodes.create()
 
-        with self.gdb.transaction():
-            index = self.gdb.nodes.indexes.create('index1')
-            index.add('test1','test1', n1)
+        tx = self.gdb.transaction()
+        index = self.gdb.nodes.indexes.create('index1')
+        index.add('test1','test1', n1)
+        tx.commit()
 
+        self.assertTrue(isinstance(index, client.Index))
         self.assertTrue(index['test1']['test1'][-1] == n1)
-        self.assertTrue(index['test2']['test2'][-1] == n1)
 
     def test_transaction_traversal(self):
         nodes = [self.gdb.nodes.create() for i in xrange(10)]

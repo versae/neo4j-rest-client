@@ -185,9 +185,9 @@ class TransactionOperationProxy(dict, object):
     into final instances of Node or Relationship.
     """
 
-    def __init__(self, return_type=None, obj=None, callback=None, attr=None,
-                 **kwargs):
-        #TODO it would be good is proxies knew the class they'll be changed to
+    def __init__(self, return_type=None, obj=None, callback=None, initial_dict={},
+                 attr=None, **kwargs):
+        #TODO it would be good if proxies knew the class they'll be changed to
         #for further emulating of the Node/Relationship/Path/Position interface
         # - @mhluongo
         self._self = None
@@ -198,6 +198,7 @@ class TransactionOperationProxy(dict, object):
             self._object_ref = None
         self._attribute = attr
         self._callback = callback
+        self._initial_dict = initial_dict
         super(TransactionOperationProxy, self).__init__(kwargs)
 
     def __getattribute__(self, attr):
@@ -257,19 +258,34 @@ class TransactionOperationProxy(dict, object):
             self._callback(self._self)
             del self._callback
 
-    #####################################
-    # MOCK NODE/RELATIONSHIP ATTRIBUTES #
-    #####################################
-    
-    #these are hacks
-
     @property
     def url(self):
         return '{%d}' % self['id']
 
+class RelationshipTransactionOperationProxy(TransactionOperationProxy):
+    pass
+
+class NodeTransactionOperationProxy(TransactionOperationProxy):
     @property
     def relationships(self):
         return Node(self.url, update=False).relationships
+
+class IndexTransactionOperationProxy(TransactionOperationProxy):
+    #TODO This is a good example of how maybe Node/Rel/Index/etc and the
+    #TransactionOperationProxy hierarchy actually need to be unified, with
+    #some sort of "tx" and "non-tx" mode.
+    def add(self, key, value, item):
+        if isinstance(item, (Node, NodeTransactionOperationProxy)):
+            index_for = Node
+        else:
+            index_for = Relationship
+        index_for = index_for.__name__.lower()
+        initial_dict = {
+            'template':self.url
+        }
+        initial_dict.update(self._initial_dict)
+        del initial_dict['name']
+        Index(index_for, self._initial_dict['name'], **initial_dict).add(key, value, item)
 
 class Transaction(object):
     """
@@ -384,13 +400,35 @@ class Transaction(object):
         self.references = []
         self.operations = []
         # Destroy the object after commit
+        if options.TX_NAME in globals() and globals()[options.TX_NAME] is self:
+            del globals()[options.TX_NAME]
         self = None
         if "type" in kwargs and isinstance(kwargs["type"], Exception):
             raise kwargs["type"]
         else:
             return True
 
-    def subscribe(self, method, url, data=None, obj=None, callback=None):
+    def subscribe(self, method, url, data=None, obj=None, callback=None,
+                  should_be=None, initial_dict={}):
+        """
+        Subscribe to a transaction. This is usually done instead of issuing a
+        request, to make the request transactional. Subscriptions will ensure 
+        that requests will be issues on tx commit.
+
+        Arguments:
+        method -- the HTTP verb
+        url -- the URL this request will be addressed to, on commit
+
+        Keyword arguments:
+        data -- the body of the future request
+        obj -- the obj to update on commit, if applicable
+        callback -- a function that will be called with the newly created
+                    object as its argument
+        should_be -- the client class this operation is expected to return, eg
+                    Node or Relationship
+        initial_dict -- a dict of data the proxy should use, prior commit- eg
+                    `{'name':'really_important_index'}` for an Index
+        """
         to_url = url.replace(self._class.url, "")
         if not to_url.startswith('{'):
             to_url += '/'
@@ -413,9 +451,15 @@ class Transaction(object):
                 transaction_operation = operation
                 break
         if not transaction_operation:
-            transaction_operation = TransactionOperationProxy(obj=obj,
-                                                              callback=callback,
-                                                              **params)
+            cls_to_op_cls = {
+                Node:NodeTransactionOperationProxy,
+                Relationship:RelationshipTransactionOperationProxy,
+                Index:IndexTransactionOperationProxy
+            }
+            op_cls = cls_to_op_cls.get(should_be) or should_be or TransactionOperationProxy
+            transaction_operation = op_cls(obj=obj, callback=callback,
+                                           initial_dict=initial_dict, **params)
+
             self.operations.append(transaction_operation)
             if method in (TX_POST, TX_GET):
                 self.references.append(weakref.ref(transaction_operation))
@@ -716,7 +760,6 @@ class Base(object):
     # TODO: Create an own Property class to handle transactions
     properties = property(_get_properties, _set_properties, _del_properties)
 
-
 class Iterable(list):
     """
     Class to iterate among returned objects.
@@ -796,9 +839,10 @@ class NodesProxy(dict):
         tx = Transaction.get_transaction(tx)
         if tx:
             if isinstance(key, (str, unicode)) and key.startswith(self._node):
-                return tx.subscribe(TX_GET, key, obj=self)
+                return tx.subscribe(TX_GET, key, obj=self, should_be=Node)
             else:
-                return tx.subscribe(TX_GET, "%s/%s/" % (self._node, key), obj=self)
+                return tx.subscribe(TX_GET, "%s/%s/" % (self._node, key), obj=self,
+                                    should_be=Node)
         else:
             if isinstance(key, (str, unicode)) and key.startswith(self._node):
                 return Node(key)
@@ -822,7 +866,8 @@ class NodesProxy(dict):
         if tx:
             if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
                 kwargs.pop("tx", None)
-            return tx.subscribe(TX_POST, self._node, data=kwargs, obj=self)
+            return tx.subscribe(TX_POST, self._node, data=kwargs, obj=self,
+                                should_be=Node)
         else:
             return Node(self._node, create=True, data=kwargs)
 
@@ -873,7 +918,7 @@ class Node(Base):
                 data.update({"data": kwargs})
             if tx:
                 return tx.subscribe(TX_POST, create_relationship_url,
-                                    data=data, obj=self)
+                                    data=data, obj=self, should_be=Relationship)
             response, content = Request().post(create_relationship_url,
                                                data=data)
             if response.status == 201:
@@ -1086,7 +1131,8 @@ class IndexesProxy(dict):
                     kwargs.pop("tx", None)
                 callback = lambda new_obj: self._dict.update({name:new_obj})
                 return tx.subscribe(TX_POST, self.url, data=data, obj=self,
-                                    callback=callback)
+                                    callback=callback, should_be=Index,
+                                    initial_dict={'name':name})
             else:
                 response, content = Request().post(self.url, data=data)
                 if response.status == 201:
@@ -1197,8 +1243,18 @@ class Index(object):
             if tx:
                 if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
                     kwargs.pop("tx", None)
+                should_be = None
+                if is_node_index:
+                    should_be = Node
+                elif is_relationship_index:
+                    should_be = Relationship
+                elif is_proxy:
+                    if isinstance(item, NodeTransactionOperationProxy):
+                        should_be = Node
+                    elif isinstance(item, RelationshipTransactionOperationProxy):
+                        should_be = Relationship
                 return tx.subscribe(TX_POST, request_url, data=url_ref,
-                                    obj=self)
+                                    obj=self, should_be=should_be)
 
             response, content = Request().post(request_url, data=url_ref)
             if response.status == 201:
