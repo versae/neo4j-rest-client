@@ -711,24 +711,6 @@ class TransactionsTestCase(ExtensionsTestCase):
         i2 = self.gdb.nodes.indexes.get('index_from_tx')
         self.assertTrue(i1 == i2)
 
-    def test_transaction_index_get(self):
-        """
-        Tests whether indexes are properly retrieved during a transaction. 
-        Asserts the creation also behaves transactionally (ie, not until
-        commit).
-        """
-        i1 = self.gdb.nodes.indexes.create('index_from_tx')
-        with self.gdb.transaction():
-            i2 = self.gdb.nodes.indexes.get('index_from_tx')
-            #this shouldn't be true until after commit
-            transactionality_test = not(i1.url and i1 == i2)
-
-        self.assertTrue(transactionality_test)
-        self.assertTrue(i1 is not None)
-        self.assertTrue(isinstance(i1, client.Index))
-
-        self.assertTrue(i1 == i2)
-
     def test_transaction_add_node_to_index(self):
         """
         Tests whether a node can be added to an index within a transaction.
