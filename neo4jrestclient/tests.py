@@ -796,6 +796,26 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertTrue(transactional)
         self.assertTrue(index['test3']['test3'][-1] == n4)
 
+    def test_transaction_traversal(self):
+        nodes = [self.gdb.nodes.create() for i in xrange(10)]
+        # Chain them into a linked list
+        last = None
+        for n in nodes:
+            if last:
+                last.relationships.create("Knows", n)
+            last = n
+
+        with self.gdb.transaction():
+            tx_n = self.gdb.node()
+            last.relationships.create('Knows', tx_n)
+            types = [
+                client.All.Knows,
+            ]
+            stop = constants.STOP_AT_END_OF_GRAPH
+            traversal = nodes[0].traverse(types=types, stop=stop)
+
+        #a non-transactional traversal will be 1 node short
+        self.assertEqual(len(traversal), len(nodes))
 
 
 
