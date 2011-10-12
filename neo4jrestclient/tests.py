@@ -835,7 +835,23 @@ class TransactionsTestCase(ExtensionsTestCase):
         #a non-transactional traversal will be 1 node short
         self.assertEqual(len(traversal), len(nodes))
 
+    def test_transaction_new_node_properties(self):
+        #TODO doesn't show transactionality
+        def has_props(node):
+            return n['name'] == 'test' and n['age'] == 0
 
+        tx = self.gdb.transaction()
+
+        n = self.gdb.node()
+        n['name'] = 'test'
+        n['age'] = 0
+
+        tx_props_kept = has_props(n)
+
+        tx.commit()
+
+        self.assertTrue(tx_props_kept)
+        self.assertTrue(has_props(n))
 
 class PickleTestCase(TransactionsTestCase):
 
