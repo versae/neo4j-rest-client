@@ -583,6 +583,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         n1 = self.gdb.nodes.create()
         n2 = self.gdb.nodes.create()
         with self.gdb.transaction():
+            from nose.tools import set_trace; set_trace()
             r = n1.relationships.create("Knows", n2, since=1970)
         self.assertTrue(isinstance(r, client.Relationship))
         self.assertTrue(r is not None)

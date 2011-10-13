@@ -186,7 +186,7 @@ class TransactionOperationProxy(dict, object):
     """
 
     def __init__(self, return_type=None, obj=None, callback=None, initial_dict={},
-                 attr=None, **kwargs):
+                 tx=None, attr=None, **kwargs):
         #TODO it would be good if proxies knew the class they'll be changed to
         #for further emulating of the Node/Relationship/Path/Position interface
         # - @mhluongo
@@ -199,18 +199,23 @@ class TransactionOperationProxy(dict, object):
         self._attribute = attr
         self._callback = callback
         self._initial_dict = initial_dict
+        self._tx = tx
+        self._genuine_attrs = ('_self', '_callback', '_object_ref',
+                               '_attribute', '_genuine_attrs', '_tx')
         super(TransactionOperationProxy, self).__init__(kwargs)
 
     def __getattribute__(self, attr):
         try:
-            if attr not in ("_self", "_callback"):
+            attr_list = object.__getattribute__(self, '_genuine_attrs')
+            if attr not in attr_list:
                 return getattr(object.__getattribute__(self, "_self"), attr)
         except AttributeError:
             pass
         return object.__getattribute__(self, attr)
 
     def __setattribute__(self, attr, val):
-        if attr in ("_object_ref", "_attribute", "_callback"):
+        attr_list = object.__getattribute__(self, '_genuine_attrs')
+        if attr in attr_list:
             object.__setattribute__(self, attr, val)
         elif attr != "_self":
             setattr(self._self, attr, val)
@@ -262,10 +267,76 @@ class TransactionOperationProxy(dict, object):
     def url(self):
         return '{%d}' % self['id']
 
-class RelationshipTransactionOperationProxy(TransactionOperationProxy):
+class BaseTransactionOperationProxy(TransactionOperationProxy):
+    def __init__(self, *args, **kwargs):
+        self._properties = {}
+        from nose.tools import set_trace; set_trace()
+        if 'body' in kwargs:
+            if isinstance(kwargs['body'], dict):
+                self._properties.update(kwargs['body'])
+            else:
+                self._properties = None
+        if self._properties is not None:
+            kwargs.update({'body':self._properties})
+        super(BaseTransactionOperationProxy, self).__init__(*args, **kwargs)
+        self._genuine_attrs += ('_properties',)
+        if self._properties is None:
+            cls = type(self)
+            #TODO violates DRY. another sign the class hierarchies need to be
+            #unified
+            should_be = None
+            if cls.__name__ == 'RelationshipTransactionOperationProxy':
+                should_be = Relationship
+            elif cls.__name__ == 'NodeTransactionOperationProxy':
+                should_be = Node
+            #TODO take care of properties stuff
+            #self._properties = self._tx.subscribe_later(TX_POST, NodeRequestBuilder(self.url).properties_url(), should_be = None)
+
+    def set(self, key, value, **kwargs):
+        if self._self is None:
+            self._properties[key] = value
+        else:
+            return self._self.set(key, value, **kwargs)
+
+    def get(self, key, **kwargs):
+        if self._self is None:
+            return self._properties[key]
+        else:
+            return self._self.get(key, **kwargs)
+
+    def __setitem__(self, key, value):
+        sup_method = super(BaseTransactionOperationProxy, self).__setitem__
+        if self._self is not None:
+            sup_method(key, value)
+        else:
+            if key in self._properties or key not in self:
+                self.set(key, value)
+            else:
+                if key in self:
+                    raise KeyError("'%s' is used as internally as a key for "
+                                "transactions- sorry! Use set() and get() if you"
+                                " need to use reserved keys.")
+
+    def __getitem__(self, key):
+        try:
+            return super(BaseTransactionOperationProxy, self).__getitem__(key)
+        except:
+            if key in self._properties:
+                return self.get(key)
+            raise
+
+    def __delitem__(self, key):
+        if key in self._properties:
+            del self._properties[key]
+        else:
+            super(BaseTransactionOperationProxy, self).__delitem__(key)
+
+
+
+class RelationshipTransactionOperationProxy(BaseTransactionOperationProxy):
     pass
 
-class NodeTransactionOperationProxy(TransactionOperationProxy):
+class NodeTransactionOperationProxy(BaseTransactionOperationProxy):
     @property
     def relationships(self):
         return Node(self.url, update=False).relationships
@@ -303,6 +374,7 @@ class Transaction(object):
         self.references = []
         self._value = None
         self._attribute = None
+        self._late_subscriptions = []
 
     def __call__(self, value):
         """
@@ -457,13 +529,22 @@ class Transaction(object):
                 Index:IndexTransactionOperationProxy
             }
             op_cls = cls_to_op_cls.get(should_be) or should_be or TransactionOperationProxy
-            transaction_operation = op_cls(obj=obj, callback=callback,
+            transaction_operation = op_cls(obj=obj, callback=callback, tx=self,
                                            initial_dict=initial_dict, **params)
 
             self.operations.append(transaction_operation)
             if method in (TX_POST, TX_GET):
                 self.references.append(weakref.ref(transaction_operation))
+
+            #take care of any subscriptions done during this one
+            late_subscriptions = self._late_subscriptions[:]
+            for sub in late_subscriptions:
+                self._late_subscriptions.remove(sub)
+                self.subscribe(*sub[0], **sub[1])
         return transaction_operation
+
+    def subscribe_later(self, *args, **kwargs):
+        self._late_subscriptions.append((args, kwargs))
 
     @staticmethod
     def get_transaction(tx=None):
