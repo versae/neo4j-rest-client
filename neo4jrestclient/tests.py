@@ -321,7 +321,8 @@ class IndexesTestCase(RelationshipsTestCase):
         self.assertTrue(n1 in results and n2 in results)
         results = index.query(Q('surnames', 'do*', wildcard=True))
         self.assertTrue(n1 in results and n2 in results)
-        results = index.query(Q('surnames', 'do*', wildcard=True) & Q('place', 'Tijuana'))
+        results = index.query(Q('surnames', 'do*', wildcard=True)
+                              & Q('place', 'Tijuana'))
         self.assertTrue(n1 not in results and n2 in results)
         results = index.query(-Q('surnames', 'donald') | +Q('place', 'Texas'))
         self.assertTrue(n2 not in results and n1 in results)
@@ -381,7 +382,7 @@ class TraversalsTestCase(IndexesTestCase):
         return_filter_body = 'position.endNode().hasProperty("name")&&'\
                              'position.endNode().getProperty("name")=="'\
                              'test name";'
-        traversal = n1.traverse(stop=3,returnable=return_filter_body)
+        traversal = n1.traverse(stop=3, returnable=return_filter_body)
         self.assertEqual(len(traversal), 1)
 
     def test_create_traversal_class(self):
@@ -474,8 +475,8 @@ class ExtensionsTestCase(TraversalsTestCase):
         n1 = self.gdb.nodes.create()
         n2 = self.gdb.nodes.create()
         n3 = self.gdb.nodes.create()
-        r1 = n1.relationships.create("related", n2)
-        r2 = n1.relationships.create("related", n3)
+        n1.relationships.create("related", n2)
+        n1.relationships.create("related", n3)
         gremlin = self.gdb.extensions.GremlinPlugin.execute_script
         rels = gremlin(script='g.v(%s).outE' % n1.id)
         self.assertEqual(len(rels), 2)
@@ -487,8 +488,8 @@ class ExtensionsTestCase(TraversalsTestCase):
         n1 = self.gdb.nodes.create()
         n2 = self.gdb.nodes.create()
         n3 = self.gdb.nodes.create()
-        r1 = n1.relationships.create("related", n2)
-        r2 = n1.relationships.create("related", n3)
+        n1.relationships.create("related", n2)
+        n1.relationships.create("related", n3)
         gremlin = self.gdb.extensions.GremlinPlugin.execute_script
         rels = gremlin(script='g.v(%s).outE' % n1.id,
                        returns=constants.RELATIONSHIP)
@@ -514,7 +515,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertFalse(n)
         self.assertEqual(n, None)
 
-    def test_transaction_delete_node(self):
+    def test_transaction_delete_relationship(self):
         n1 = self.gdb.nodes.create()
         n2 = self.gdb.nodes.create()
         r = n1.relationships.create("relation", n2)

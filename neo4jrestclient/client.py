@@ -15,7 +15,7 @@ from constants import (BREADTH_FIRST, DEPTH_FIRST,
                        NODE_GLOBAL, NODE_PATH, NODE_RECENT,
                        RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
                        RELATIONSHIP_RECENT, NONE,
-                       NODE, RELATIONSHIP, PATH, POSITION,
+                       NODE, RELATIONSHIP, PATH, POSITION, FULLPATH,
                        INDEX_FULLTEXT, TX_GET, TX_PUT, TX_POST, TX_DELETE,
                        RELATIONSHIPS_ALL, RELATIONSHIPS_IN, RELATIONSHIPS_OUT,
                        RETURN_ALL_NODES, RETURN_ALL_BUT_START_NODE)
@@ -1015,12 +1015,11 @@ class Index(object):
                 url_ref = item.url
             else:
                 url_ref = item
-            request_url_and_key = self.url.rsplit('/',1) # assumes the key
-            data = {"key": request_url_and_key[1], "value": value,
+            request_url_and_key = self.url.rsplit('/', 1)  # assumes the key
+            data = {"key": request_url_and_key[1],
+                    "value": value,
                     "uri": url_ref}
-            headers = {"Content-Type":"application/json"}
-            response, content = Request().post(request_url_and_key[0],
-                                               data=data, headers=headers)
+            response, content = Request().post(request_url_and_key[0], data=data)
             if response.status == 201:
                 # Returns object that was indexed
                 entity = json.loads(content)
@@ -1031,7 +1030,8 @@ class Index(object):
             else:
                 raise StatusException(response.status,
                                       "Error requesting index with POST %s " \
-                                      ", data %s" % (request_url, url_ref))
+                                      ", data %s" % (request_url_and_key[0],
+                                                     url_ref))
 
         def query(self, value):
             url = "%s?query=%s" % (self.url, smart_quote(value))
@@ -1368,7 +1368,6 @@ class BaseInAndOut(object):
 
     def __init__(self, direction):
         self.direction = direction
-       
 
     def get(self, attr):
         return self.__getattr__(attr)
