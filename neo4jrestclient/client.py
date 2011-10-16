@@ -1010,14 +1010,13 @@ class Index(object):
                 raise TypeError("%s is a %s and the index is for %ss"
                                 % (item, self._index_for.capitalize(),
                                    self._index_for))
-            value = smart_quote(value)
             if isinstance(item, Base):
                 url_ref = item.url
             else:
                 url_ref = item
             request_url_and_key = self.url.rsplit('/', 1)  # assumes the key
             data = {"key": request_url_and_key[1],
-                    "value": value,
+                    "value": value,  # smart_quote is not needed anymore here
                     "uri": url_ref}
             response, content = Request().post(request_url_and_key[0], data=data)
             if response.status == 201:
