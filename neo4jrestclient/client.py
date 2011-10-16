@@ -1015,8 +1015,12 @@ class Index(object):
                 url_ref = item.url
             else:
                 url_ref = item
-            request_url = "%s/%s" % (self.url, value)
-            response, content = Request().post(request_url, data=url_ref)
+            request_url_and_key = self.url.rsplit('/',1) # assumes the key
+            data = {"key": request_url_and_key[1], "value": value,
+                    "uri": url_ref}
+            headers = {"Content-Type":"application/json"}
+            response, content = Request().post(request_url_and_key[0],
+                                               data=data, headers=headers)
             if response.status == 201:
                 # Returns object that was indexed
                 entity = json.loads(content)
