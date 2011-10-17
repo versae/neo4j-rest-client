@@ -270,7 +270,6 @@ class TransactionOperationProxy(dict, object):
 class BaseTransactionOperationProxy(TransactionOperationProxy):
     def __init__(self, *args, **kwargs):
         self._properties = {}
-        from nose.tools import set_trace; set_trace()
         if 'body' in kwargs:
             if isinstance(kwargs['body'], dict):
                 self._properties.update(kwargs['body'])

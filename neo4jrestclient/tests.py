@@ -583,7 +583,6 @@ class TransactionsTestCase(ExtensionsTestCase):
         n1 = self.gdb.nodes.create()
         n2 = self.gdb.nodes.create()
         with self.gdb.transaction():
-            from nose.tools import set_trace; set_trace()
             r = n1.relationships.create("Knows", n2, since=1970)
         self.assertTrue(isinstance(r, client.Relationship))
         self.assertTrue(r is not None)
@@ -837,7 +836,12 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertEqual(len(traversal), len(nodes))
 
     def test_transaction_new_node_properties(self):
-        #TODO doesn't show transactionality
+        """
+        Tests setting properties on a node created within the same tx.
+
+        Doesn't show transactionality.
+
+        """
         def has_props(node):
             return n['name'] == 'test' and n['age'] == 0
 
@@ -853,6 +857,34 @@ class TransactionsTestCase(ExtensionsTestCase):
 
         self.assertTrue(tx_props_kept)
         self.assertTrue(has_props(n))
+
+    def test_transaction_properties_class(self):
+        def has_props(node):
+            return node.properties['test1'] == 'test1' and \
+                   node.properties['test2'] == 'test2'
+
+        def set_props(node):
+            node.properties['test1'] = 'test1'
+            node.properties['test2'] = 'test2'
+
+        n1 = self.gdb.node()
+
+        tx = self.gdb.transaction()
+        set_props(n1)
+        has_props_before_commit = has_props(n1)
+        tx.commit()
+
+        self.assertTrue(has_props_before_commit)
+        self.assertTrue(has_props(n1))
+
+        tx = self.gdb.transaction()
+        n2 = self.gdb.node()
+        set_props(n2)
+        has_props_before_commit = has_props(n1)
+        tx.commit()
+
+        self.assertTrue(has_props_before_commit)
+        self.assertTrue(has_props(n2))
 
 class PickleTestCase(TransactionsTestCase):
 
