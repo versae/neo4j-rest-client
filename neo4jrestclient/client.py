@@ -445,6 +445,8 @@ class Transaction(object):
         del self
 
     def commit(self, *args, **kwargs):
+        if not self.operations:
+            return True
         results = self._batch()
         # Objects to update
         if self.auto_update:
