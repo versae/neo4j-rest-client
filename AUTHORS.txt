@@ -14,6 +14,7 @@ APPRECIATED CONTRIBUTORS:
     * Andy Denmark, https://github.com/denmark
     * bkizzy, https://github.com/bkizzy
     * Steve Jalim, https://github.com/stevejalim
+    * Dan Brown, https://github.com/dbro
 
 And a big THANK YOU goes to:
 
