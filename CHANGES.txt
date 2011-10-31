@@ -1,6 +1,14 @@
 Changes
 -------
 
+1.5.0 (2011-10-31)
+------------------
+- Removing the smart_quote function from indexing. It's not needed anymore with
+  the new way to add elements to indices.
+- Fixes #37.
+- Using JSON object to set index key and value
+
+
 1.4.5 (2011-09-15)
 ------------------
 - Adding more testing to returns parameter in the extensions.
@@ -84,7 +92,6 @@ Changes
 - Added Q syntax for more complicated queries.
 - Added support for the Q query syntax for indexes using the DSL
   at http://github.com/scholrly/lucene-querybuilder
-  by @epurcell3.
 - Fixed an error in the test_query_index case (forgot to include an 'or'.
   between queries).
 - Added lucene-querybuilder to the test requirements in setup.py.
