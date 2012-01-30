@@ -862,7 +862,8 @@ class PaginatedTraversal(object):
                 response, content = Request().get(self._next_url)
                 if response.status == 200:
                     self._results = json.loads(content)
-                    self._next_url = response.get("location")
+                    self._next_url = response.get("location",
+                                         response.get("content-location"))
                 else:
                     self._next_url = None
             return results
