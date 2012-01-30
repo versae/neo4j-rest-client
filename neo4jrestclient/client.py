@@ -451,24 +451,27 @@ class Base(object):
         return obj in self._dic["data"]
 
     def __setitem__(self, key, value, tx=None):
-        if isinstance(key, (list, tuple)):
-            tx = tx or key[1]
-            key = key[0]
-        if isinstance(value, Transaction):
-            tx = tx or value
-            value = value.get_value()
-        property_url = self._dic["property"].replace("{key}", smart_quote(key))
-        tx = Transaction.get_transaction(tx)
-        if tx:
-            transaction_url = self._dic["property"].replace("{key}", "")
-            return tx.subscribe(TX_PUT, transaction_url, {key: value}, obj=self)
-        response, content = Request().put(property_url, data=value)
-        if response.status == 204:
+        if value == None:
             self._dic["data"].update({key: value})
-        elif response.status == 404:
-            raise NotFoundError(response.status, "Node or property not found")
         else:
-            raise StatusException(response.status, "Invalid data sent")
+            if isinstance(key, (list, tuple)):
+                tx = tx or key[1]
+                key = key[0]
+            if isinstance(value, Transaction):
+                tx = tx or value
+                value = value.get_value()
+            property_url = self._dic["property"].replace("{key}", smart_quote(key))
+            tx = Transaction.get_transaction(tx)
+            if tx:
+                transaction_url = self._dic["property"].replace("{key}", "")
+                return tx.subscribe(TX_PUT, transaction_url, {key: value}, obj=self)
+            response, content = Request().put(property_url, data=value)
+            if response.status == 204:
+                self._dic["data"].update({key: value})
+            elif response.status == 404:
+                raise NotFoundError(response.status, "Node or property not found")
+            else:
+                raise StatusException(response.status, "Invalid data sent")
 
     def set(self, key, value, tx=None):
         tx = Transaction.get_transaction(tx)
