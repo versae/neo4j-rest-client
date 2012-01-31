@@ -571,14 +571,14 @@ class Iterable(list):
 
     def __getslice__(self, *args, **kwargs):
         eltos = super(Iterable, self).__getslice__(*args, **kwargs)
-        if self._attribute:
+        if self._attribute in elto:
             return [self._class(elto[self._attribute]) for elto in eltos]
         else:
             return [self._class(elto) for elto in eltos]
 
     def __getitem__(self, index):
         elto = super(Iterable, self).__getitem__(index)
-        if self._attribute:
+        if self._attribute in elto:
             return self._class(elto[self._attribute])
         else:
             return self._class(elto)
@@ -595,7 +595,7 @@ class Iterable(list):
 
     def __contains__(self, value):
         if isinstance(value, Base) and hasattr(value, "url"):
-            if self._attribute:
+            if self._attribute in elto:
                 return value.url in [elto[self._attribute]
                                      for elto in self._list]
             else:
