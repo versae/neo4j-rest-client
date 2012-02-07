@@ -388,6 +388,8 @@ class Base(object):
 
     def update(self, extensions=True, delete_on_not_found=False):
         if self._update_dict and "body" in self._update_dict:
+            if "self" in self._update_dict:
+                self.url = self._update_dict["self"]
             update_dict = self._update_dict["body"]
             status = 200
         else:
@@ -467,11 +469,13 @@ class Base(object):
             if isinstance(value, Transaction):
                 tx = tx or value
                 value = value.get_value()
-            property_url = self._dic["property"].replace("{key}", smart_quote(key))
+            property_url = self._dic["property"].replace("{key}",
+                                                         smart_quote(key))
             tx = Transaction.get_transaction(tx)
             if tx:
                 transaction_url = self._dic["property"].replace("{key}", "")
-                return tx.subscribe(TX_PUT, transaction_url, {key: value}, obj=self)
+                return tx.subscribe(TX_PUT, transaction_url, {key: value},
+                                    obj=self)
             response, content = Request().put(property_url, data=value)
             if response.status == 204:
                 self._dic["data"].update({key: value})
@@ -644,7 +648,8 @@ class NodesProxy(dict):
             if isinstance(key, (str, unicode)) and key.startswith(self._node):
                 return tx.subscribe(TX_GET, key, obj=self)
             else:
-                return tx.subscribe(TX_GET, "%s/%s/" % (self._node, key), obj=self)
+                return tx.subscribe(TX_GET, "%s/%s/" % (self._node, key),
+                                    obj=self)
         else:
             if isinstance(key, (str, unicode)) and key.startswith(self._node):
                 return Node(key)
