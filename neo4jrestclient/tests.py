@@ -244,6 +244,13 @@ class IndexesTestCase(RelationshipsTestCase):
         index["surnames"]["d"] = n1
         self.assertTrue(n1 in index["surnames"]["d"])
 
+    def test_create_index_for_nodes_and_dots(self):
+        # From https://github.com/versae/neo4j-rest-client/issues/43
+        n1 = self.gdb.nodes.create(name="John.Doe", place="Texas.s")
+        index = self.gdb.nodes.indexes.create(name="doe")
+        index["surnames.s"]["d.d"] = n1
+        self.assertTrue(n1 in index["surnames.s"]["d.d"])
+
     def test_create_index_for_nodes_unicode(self):
         n1 = self.gdb.nodes.create(name="Lemmy", band="Motörhead")
         index = self.gdb.nodes.indexes.create(name="doe")
