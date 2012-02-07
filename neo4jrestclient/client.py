@@ -360,7 +360,7 @@ class Base(object):
     def __init__(self, url, create=False, data={}, update_dict={}):
         self._dic = {}
         self.url = None
-        # TODO: Allow update an object using only a new data dict of properties
+        # Allow update an object using only a new data dict of properties
         self._update_dict = update_dict
         if url.endswith("/"):
             url = url[:-1]
@@ -387,14 +387,20 @@ class Base(object):
         return unicode(s.decode("utf-8"))
 
     def update(self, extensions=True, delete_on_not_found=False):
-        response, content = Request().get(self.url)
-        if response.status == 200:
-            self._dic.update(json.loads(content).copy())
+        if self._update_dict and "body" in self._update_dict:
+            update_dict = self._update_dict["body"]
+            status = 200
+        else:
+            response, content = Request().get(self.url)
+            update_dict = json.loads(content).copy()
+            status = response.status
+        if status == 200:
+            self._dic.update(update_dict)
             if extensions:
                 self._extensions = self._dic.get('extensions', {})
                 if self._extensions:
                     self.extensions = ExtensionsProxy(self._extensions)
-        elif delete_on_not_found and response.status == 404:
+        elif delete_on_not_found and status == 404:
             self.url = None
             self._dic = {}
             self = None

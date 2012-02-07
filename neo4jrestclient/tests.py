@@ -368,6 +368,26 @@ class TraversalsTestCase(IndexesTestCase):
         self.assertTrue(isinstance(start_node, client.Node))
         self.assertTrue(isinstance(relationship, client.Relationship))
 
+    def test_path_traversal_getitem(self):
+        # Test from @shahin: https://gist.github.com/1418704
+        n1 = self.gdb.node()
+        n2 = self.gdb.node()
+        rel = self.gdb.relationships.create(n1,'knows',n2)
+        # Define path traverser
+        class PathTraverser(self.gdb.Traversal):
+            stop = constants.STOP_AT_END_OF_GRAPH
+            returns = constants.PATH
+        try:
+            paths = [traversal for traversal in PathTraverser(n1)]
+            self.assertEqual(len(paths[0]), 1)
+        except:
+            raise
+        finally:
+            # Clean up on fail
+            self.gdb.relationships.delete(rel.id)
+            self.gdb.node.delete(n2.id)
+            self.gdb.node.delete(n1.id)
+
     def test_graph_wide_traversal(self):
         """
         Tests the use of constants.STOP_AT_END_OF_GRAPH as a stop depth.
@@ -693,6 +713,16 @@ class TransactionsTestCase(ExtensionsTestCase):
         for position, node in nodes.items():
             self.assertTrue(isinstance(node, client.Node))
             self.assertEqual(position, node["position"])
+
+    def test_transaction_conections(self):
+        import options as clientDebug
+        clientDebug.DEBUG = True
+        nodes = []
+        with self.gdb.transaction(commit=False) as tx:
+            for i in range(5):
+                nodes.append(self.gdb.node[i])
+        tx.commit()
+        clientDebug.DEBUG = False
 
 
 class PickleTestCase(TransactionsTestCase):
