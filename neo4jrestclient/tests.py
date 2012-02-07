@@ -340,6 +340,34 @@ class TraversalsTestCase(IndexesTestCase):
         traversal = n1.traverse(types=types)
         self.assertTrue(len(traversal) > 0)
 
+    def test_path_traversal(self):
+        """
+        Tests the use of Path as returnable type.
+        """
+        nodes = [self.gdb.nodes.create() for i in xrange(10)]
+        # Chain them into a linked list
+        last = None
+        for n in nodes:
+            if last:
+                last.relationships.create("Knows", n)
+            last = n
+        # Toss in a different relationship type to ensure the
+        # STOP_AT_END_OF_GRAPH didn't break traversing by type
+        nodes[-1].relationships.create("Test", self.gdb.nodes.create())
+        types = [
+            client.All.Knows,
+        ]
+        stop = constants.STOP_AT_END_OF_GRAPH
+        traversal = nodes[0].traverse(types=types, stop=stop,
+                                      returns=constants.PATH)
+        paths = [path for path in traversal]
+        self.assertTrue(len(traversal) > 0)
+        self.assertTrue(all([isinstance(path, client.Path) for path in paths]))
+        start_node = paths[0].start
+        relationship = paths[0].relationships[0]
+        self.assertTrue(isinstance(start_node, client.Node))
+        self.assertTrue(isinstance(relationship, client.Relationship))
+
     def test_graph_wide_traversal(self):
         """
         Tests the use of constants.STOP_AT_END_OF_GRAPH as a stop depth.

@@ -821,9 +821,9 @@ class Node(Base):
                 elif returns == RELATIONSHIP:
                     return Iterable(Relationship, results_list, "self")
                 elif returns == PATH:
-                    return Iterable(Path, results_list, "self")
+                    return Iterable(Path, results_list)
                 elif returns == POSITION:
-                    return Iterable(Position, results_list, "self")
+                    return Iterable(Position, results_list)
             elif response.status == 404:
                 raise NotFoundError(response.status, "Node or relationship " \
                                                      "not found")
@@ -1312,9 +1312,7 @@ class Path(object):
         return self._length
 
     def __iter__(self):
-        while True:
-            for obj in self._iterable:
-                yield obj
+        return iter(self._iterable)
 
     def _get_start(self):
         return self._start
@@ -1329,7 +1327,7 @@ class Path(object):
     weight = property(_get_weight)
 
     def _get_nodes(self):
-        return self._get_nodes
+        return self._nodes
     nodes = property(_get_nodes)
 
     def _get_relationships(self):
