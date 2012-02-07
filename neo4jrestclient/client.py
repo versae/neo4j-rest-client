@@ -369,7 +369,8 @@ class Base(object):
             if response.status == 201:
                 self._dic.update(data.copy())
                 self._update_dict_data()
-                self.url = response.get("location")
+                self.url = response.get("location",
+                                        response.get("content-location"))
             else:
                 raise NotFoundError(response.status, "Invalid data sent")
         if not self.url:
@@ -714,7 +715,8 @@ class Node(Base):
             response, content = Request().post(create_relationship_url,
                                                data=data)
             if response.status == 201:
-                return Relationship(response.get("location"))
+                return Relationship(response.get("location",
+                                         response.get("content-location")))
             elif response.status == 404:
                 raise NotFoundError(response.status, "Node specified by the " \
                                                      "URI not of \"to\" node" \
@@ -842,7 +844,8 @@ class PaginatedTraversal(object):
         response, content = Request().post(self.url, data=self.data)
         if response.status == 201:
             self._results = json.loads(content)
-            self._next_url = response.get("location")
+            self._next_url = response.get("location",
+                                          response.get("content-location"))
         else:
             self._next_url = None
 
