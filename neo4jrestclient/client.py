@@ -159,30 +159,55 @@ class TransactionOperationProxy(dict, object):
     into final instances of Node or Relationship.
     """
 
-    def __init__(self, obj=None, attr=None, **kwargs):
-        self._self = None
+    def __init__(self, obj=None, job=None, typ=None, **kwargs):
+        self._proxy = None
         if obj:
             self._object_ref = weakref.ref(obj)
         else:
             self._object_ref = None
-        self._attribute = attr
+        self._job_id = job
+        if "body" not in kwargs:
+            kwargs.update({"body": {}})
+        if typ == Node:
+            pass
+        elif typ == Relationship:
+            pass
         super(TransactionOperationProxy, self).__init__(kwargs)
 
+    def __call__(self):
+        return dict(self)
+
     def __getattribute__(self, attr):
-        try:
-            if attr != "_self":
-                return getattr(object.__getattribute__(self, "_self"), attr)
-        except AttributeError:
-            pass
-        return object.__getattribute__(self, attr)
+        _proxy = object.__getattribute__(self, "_proxy")
+        if _proxy:
+            return getattr(_proxy, attr)
+        else:
+            return object.__getattribute__(self, attr)
 
     def __setattribute__(self, attr, val):
-        if attr in ("_object_ref", "_attribute"):
-            object.__setattribute__(self, attr, val)
-        elif attr != "_self":
-            setattr(self._self, attr, val)
+        _proxy = object.__getattribute__(self, "_proxy")
+        if _proxy:
+            setattr(_proxy, attr, val)
         else:
-            dict.__setattribute__(self, attr, val)
+            object.__setattr__(self, attr, val)
+
+    def set(self, key, value):
+        self.__setitem__(key, value)
+
+    def get(self, key):
+        self.__getitem__(key)
+
+    def _get_properties(self):
+        return dict(self)
+
+    def _set_properties(self, props={}):
+        _body = dict.__getitem__(self, "body")
+        _body.update(props)
+
+    def _del_properties(self):
+        dict.__setitem__(self, "body", {})
+
+    properties = property(_get_properties, _set_properties, _del_properties)
 
     def __repr__(self):
         return self.__unicode__()
@@ -193,18 +218,26 @@ class TransactionOperationProxy(dict, object):
     def __unicode__(self):
         attr = "__unicode__"
         try:
-            return getattr(object.__getattribute__(self, "_self"), attr)()
+            return getattr(object.__getattribute__(self, "_proxy"), attr)()
         except AttributeError:
             pass
         return object.__repr__(self)
 
     def __getitem__(self, key):
-        attr = "__getitem__"
-        try:
-            return getattr(object.__getattribute__(self, "_self"), attr)(key)
-        except AttributeError:
-            pass
-        return dict.__getitem__(self, key)
+        _proxy = object.__getattribute__(self, "_proxy")
+        if _proxy:
+            return _proxy.__getitem__(key)
+        else:
+            _body = dict.__getitem__(self, "body")
+            return dict.__getitem__(_body, key)
+
+    def __setitem__(self, key, val):
+        _proxy = object.__getattribute__(self, "_proxy")
+        if _proxy:
+            return _proxy.__setitem__(key, val)
+        else:
+            _body = dict.__getitem__(self, "body")
+            return dict.__setitem__(_body, key, val)
 
     def get_object(self):
         if self._object_ref:
@@ -212,11 +245,11 @@ class TransactionOperationProxy(dict, object):
         else:
             return None
 
-    def get_attribute(self):
-        return self._attribute
+    def get_job_id(self):
+        return self._job_id
 
     def change(self, cls, url, data=None):
-        self._self = cls(url, update_dict=data)
+        self._proxy = cls(url, update_dict=data)
 
 
 class Transaction(object):
@@ -293,7 +326,7 @@ class Transaction(object):
         # Objects to return
         for referenced_object in self.references:
                 ref_object = referenced_object()
-                result = results[ref_object["id"]]
+                result = results[ref_object()["id"]]
                 if "returns" in result:
                     if "location" in result:
                         cls = result["returns"]
@@ -313,26 +346,32 @@ class Transaction(object):
             return True
 
     def subscribe(self, method, url, data=None, obj=None):
+        job_id = len(self.operations)
+        if url.startswith("{"):
+            url_to = url
+        else:
+            url_to = "/%s" % url.replace(self._class.url, "")
         params = {
             "method": method,
-            "to": "/%s" % url.replace(self._class.url, ""),
-            "id": len(self.operations),
+            "to": url_to,
+            "id": job_id,
         }
         if data:
             params.update({"body": data})
         # Reunify PUT methods in just one
         transaction_operation = None
         for i, operation in enumerate(self.operations):
-            if (operation["method"] == params["method"] == TX_PUT
-                and operation["to"] == params["to"]):
-                if "body" in operation:
-                    self.operations[i]["body"].update(params["body"])
+            if (operation()["method"] == params["method"] == TX_PUT
+                and operation()["to"] == params["to"]):
+                if "body" in operation():
+                    self.operations[i]()["body"].update(params["body"])
                 else:
-                    self.operations[i]["body"] = params["body"]
+                    self.operations[i]()["body"] = params["body"]
                 transaction_operation = operation
                 break
         if not transaction_operation:
             transaction_operation = TransactionOperationProxy(obj=obj,
+                                                              job=job_id,
                                                               **params)
             self.operations.append(transaction_operation)
             if method in (TX_POST, TX_GET):
@@ -388,9 +427,11 @@ class Base(object):
 
     def update(self, extensions=True, delete_on_not_found=False):
         if self._update_dict and "body" in self._update_dict:
-            if "self" in self._update_dict:
-                self.url = self._update_dict["self"]
             update_dict = self._update_dict["body"]
+#            if "location" in self._update_dict:
+#                self.url = self._update_dict["location"]
+#            elif "self" in self._update_dict["body"]:
+#                self.url = self._update_dict["body"]["self"]
             status = 200
         else:
             response, content = Request().get(self.url)
@@ -674,7 +715,16 @@ class NodesProxy(dict):
             if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
                 x = kwargs.pop("tx", None)
                 del x  # Makes pyflakes happy
-            return tx.subscribe(TX_POST, self._node, data=kwargs, obj=self)
+            # job_id = len(tx.operations)
+            op = tx.subscribe(TX_POST, self._node, data=kwargs, obj=self)
+            return op
+#            return Node("", create=False, update_dict={
+#                "self": "{%s}" % job_id,
+#                "body": {
+#                    "data": dict(op)["body"],
+#                    "property": "{%s}/properties/{key}" % job_id,
+#                },
+#            })
         else:
             return Node(self._node, create=True, data=kwargs)
 

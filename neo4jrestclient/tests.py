@@ -603,6 +603,25 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertTrue(isinstance(n, client.Node))
         self.assertTrue(n.get("age", True))
 
+    def test_transaction_create_and_set(self):
+        with self.gdb.transaction():
+            n = self.gdb.nodes.create(age=25)
+            n.set("surname", u"AC/DC")
+            n["name"] = u"Motörhead"
+            self.assertEqual(n.properties, {
+                "age": 25,
+                "name": u"Motörhead",
+                "surname": u"AC/DC",
+            })
+        self.assertTrue(isinstance(n, client.Node))
+        self.assertEqual(n.get("age"), 25)
+        self.assertEqual(n.get("name"), u"Motörhead")
+        self.assertEqual(n.properties, {
+            "age": 25,
+            "name": u"Motörhead",
+            "surname": u"AC/DC",
+        })
+
     def test_transaction_get(self):
         n1 = self.gdb.nodes.get(1)
         with self.gdb.transaction():
@@ -730,6 +749,22 @@ class TransactionsTestCase(ExtensionsTestCase):
                 nodes.append(self.gdb.node[i])
         tx.commit()
         clientDebug.DEBUG = False
+
+#    def test_transaction_create_relationship(self):
+#        with self.gdb.transaction():
+#            n1 = self.gdb.node()
+#            n2 = self.gdb.node()
+#            rel = n1.Knows(n2)
+#            rel["when"] = "January"
+#        self.assertEqual(rel.properties, {"when": "January"})
+
+#    def test_transaction_create_relationship_functional(self):
+#        with self.gdb.transaction():
+#            n1 = self.gdb.node()
+#            n2 = self.gdb.node()
+#            rel = n1.relationships.create("Knows", n2)
+#            rel["when"] = "January"
+#        self.assertEqual(rel.properties, {"when": "January"})
 
 
 class PickleTestCase(TransactionsTestCase):
