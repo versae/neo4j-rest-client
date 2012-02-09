@@ -546,11 +546,15 @@ class ExtensionsTestCase(TraversalsTestCase):
         n1.relationships.create("related", n2)
         n1.relationships.create("related", n3)
         gremlin = self.gdb.extensions.GremlinPlugin.execute_script
+        import options as clientDebug
+        clientDebug.DEBUG = True
         rels = gremlin(script='g.v(%s).outE' % n1.id,
                        returns=constants.RELATIONSHIP)
         self.assertEqual(len(rels), 2)
         for rel in rels:
             self.assertTrue(isinstance(rel, client.Relationship))
+            pass
+        clientDebug.DEBUG = False
 
 
 class TransactionsTestCase(ExtensionsTestCase):

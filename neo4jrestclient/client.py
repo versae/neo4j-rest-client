@@ -249,7 +249,7 @@ class TransactionOperationProxy(dict, object):
         return self._job_id
 
     def change(self, cls, url, data=None):
-        self._proxy = cls(url, update_dict=data)
+        self._proxy = cls(url, update_dict=data["body"])
 
 
 class Transaction(object):
@@ -426,12 +426,8 @@ class Base(object):
         return unicode(s.decode("utf-8"))
 
     def update(self, extensions=True, delete_on_not_found=False):
-        if self._update_dict and "body" in self._update_dict:
-            update_dict = self._update_dict["body"]
-#            if "location" in self._update_dict:
-#                self.url = self._update_dict["location"]
-#            elif "self" in self._update_dict["body"]:
-#                self.url = self._update_dict["body"]["self"]
+        if self._update_dict:
+            update_dict = self._update_dict
             status = 200
         else:
             response, content = Request().get(self.url)
@@ -624,14 +620,15 @@ class Iterable(list):
     def __getslice__(self, *args, **kwargs):
         eltos = super(Iterable, self).__getslice__(*args, **kwargs)
         if self._attribute:
-            return [self._class(elto[self._attribute]) for elto in eltos]
+            return [self._class(elto[self._attribute], update_dict=elto)
+                                for elto in eltos]
         else:
             return [self._class(elto) for elto in eltos]
 
     def __getitem__(self, index):
         elto = super(Iterable, self).__getitem__(index)
         if self._attribute:
-            return self._class(elto[self._attribute])
+            return self._class(elto[self._attribute], update_dict=elto)
         else:
             return self._class(elto)
 
