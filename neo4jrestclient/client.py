@@ -173,22 +173,33 @@ class TransactionOperationProxy(dict, object):
                 kwargs.update({"body": {}})
         elif typ == RELATIONSHIP and "data" not in kwargs["body"]:
             kwargs["body"].update({"data": {}})
-        self._type = typ
+        self._extras = {"type": typ}
         super(TransactionOperationProxy, self).__init__(kwargs)
 
     def __call__(self):
         return dict(self)
 
-    def __getattribute__(self, attr):
+    def __getattribute__(self, attr, *args, **kwargs):
         _proxy = object.__getattribute__(self, "_proxy")
-        _type = object.__getattribute__(self, "_type")
+        _type = object.__getattribute__(self, "_extras")["type"]
         if _proxy:
             return getattr(_proxy, attr)
-        elif _type and attr in ("relationships", "start", "end"):
-            if _type == NODE and attr == "relationships":
-                return object.__getattribute__(self, "_get_relationships")()
-            elif _type == RELATIONSHIP:
-                pass
+        elif _type and attr in ("relationships", "start", "end", "type", "id"):
+            if (_type == NODE and attr == "relationships"
+                or _type == RELATIONSHIP and attr in ("start", "end", "type")):
+                return object.__getattribute__(self, "_get_%s" % attr)()
+            else:
+                return object.__getattribute__(self, attr)
+#        elif _type == RELATIONSHIP:
+#            warnings.warn("Deprecated, in favor of pythonic style to declare "
+#                          "relationships: "
+#                          "n2.relationships.create(rel_name, n2). "
+#                          "This is needed in order to handle pickling in "
+#                          "nodes.",
+#                          DeprecationWarning)
+#            import ipdb; ipdb.set_trace()
+#            _attr = "_create_relationship"
+#            return object.__getattribute__(self, _attr)(attr, *args, **kwargs)
         else:
             return object.__getattribute__(self, attr)
 
@@ -209,7 +220,7 @@ class TransactionOperationProxy(dict, object):
         return dict(self)
 
     def _set_properties(self, props={}):
-        _type = object.__getattribute__(self, "_type")
+        _type = object.__getattribute__(self, "_extras")["type"]
         if type == RELATIONSHIP:
             _body = dict.__getitem__(self, "body")
             _data = dict.__getitem__(_body, "data")
@@ -219,7 +230,7 @@ class TransactionOperationProxy(dict, object):
             _body.update(props)
 
     def _del_properties(self):
-        _type = object.__getattribute__(self, "_type")
+        _type = object.__getattribute__(self, "_extras")["type"]
         if type == RELATIONSHIP:
             _body = dict.__getitem__(self, "body")
             dict.__setitem__(_body, "data", {})
@@ -243,7 +254,7 @@ class TransactionOperationProxy(dict, object):
         return object.__repr__(self)
 
     def __getitem__(self, key):
-        _type = object.__getattribute__(self, "_type")
+        _type = object.__getattribute__(self, "_extras")["type"]
         _proxy = object.__getattribute__(self, "_proxy")
         if _proxy:
             return _proxy.__getitem__(key)
@@ -258,7 +269,7 @@ class TransactionOperationProxy(dict, object):
 
 
     def __setitem__(self, key, val):
-        _type = object.__getattribute__(self, "_type")
+        _type = object.__getattribute__(self, "_extras")["type"]
         _proxy = object.__getattribute__(self, "_proxy")
         if _proxy:
             return _proxy.__setitem__(key, val)
@@ -284,6 +295,11 @@ class TransactionOperationProxy(dict, object):
     def change(self, cls, url, data=None):
         self._proxy = cls(url, update_dict=data["body"])
 
+    # Common functions
+    def _get_id(self):
+        _body = dict.__getitem__(self, "body")
+        return "{%s}" % _body["id"]
+
     # Node functions
     def _get_relationships(self):
         """
@@ -293,8 +309,10 @@ class TransactionOperationProxy(dict, object):
 
     def _create_relationship(self, relationship_name, *args, **kwargs):
         _job_id = object.__getattribute__(self, "_job_id")
+
         def relationship(to, *args, **kwargs):
             tx = Transaction.get_transaction(kwargs.get("tx", None))
+            object.__getattribute__(self, "_extras")["to"] = to
             create_relationship_url = "{%s}/relationships" % _job_id
             # Check if target node doesn't exist yet
             if isinstance(to, TransactionOperationProxy):
@@ -310,9 +328,28 @@ class TransactionOperationProxy(dict, object):
                 del x  # Makes pyflakes happy
             if kwargs:
                 data.update({"data": kwargs})
+            object.__getattribute__(self, "_extras")["tx"] = tx
             return tx.subscribe(TX_POST, create_relationship_url,
                                 data=data, obj=self, returns=RELATIONSHIP)
         return relationship
+
+    # Relationships functions
+    def _get_start(self):
+        _proxy = object.__getattribute__(self, "_proxy")
+        node_from_string = dict.__getitem__(_proxy, "to")
+        node_from_index = int(node_from_string.split("/")[0][1:-1])
+        tx = object.__getattribute__(self, "_extras")["tx"]
+        node_from = tx.operations[node_from_index]
+        return node_from
+
+    def _get_end(self):
+        node_to = object.__getattribute__(self, "_extras")["to"]
+        return node_to
+
+    def _get_type(self):
+        _body = dict.__getitem__(self, "body")
+        _data = dict.__getitem__(_body, "data")
+        return dict.__getitem__(_data, "type")
 
 
 class Transaction(object):
@@ -776,17 +813,9 @@ class NodesProxy(dict):
             if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
                 x = kwargs.pop("tx", None)
                 del x  # Makes pyflakes happy
-            # job_id = len(tx.operations)
             op = tx.subscribe(TX_POST, self._node, data=kwargs, obj=self,
                               returns=NODE)
             return op
-#            return Node("", create=False, update_dict={
-#                "self": "{%s}" % job_id,
-#                "body": {
-#                    "data": dict(op)["body"],
-#                    "property": "{%s}/properties/{key}" % job_id,
-#                },
-#            })
         else:
             return Node(self._node, create=True, data=kwargs)
 
