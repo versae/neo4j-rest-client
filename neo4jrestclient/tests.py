@@ -754,6 +754,30 @@ class TransactionsTestCase(ExtensionsTestCase):
         tx.commit()
         clientDebug.DEBUG = False
 
+    def test_transaction_create_relationship_functional(self):
+        with self.gdb.transaction():
+            n1 = self.gdb.node()
+            n2 = self.gdb.node()
+            rel = n1.relationships.create("Knows", n2)
+            rel["when"] = "January"
+        self.assertEqual(rel.properties, {"when": "January"})
+
+    def test_transaction_create_relationship_functional_mixed2(self):
+        n1 = self.gdb.node()
+        with self.gdb.transaction():
+            n2 = self.gdb.node()
+            rel = n1.relationships.create("Knows", n2)
+            rel["when"] = "January"
+        self.assertEqual(rel.properties, {"when": "January"})
+
+    def test_transaction_create_relationship_functional_mixed2(self):
+        n2 = self.gdb.node()
+        with self.gdb.transaction():
+            n1 = self.gdb.node()
+            rel = n1.relationships.create("Knows", n2)
+            rel["when"] = "January"
+        self.assertEqual(rel.properties, {"when": "January"})
+
 #    def test_transaction_create_relationship(self):
 #        with self.gdb.transaction():
 #            n1 = self.gdb.node()
@@ -762,13 +786,6 @@ class TransactionsTestCase(ExtensionsTestCase):
 #            rel["when"] = "January"
 #        self.assertEqual(rel.properties, {"when": "January"})
 
-#    def test_transaction_create_relationship_functional(self):
-#        with self.gdb.transaction():
-#            n1 = self.gdb.node()
-#            n2 = self.gdb.node()
-#            rel = n1.relationships.create("Knows", n2)
-#            rel["when"] = "January"
-#        self.assertEqual(rel.properties, {"when": "January"})
 
 
 class PickleTestCase(TransactionsTestCase):

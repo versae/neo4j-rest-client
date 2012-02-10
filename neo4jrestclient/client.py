@@ -167,11 +167,13 @@ class TransactionOperationProxy(dict, object):
             self._object_ref = None
         self._job_id = job
         if "body" not in kwargs:
-            kwargs.update({"body": {}})
-        if typ == Node:
-            pass
-        elif typ == Relationship:
-            pass
+            if typ == RELATIONSHIP:
+                kwargs.update({"body": {"data": {}}})
+            else:
+                kwargs.update({"body": {}})
+        elif typ == RELATIONSHIP and "data" not in kwargs["body"]:
+            kwargs["body"].update({"data": {}})
+        self._type = typ
         super(TransactionOperationProxy, self).__init__(kwargs)
 
     def __call__(self):
@@ -179,8 +181,14 @@ class TransactionOperationProxy(dict, object):
 
     def __getattribute__(self, attr):
         _proxy = object.__getattribute__(self, "_proxy")
+        _type = object.__getattribute__(self, "_type")
         if _proxy:
             return getattr(_proxy, attr)
+        elif _type and attr in ("relationships", "start", "end"):
+            if _type == NODE and attr == "relationships":
+                return object.__getattribute__(self, "_get_relationships")()
+            elif _type == RELATIONSHIP:
+                pass
         else:
             return object.__getattribute__(self, attr)
 
@@ -201,11 +209,22 @@ class TransactionOperationProxy(dict, object):
         return dict(self)
 
     def _set_properties(self, props={}):
-        _body = dict.__getitem__(self, "body")
-        _body.update(props)
+        _type = object.__getattribute__(self, "_type")
+        if type == RELATIONSHIP:
+            _body = dict.__getitem__(self, "body")
+            _data = dict.__getitem__(_body, "data")
+            _data.update(props)
+        else:
+            _body = dict.__getitem__(self, "body")
+            _body.update(props)
 
     def _del_properties(self):
-        dict.__setitem__(self, "body", {})
+        _type = object.__getattribute__(self, "_type")
+        if type == RELATIONSHIP:
+            _body = dict.__getitem__(self, "body")
+            dict.__setitem__(_body, "data", {})
+        else:
+            dict.__setitem__(self, "body", {})
 
     properties = property(_get_properties, _set_properties, _del_properties)
 
@@ -224,20 +243,34 @@ class TransactionOperationProxy(dict, object):
         return object.__repr__(self)
 
     def __getitem__(self, key):
+        _type = object.__getattribute__(self, "_type")
         _proxy = object.__getattribute__(self, "_proxy")
         if _proxy:
             return _proxy.__getitem__(key)
         else:
-            _body = dict.__getitem__(self, "body")
-            return dict.__getitem__(_body, key)
+            if _type == RELATIONSHIP:
+                _body = dict.__getitem__(self, "body")
+                return dict.__getitem__(_body, key)
+            else:
+                _body = dict.__getitem__(self, "body")
+                _data = dict.__getitem__(_body, "data")
+                return dict.__getitem__(_data, key)
+
 
     def __setitem__(self, key, val):
+        _type = object.__getattribute__(self, "_type")
         _proxy = object.__getattribute__(self, "_proxy")
         if _proxy:
             return _proxy.__setitem__(key, val)
         else:
-            _body = dict.__getitem__(self, "body")
-            return dict.__setitem__(_body, key, val)
+            if _type == RELATIONSHIP:
+                _body = dict.__getitem__(self, "body")
+                _data = dict.__getitem__(_body, "data")
+                return dict.__setitem__(_data, key, val)
+            else:
+                _body = dict.__getitem__(self, "body")
+                return dict.__setitem__(_body, key, val)
+
 
     def get_object(self):
         if self._object_ref:
@@ -250,6 +283,36 @@ class TransactionOperationProxy(dict, object):
 
     def change(self, cls, url, data=None):
         self._proxy = cls(url, update_dict=data["body"])
+
+    # Node functions
+    def _get_relationships(self):
+        """
+        HACK: Return a 3-methods class: incoming, outgoing and all.
+        """
+        return Relationships(self)
+
+    def _create_relationship(self, relationship_name, *args, **kwargs):
+        _job_id = object.__getattribute__(self, "_job_id")
+        def relationship(to, *args, **kwargs):
+            tx = Transaction.get_transaction(kwargs.get("tx", None))
+            create_relationship_url = "{%s}/relationships" % _job_id
+            # Check if target node doesn't exist yet
+            if isinstance(to, TransactionOperationProxy):
+                to_url = "{%s}" % to()["id"]
+            else:
+                to_url = to.url
+            data = {
+                "to": to_url,
+                "type": relationship_name,
+            }
+            if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
+                x = kwargs.pop("tx", None)
+                del x  # Makes pyflakes happy
+            if kwargs:
+                data.update({"data": kwargs})
+            return tx.subscribe(TX_POST, create_relationship_url,
+                                data=data, obj=self, returns=RELATIONSHIP)
+        return relationship
 
 
 class Transaction(object):
@@ -345,7 +408,7 @@ class Transaction(object):
         else:
             return True
 
-    def subscribe(self, method, url, data=None, obj=None):
+    def subscribe(self, method, url, data=None, obj=None, returns=None):
         job_id = len(self.operations)
         if url.startswith("{"):
             url_to = url
@@ -372,6 +435,7 @@ class Transaction(object):
         if not transaction_operation:
             transaction_operation = TransactionOperationProxy(obj=obj,
                                                               job=job_id,
+                                                              typ=returns,
                                                               **params)
             self.operations.append(transaction_operation)
             if method in (TX_POST, TX_GET):
@@ -713,7 +777,8 @@ class NodesProxy(dict):
                 x = kwargs.pop("tx", None)
                 del x  # Makes pyflakes happy
             # job_id = len(tx.operations)
-            op = tx.subscribe(TX_POST, self._node, data=kwargs, obj=self)
+            op = tx.subscribe(TX_POST, self._node, data=kwargs, obj=self,
+                              returns=NODE)
             return op
 #            return Node("", create=False, update_dict={
 #                "self": "{%s}" % job_id,
@@ -758,8 +823,13 @@ class Node(Base):
         def relationship(to, *args, **kwargs):
             tx = Transaction.get_transaction(kwargs.get("tx", None))
             create_relationship_url = self._dic["create_relationship"]
+            # Check if target node doesn't exist yet
+            if isinstance(to, TransactionOperationProxy):
+                to_url = "{%s}" % to()["id"]
+            else:
+                to_url = to.url
             data = {
-                "to": to.url,
+                "to": to_url,
                 "type": relationship_name,
             }
             if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
@@ -769,7 +839,7 @@ class Node(Base):
                 data.update({"data": kwargs})
             if tx:
                 return tx.subscribe(TX_POST, create_relationship_url,
-                                    data=data, obj=self)
+                                    data=data, obj=self, returns=RELATIONSHIP)
             response, content = Request().post(create_relationship_url,
                                                data=data)
             if response.status == 201:
@@ -1310,7 +1380,8 @@ class Relationships(object):
     def create(self, relationship_name, to, **kwargs):
         # TODO: Improve the unicode checking
         try:
-            return self._node._create_relationship(relationship_name)(to, **kwargs)
+            return self._node._create_relationship(relationship_name)(to,
+                                                                      **kwargs)
         except (KeyError, UnicodeEncodeError, UnicodeError):
             safe_name = smart_quote(relationship_name)
             return getattr(self._node, safe_name)(to, **kwargs)
