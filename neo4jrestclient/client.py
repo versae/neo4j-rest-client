@@ -1668,7 +1668,7 @@ class Extension(object):
                     return Iterable(Path, result)
                 elif POSITION in returns:
                     return Iterable(Position, result)
-            if isinstance(result, dict) and returns:
+            elif isinstance(result, dict) and returns:
                 if NODE in returns:
                     return Node(result["self"], data=result)
                 elif RELATIONSHIP in returns:
@@ -1677,7 +1677,7 @@ class Extension(object):
                     return Path(result)
                 elif POSITION in returns:
                     return Position(result)
-            if result:
+            elif result:
                 return result
             else:
                 return []
