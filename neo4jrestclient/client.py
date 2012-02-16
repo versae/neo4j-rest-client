@@ -15,7 +15,7 @@ from constants import (BREADTH_FIRST, DEPTH_FIRST,
                        NODE_GLOBAL, NODE_PATH, NODE_RECENT,
                        RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
                        RELATIONSHIP_RECENT, NONE,
-                       NODE, RELATIONSHIP, PATH, POSITION, FULLPATH,
+                       NODE, RELATIONSHIP, PATH, POSITION, FULLPATH, RAW,
                        INDEX_FULLTEXT, TX_GET, TX_PUT, TX_POST, TX_DELETE,
                        RELATIONSHIPS_ALL, RELATIONSHIPS_IN, RELATIONSHIPS_OUT,
                        RETURN_ALL_NODES, RETURN_ALL_BUT_START_NODE)
@@ -1657,6 +1657,8 @@ class Extension(object):
                     returns = result[0].get("self", None)
                 elif isinstance(result, dict) and "self" in result:
                     returns = result.get("self", None)
+            if returns and RAW in returns:
+                return result
             if isinstance(result, (tuple, list)) and returns:
                 if NODE in returns:
                     return Iterable(Node, result, "self")
@@ -1675,7 +1677,7 @@ class Extension(object):
                     return Path(result)
                 elif POSITION in returns:
                     return Position(result)
-            elif result:
+            if result:
                 return result
             else:
                 return []
