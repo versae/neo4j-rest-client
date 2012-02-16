@@ -556,6 +556,11 @@ class ExtensionsTestCase(TraversalsTestCase):
             pass
         clientDebug.DEBUG = False
 
+    def test_gremlin_extension_reference_raw_returns(self):
+        # Assuming the GremlinPlugin installed
+        ext = self.gdb.extensions.GremlinPlugin
+        n = ext.execute_script(script='g.v(0)', returns=constants.RAW)
+        self.assertTrue(isinstance(n, dict))
 
 class TransactionsTestCase(ExtensionsTestCase):
 

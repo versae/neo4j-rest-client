@@ -45,6 +45,7 @@ RELATIONSHIP = "relationship"
 PATH = "path"
 FULLPATH = "fullpath"
 POSITION = "position"
+RAW = "raw"
 # Indexes
 INDEX_EXACT = "exact"
 INDEX_FULLTEXT = "fulltext"
