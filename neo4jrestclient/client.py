@@ -761,6 +761,13 @@ class Iterable(list):
     def __iter__(self):
         return self
 
+    @property
+    def single(self):
+        try:
+            return self[0]
+        except KeyError:
+            return None
+
     def next(self):
         if self._index == 0:
             raise StopIteration
@@ -917,6 +924,12 @@ class Node(Base):
     def __hash__(self):
         return hash(self.id)
 
+    def items(self):
+        try:
+            return self._dic["data"].viewitems()
+        except AttributeError:
+            return self._dic["data"].items()
+            
     def traverse(self, types=None, order=None, stop=None, returnable=None,
                  uniqueness=None, is_stop_node=None, is_returnable=None,
                  paginated=False, page_size=None, time_out=None,
