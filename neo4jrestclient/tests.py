@@ -562,6 +562,7 @@ class ExtensionsTestCase(TraversalsTestCase):
         n = ext.execute_script(script='g.v(0)', returns=constants.RAW)
         self.assertTrue(isinstance(n, dict))
 
+
 class TransactionsTestCase(ExtensionsTestCase):
 
     def test_transaction_delete(self):
@@ -795,13 +796,13 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertTrue(isinstance(n1, client.Node))
         self.assertTrue(isinstance(n2, client.Node))
 
-#    def test_transaction_create_relationship(self):
-#        with self.gdb.transaction():
-#            n1 = self.gdb.node()
-#            n2 = self.gdb.node()
-#            rel = n1.Knows(n2)
-#            rel["when"] = "January"
-#        self.assertEqual(rel.properties, {"when": "January"})
+    def test_transaction_create_relationship(self):
+        with self.gdb.transaction():
+            n1 = self.gdb.node()
+            n2 = self.gdb.node()
+            rel = n1.Knows(n2)
+            rel["when"] = "January"
+        self.assertEqual(rel.properties, {"when": "January"})
 
 
 class PickleTestCase(TransactionsTestCase):

@@ -190,16 +190,22 @@ class TransactionOperationProxy(dict, object):
                 return object.__getattribute__(self, "_get_%s" % attr)()
             else:
                 return object.__getattribute__(self, attr)
-#        elif _type == RELATIONSHIP:
-#            warnings.warn("Deprecated, in favor of pythonic style to declare "
-#                          "relationships: "
-#                          "n2.relationships.create(rel_name, n2). "
-#                          "This is needed in order to handle pickling in "
-#                          "nodes.",
-#                          DeprecationWarning)
-#            import ipdb; ipdb.set_trace()
-#            _attr = "_create_relationship"
-#            return object.__getattribute__(self, _attr)(attr, *args, **kwargs)
+        elif _type == NODE:
+            try:
+                return object.__getattribute__(self, attr)
+            except AttributeError:
+                warnings.warn("Deprecated, in favor of pythonic style to "
+                              "declare relationships: "
+                              "n2.relationships.create(rel_name, n2). "
+                              "This is needed in order to handle pickling in "
+                              "nodes.",
+                              DeprecationWarning)
+                def _create_relationship(*args, **kwargs):
+                    _attr = "_create_relationship"
+                    _func = object.__getattribute__(self, _attr)
+                    _relationship = _func(attr)
+                    return _relationship(*args, **kwargs)
+                return _create_relationship
         else:
             return object.__getattribute__(self, attr)
 
