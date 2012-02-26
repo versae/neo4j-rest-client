@@ -1,4 +1,4 @@
-The PRIMARY AUTHORS are (ordered by aproximated LOC number):
+The PRIMARY AUTHORS are:
 
     * Javier de la Rosa <versae@gmail.com>
 
@@ -15,6 +15,7 @@ APPRECIATED CONTRIBUTORS:
     * bkizzy, https://github.com/bkizzy
     * Steve Jalim, https://github.com/stevejalim
     * Dan Brown, https://github.com/dbro
+    * Adam Venturella: https://github.com/aventurella
 
 And a big THANK YOU goes to:
 
