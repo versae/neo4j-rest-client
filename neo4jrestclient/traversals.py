@@ -65,7 +65,6 @@ class Traverser(object):
         try:
             return self._cache[return_type]
         except KeyError:
-            import ipdb; ipdb.set_trace()
             url = self._endpoint.replace("{returnType}", return_type)
             response, content =  Request().post(url, data=self._data)
             if response.status == 200:
