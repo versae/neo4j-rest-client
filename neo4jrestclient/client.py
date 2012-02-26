@@ -76,7 +76,7 @@ class GraphDatabase(object):
             self._relationship_index = response_json['relationship_index']
             self._node = response_json['node']
             self._node_index = response_json['node_index']
-            self._reference_node = response_json['reference_node']
+            self._reference_node = response_json.get('reference_node', None)
             self._extensions_info = response_json['extensions_info']
             self._extensions = response_json['extensions']
             self.extensions = ExtensionsProxy(self._extensions)
@@ -96,7 +96,12 @@ class GraphDatabase(object):
             raise NotFoundError(response.status, "Unable get root")
 
     def _get_reference_node(self):
-        return Node(self._reference_node)
+        warnings.warn("Deprecated, the reference node is not needed anymore",
+                      DeprecationWarning)
+        if self._reference_node:
+            return Node(self._reference_node)
+        else:
+            return None
     reference_node = property(_get_reference_node)
 
     def traverse(self, *args, **kwargs):
