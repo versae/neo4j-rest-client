@@ -9,8 +9,6 @@ import constants
 import request
 import unittest
 
-from lucenequerybuilder import Q
-
 
 class NodesTestCase(unittest.TestCase):
 
@@ -313,6 +311,7 @@ class IndexesTestCase(RelationshipsTestCase):
                           index["feeling"].__getitem__, "hate")
 
     def test_query_index(self):
+        Q = client.Q
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
         n2 = self.gdb.nodes.create(name="Michael Donald", place="Tijuana")
         index = self.gdb.nodes.indexes.create(name="do", type="fulltext")
@@ -492,6 +491,129 @@ class TraversalsTestCase(IndexesTestCase):
         pages = nodes[0].traverse(stop=stop, time_out=0.000001)
         traversal_length = len([n for n in [t for t in pages]])
         self.assertEqual(traversal_length, 0)
+
+    # Taken from the official tests by Neo4j python-embedded
+    # https://github.com/neo4j/python-embedded/blob/master/src/test/python/traversal.py
+    def create_data(self):
+        with self.gdb.transaction():
+            self.source = self.gdb.node(message='hello')
+            target = self.gdb.node(message='world')
+            relationship = self.source.related_to(target, message="graphy")
+            secondrel = target.likes(self.source, message="buh")
+
+    def test_traverse_string_types(self):
+        self.create_data()
+        db = self.gdb
+        start_node = self.source
+        # START SNIPPET: basicTraversal
+        traverser = db.traversal()\
+            .relationships('related_to')\
+            .traverse(start_node)
+        # The graph is traversed as 
+        # you loop through the result.
+        for node in traverser.nodes:
+            pass
+        # END SNIPPET: basicTraversal
+        self.assertEqual(len(list(traverser.nodes)), 2)
+        # START SNIPPET: directedTraversal
+        from traversals import RelationshipDirection
+        OUTGOING = RelationshipDirection.OUTGOING
+        INCOMING = RelationshipDirection.INCOMING
+        ANY = RelationshipDirection.ANY
+        traverser = db.traversal()\
+            .relationships('related_to', OUTGOING)\
+            .traverse(start_node)
+        # END SNIPPET: directedTraversal
+        self.assertEqual(len(list(traverser.nodes)), 2)
+        traverser = db.traversal()\
+            .relationships('related_to', INCOMING)\
+            .relationships('likes')\
+            .traverse(start_node)
+        # END SNIPPET: multiRelationshipTraversal
+        self.assertEqual(len(list(traverser.nodes)), 2)
+        # START SNIPPET: traversalResults
+        traverser = db.traversal()\
+            .relationships('related_to')\
+            .traverse(start_node)
+        # Get each possible path
+        for path in traverser:
+            pass
+        # Get each node
+        for node in traverser.nodes:
+            pass
+        # Get each relationship
+        for relationship in traverser.relationships:
+            pass
+        # END SNIPPET: traversalResults
+
+    def test_traverse_programmatic_types(self):
+        from client import Direction
+        self.create_data()
+        t = self.gdb.traversal()\
+            .depthFirst()\
+            .relationships(Direction.ANY.related_to)\
+            .traverse(self.source)
+        res = list(t.nodes)
+        self.assertEqual(len(res), 2)
+
+    def test_uniqueness(self):
+        self.create_data()
+        db = self.gdb
+        start_node = self.source
+        # START SNIPPET: uniqueness
+        from traversals import Uniqueness
+        traverser = db.traversal()\
+            .uniqueness(Uniqueness.NODE_PATH)\
+            .traverse(start_node)
+        # END SNIPPET: uniqueness
+        res = list(traverser.nodes)
+        self.assertEqual(len(res), 3)
+
+    def test_ordering(self):
+        self.create_data()
+        db = self.gdb
+        start_node = self.source
+        # START SNIPPET: ordering
+        # Depth first traversal, this
+        # is the default.
+        traverser = db.traversal()\
+            .depthFirst()\
+            .traverse(self.source)
+        # Breadth first traversal
+        traverser = db.traversal()\
+            .breadthFirst()\
+            .traverse(start_node)
+        # END SNIPPET: ordering
+        res = list(traverser.nodes)
+        self.assertEqual(len(res), 2)
+
+    def test_paths(self):
+        self.create_data()
+        t = self.gdb.traversal()\
+            .traverse(self.source)
+        for path in t:
+            # START SNIPPET: accessPathStartAndEndNode
+            start_node = path.start
+            end_node = path.end
+            # END SNIPPET: accessPathStartAndEndNode
+            self.assertNotEqual(start_node, None)
+            self.assertNotEqual(end_node, None)
+            # START SNIPPET: accessPathLastRelationship
+            last_relationship = path.last_relationship
+            # END SNIPPET: accessPathLastRelationship
+            # START SNIPPET: loopThroughPath
+            for item in path:
+                # Item is either a Relationship,
+                # or a Node
+                pass
+            for nodes in path.nodes:
+                # All nodes in a path
+                pass
+            for nodes in path.relationships:
+                # All relationships in a path
+                pass
+            # END SNIPPET: loopThroughPath
+            break
 
 
 class ExtensionsTestCase(TraversalsTestCase):
