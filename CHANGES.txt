@@ -1,12 +1,43 @@
 Changes
 -------
 
+1.6.0 (2012-02-27)
+------------------
+- Finishing the experimental support for indexing and transactions.
+- Adding preliminar indexing support in trasnsactions.
+- Adding a new way to traverse the graph based on python-embedded.
+- Removing __credits__ in favor of AUTHORS file. Updating version number.
+- Fixes #33. Deprecating the requirement of a reference node.
+- Added methods to bring it in line with the embedded driver.
+- Added .single to Iterable and .items() to Node to bring it into alignment
+  with the embedded driver.
+- Adding non-functional realtionshos creation inside transactions.
+- New returnable type "RAW", added in constants. Very useful for Gremlin and
+  Cypher queries.
+- Extensions can now return raw results. Fixes #52.
+- Added a test for issue #52, returns=RAW.
+- Adding relationships support to transactions.
+- Fixes #49. Usage in extensions.
+- Improving transaction support. Related #49.
+- Fixing some PEP08 warnings.
+- Fixes #43. Unable to reproduce the error.
+- Fixes #49. Improving the batch efficiency in get requests.
+- Fixes #47. Improving Paths management in traversals.
+- Adding 'content-location' as possible header in responses instead of
+  just 'location'.
+- Fixing an error wwhen the value of a set property operation is None.
+- Merge branch 'master' of github.com:versae/neo4j-rest-client into devel.
+- Fix for paginated traversals under Neo4j 1.5.
+- Added check for 'content-location' header in PaginatedTraversal, ensuring
+  traversals don't stop early with Neo4j 1.5.
+
+
 1.5.0 (2011-10-31)
 ------------------
 - Removing the smart_quote function from indexing. It's not needed anymore with
   the new way to add elements to indices.
 - Fixes #37.
-- Using JSON object to set index key and value
+- Using JSON object to set index key and value.
 
 
 1.4.5 (2011-09-15)
