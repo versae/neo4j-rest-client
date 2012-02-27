@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from datetime import datetime
 try:
     import cPickle as pickle
 except:
@@ -520,7 +521,7 @@ class TraversalsTestCase(IndexesTestCase):
         for node in traverser.nodes:
             pass
         # END SNIPPET: basicTraversal
-        self.assertEqual(len(list(traverser.nodes)), 2)
+        self.assertEqual(len(list(traverser.nodes)), 1)
         # START SNIPPET: directedTraversal
         from traversals import RelationshipDirection
         OUTGOING = RelationshipDirection.OUTGOING
@@ -530,13 +531,13 @@ class TraversalsTestCase(IndexesTestCase):
             .relationships('related_to', OUTGOING)\
             .traverse(start_node)
         # END SNIPPET: directedTraversal
-        self.assertEqual(len(list(traverser.nodes)), 2)
+        self.assertEqual(len(list(traverser.nodes)), 1)
         traverser = db.traversal()\
             .relationships('related_to', INCOMING)\
             .relationships('likes')\
             .traverse(start_node)
         # END SNIPPET: multiRelationshipTraversal
-        self.assertEqual(len(list(traverser.nodes)), 2)
+        self.assertEqual(len(list(traverser.nodes)), 1)
         # START SNIPPET: traversalResults
         traverser = db.traversal()\
             .relationships('related_to')\
@@ -560,7 +561,7 @@ class TraversalsTestCase(IndexesTestCase):
             .relationships(Direction.ANY.related_to)\
             .traverse(self.source)
         res = list(t.nodes)
-        self.assertEqual(len(res), 2)
+        self.assertEqual(len(res), 1)
 
     def test_uniqueness(self):
         self.create_data()
@@ -573,7 +574,7 @@ class TraversalsTestCase(IndexesTestCase):
             .traverse(start_node)
         # END SNIPPET: uniqueness
         res = list(traverser.nodes)
-        self.assertEqual(len(res), 3)
+        self.assertEqual(len(res), 2)
 
     def test_ordering(self):
         self.create_data()
@@ -591,7 +592,7 @@ class TraversalsTestCase(IndexesTestCase):
             .traverse(start_node)
         # END SNIPPET: ordering
         res = list(traverser.nodes)
-        self.assertEqual(len(res), 2)
+        self.assertEqual(len(res), 1)
 
     def test_paths(self):
         self.create_data()
@@ -990,6 +991,91 @@ class TransactionsTestCase(ExtensionsTestCase):
         index_hits = index['test2']['test2']
         tx.commit()
         self.assertTrue(n1 == index_hits[:][-1])
+
+    def test_transaction_remove_node_from_index(self):
+        index = self.gdb.nodes.indexes.create('index3')
+        n = self.gdb.nodes.create()
+        index.add('test3','test3', n)
+        tx = self.gdb.transaction(using_globals=False)
+        index.delete('test3', 'test3', n, tx=tx)
+        # Assert transactional
+        self.assertTrue(n in index['test3']['test3'])
+        tx.commit()
+        self.assertTrue(n not in index['test3']['test3'])
+
+    def test_transaction_query_index_for_new_node(self):
+        #test nodes created in transaction
+        
+        index = self.gdb.nodes.indexes.create('index4%s' \
+                                              % datetime.now().microsecond)
+        tx = self.gdb.transaction(using_globals=False)
+        n4 = self.gdb.nodes.create(tx=tx)
+        index.add('test3','test3', n4, tx=tx)
+        # Assert transactional
+        transactional = True
+        try:
+            index['test3']['test3'][0]
+            transactional = False
+        except:
+            pass
+        tx.commit()
+        self.assertTrue(transactional)
+        self.assertTrue(index['test3']['test3'][-1] == n4)
+
+    def test_transaction_add_to_new_index(self):
+        """
+        Tests whether a node can be added to an index that was created earlier
+        in the transaction.
+        Does not assert transactionality.
+        """
+        n1 = self.gdb.nodes.create()
+        tx = self.gdb.transaction()
+        index = self.gdb.nodes.indexes.create('index5')
+        index.add('test1','test1', n1)
+        tx.commit()
+        self.assertTrue(isinstance(index, client.Index))
+        self.assertTrue(index['test1']['test1'][-1] == n1)
+
+    def test_transaction_new_node_properties(self):
+        """
+        Tests setting properties on a node created within the same tx.
+        Doesn't show transactionality.
+        """
+        def has_props(node):
+            return n['name'] == 'test' and n['age'] == 0
+
+        tx = self.gdb.transaction()
+        n = self.gdb.node()
+        n['name'] = 'test'
+        n['age'] = 0
+        tx_props_kept = has_props(n)
+        tx.commit()
+        self.assertTrue(tx_props_kept)
+        self.assertTrue(has_props(n))
+
+    def test_transaction_properties_class(self):
+        def has_props(node):
+            return node['test1'] == 'test1' and \
+                   node['test2'] == 'test2'
+
+        def set_props(node):
+            node['test1'] = 'test1'
+            node['test2'] = 'test2'
+
+        n1 = self.gdb.node()
+        tx = self.gdb.transaction()
+        set_props(n1)
+        has_props_before_commit = has_props(n1)
+        tx.commit()
+        self.assertFalse(has_props_before_commit)
+        self.assertTrue(has_props(n1))
+        tx = self.gdb.transaction()
+        n2 = self.gdb.node()
+        set_props(n2)
+        has_props_before_commit = has_props(n1)
+        tx.commit()
+        self.assertFalse(has_props_before_commit)
+        self.assertTrue(has_props(n2))
 
 
 class PickleTestCase(TransactionsTestCase):

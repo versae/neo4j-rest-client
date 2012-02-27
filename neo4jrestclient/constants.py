@@ -38,6 +38,8 @@ RAW = "raw"
 ITERABLE = "iterable"
 # Indexes
 INDEX = "index"
+INDEX_NODE = "index_node"
+INDEX_RELATIONSHIP = "index_relationship"
 INDEX_EXACT = "exact"
 INDEX_FULLTEXT = "fulltext"
 # Transactions

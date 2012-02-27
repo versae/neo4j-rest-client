@@ -17,6 +17,7 @@ from constants import (BREADTH_FIRST, DEPTH_FIRST,
                        RELATIONSHIP_RECENT, NONE, INDEX, ITERABLE,
                        NODE, RELATIONSHIP, PATH, POSITION, FULLPATH, RAW,
                        INDEX_FULLTEXT, TX_GET, TX_PUT, TX_POST, TX_DELETE,
+                       INDEX_RELATIONSHIP, INDEX_NODE,
                        RELATIONSHIPS_ALL, RELATIONSHIPS_IN, RELATIONSHIPS_OUT,
                        RETURN_ALL_NODES, RETURN_ALL_BUT_START_NODE)
 from iterable import Iterable
@@ -295,8 +296,7 @@ class TransactionOperationProxy(dict, object):
                 return dict.__getitem__(_body, key)
             else:
                 _body = dict.__getitem__(self, "body")
-                _data = dict.__getitem__(_body, "data")
-                return dict.__getitem__(_data, key)
+                return dict.__getitem__(_body, key)
 
 
     def __setitem__(self, key, val):
@@ -325,7 +325,7 @@ class TransactionOperationProxy(dict, object):
 
     def change(self, cls, url, data=None):
         _type = object.__getattribute__(self, "_extras")["type"]
-        if _type == INDEX:
+        if _type in (INDEX_NODE, INDEX_RELATIONSHIP):
             # TODO: Improve the way we get the name of the index,
             #       maybe including the name in the results
             name = data["location"].split(data["from"])[1][1:-1]
@@ -347,7 +347,13 @@ class TransactionOperationProxy(dict, object):
                 else:
                     self._proxy = cls(Path, data["body"])
         else:
-            self._proxy = cls(url, update_dict=data["body"])
+            if "self" in data["body"] and data["body"]["self"] != url:
+                self._proxy = cls(data["body"]["self"],
+                                  update_dict=data["body"])
+            elif data["body"] == data["returns"]:
+                self._proxy = cls(data["body"])
+            else:
+                self._proxy = cls(url, update_dict=data["body"])
 
     # Common functions
     def _get_id(self):
@@ -405,6 +411,49 @@ class TransactionOperationProxy(dict, object):
         _data = dict.__getitem__(_body, "data")
         return dict.__getitem__(_data, "type")
 
+    # Index functions
+    def add(self, key, value, item, tx=None):
+        _body = dict.__getitem__(self, "body")
+        _name = dict.__getitem__(_body, "name")
+        _type = object.__getattribute__(self, "_extras")["type"]
+        if _type == INDEX_NODE:
+            index_for = NODE
+        else:
+            index_for = RELATIONSHIP
+
+        if isinstance(value, (list, tuple)):
+            tx = tx or value[1]
+            value = value[0]
+        if isinstance(item, Transaction):
+            tx = tx or item
+            item = item.get_value()
+        tx = Transaction.get_transaction(tx)
+        # Neo4j hardly crush if you try to index a relationship in a
+        # node index and viceversa.
+        is_node_index = (index_for == NODE
+                         and isinstance(item, Node))
+        is_relationship_index = (index_for == RELATIONSHIP
+                                 and isinstance(item, Relationship))
+        if not (is_node_index or is_relationship_index
+                or TransactionOperationProxy):
+            raise TypeError("%s is a %s and the index is for %ss"
+                            % (item, index_for.capitalize(), index_for))
+        if isinstance(item, Base):
+            url_ref = item.url
+        elif isinstance(item, TransactionOperationProxy):
+            url_ref = "{%s}" % item()["id"]
+        else:
+            url_ref = item
+        data = {"key": key,
+                "value": value,  # smart_quote is not needed anymore
+                "uri": url_ref}
+        if tx:
+            request_url = "index/%s/%s" % (index_for, _name)
+            op = tx.subscribe(TX_POST, request_url, data=data,
+                              obj=self, returns=index_for)
+            return op
+
+
 
 class Transaction(object):
     """
@@ -440,9 +489,6 @@ class Transaction(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        del self._class._transactions[self.id]
-        if options.TX_NAME in globals():
-            del globals()[options.TX_NAME]
         if self.auto_commit:
             return self.commit(type, value, traceback)
         return True
@@ -460,6 +506,10 @@ class Transaction(object):
                 result["returns"] = Iterable
             elif "from" in result and INDEX in result["from"]:
                 result["returns"] = Index
+            elif "body" in result:
+                result["returns"] = result["body"]
+            else:
+                result["returns"] = None
             if "returns" in result:
                 result_dict[result_id] = result
         return result_dict
@@ -474,6 +524,7 @@ class Transaction(object):
             raise TransactionException(response.status)
 
     def commit(self, *args, **kwargs):
+        self._class.flush()
         results = self._batch()
         # Objects to update
         if self.auto_update:
@@ -497,6 +548,9 @@ class Transaction(object):
                         elif isinstance(result["body"], (tuple, list)):
                             url = None
                             ref_object.change(cls, url, data=result)
+                        elif result["body"] == result["returns"]:
+                            url = None
+                            ref_object.change(cls.__class__, cls, data=result)
                     if cls and url:
                         ref_object.change(cls, url, data=result)
         self.references = []
@@ -1112,7 +1166,12 @@ class IndexesProxy(dict):
                 x = kwargs.pop("tx", None)
                 del x  # Makes pyflakes happy
             url = "/%s/%s" % (INDEX, self._index_for)
-            op = tx.subscribe(TX_POST, url, data=data, obj=self, returns=INDEX)
+            if self._index_for == NODE:
+                op = tx.subscribe(TX_POST, url, data=data, obj=self,
+                                  returns=INDEX_NODE)
+            else:
+                op = tx.subscribe(TX_POST, url, data=data, obj=self,
+                                  returns=INDEX_RELATIONSHIP)
             return op
         else:
             if name not in self._dict:
@@ -1207,13 +1266,13 @@ class Index(object):
             return Index._get_results(url, self._index_for, tx=tx)
 
         def __setitem__(self, value, item):
-            tx = None
+            tx = self.tx
             if isinstance(value, (list, tuple)):
                 tx = tx or value[1]
                 value = value[0]
             if isinstance(item, Transaction):
                 tx = tx or item
-                iten = item.get_value()
+                item = item.get_value()
             tx = Transaction.get_transaction(tx)
             # Neo4j hardly crush if you try to index a relationship in a
             # node index and viceversa.
@@ -1221,12 +1280,15 @@ class Index(object):
                              and isinstance(item, Node))
             is_relationship_index = (self._index_for == RELATIONSHIP
                                      and isinstance(item, Relationship))
-            if not (is_node_index or is_relationship_index):
+            if not (is_node_index or is_relationship_index
+                    or TransactionOperationProxy):
                 raise TypeError("%s is a %s and the index is for %ss"
                                 % (item, self._index_for.capitalize(),
                                    self._index_for))
             if isinstance(item, Base):
                 url_ref = item.url
+            elif isinstance(item, TransactionOperationProxy):
+                url_ref = "{%s}" % item()["id"]
             else:
                 url_ref = item
             request_url_and_key = self.url.rsplit('/', 1)  # assumes a key
@@ -1255,9 +1317,9 @@ class Index(object):
                                           "%s, data %s" \
                                           % (request_url_and_key[0], url_ref))
 
-        def query(self, value):
+        def query(self, value, tx=None):
             url = "%s?query=%s" % (self.url, smart_quote(value))
-            return Index._get_results(url, self._index_for)
+            return Index._get_results(url, self._index_for, tx=tx)
 
     def __init__(self, index_for, name, **kwargs):
         self._index_for = index_for
@@ -1323,7 +1385,7 @@ class Index(object):
             return self.IndexKey(self._index_for, "%s/%s" % (self.url, key),
                                  name=self.name, tx=tx)
 
-    def delete(self, key=None, value=None, item=None):
+    def delete(self, key=None, value=None, item=None, tx=None):
         if not key and not value and not item:
             url = self.template.replace("/{key}/{value}", "")
         else:
@@ -1335,25 +1397,37 @@ class Index(object):
                 url = self.template.replace("{key}", key).replace("{value}",
                                                                   value)
                 url = "%s/%s" % (url, item.id)
+                request_url = "index/%s/%s/%s/%s/%s" \
+                              % (self._index_for, self.name, key, value,
+                                 item.id)
             elif key and not value:
                 key = smart_quote(key)
                 url = "%s/%s" % (self.template.replace("{key}/{value}", key),
                                  item.id)
+                request_url = "index/%s/%s/%s/%s" \
+                              % (self._index_for, self.name, key, item.id)
             elif not key and not value:
                 url = self.template.replace("{key}/{value}", item.id)
+                request_url = "index/%s/%s/%s" % (self._index_for, self.name,
+                                                  item.id)
             else:
                 raise TypeError("delete() takes at least 2 arguments, the " \
                                 "key of the index and the %s to remove"
                                 % self._index_for)
-        response, content = Request().delete(url)
-        if response.status == 404:
-            if options.SMART_ERRORS:
-                raise KeyError(self._index_for.capitalize())
-            else:
-                index_for = self._index_for.capitalize()
-                raise NotFoundError(response.status, "%s not found" % index_for)
-        elif response.status != 204:
-            raise StatusException(response.status)
+        tx = Transaction.get_transaction(tx)
+        if tx:
+            return tx.subscribe(TX_DELETE, request_url, obj=self)
+        else:
+            response, content = Request().delete(url)
+            if response.status == 404:
+                if options.SMART_ERRORS:
+                    raise KeyError(self._index_for.capitalize())
+                else:
+                    index_for = self._index_for.capitalize()
+                    raise NotFoundError(response.status,
+                                        "%s not found" % index_for)
+            elif response.status != 204:
+                raise StatusException(response.status)
 
     def query(self, *args):
         """
@@ -1439,6 +1513,7 @@ class Relationships(object):
         self._node = node
         self._pattern = "{-list|&|types}"
         self._dict = {}
+        self._len = 0
 
     def __getattr__(self, relationship_type):
 
@@ -1481,11 +1556,14 @@ class Relationships(object):
     def __len__(self, tx=None):
         tx = Transaction.get_transaction(tx)
         if tx:
-            return len(self.__getattr__("all")(tx=tx))
+            # We have to avoid a infinite recursion loop
+            # return len(self.__getattr__("all")(tx=tx))
+            pass
         elif "all" in self._dict:
-            return len(self._dic["all"])
+            self._len = len(self._dict["all"])
         else:
-            return len(self.__getattr__("all")())
+            self._len = len(self.__getattr__("all")())
+        return self._len
 
     def count(self, tx=None):
         return self.__len__(tx=tx)

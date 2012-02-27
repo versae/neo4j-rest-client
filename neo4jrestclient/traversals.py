@@ -25,6 +25,7 @@ class Uniqueness(object):
 
 
 class RelationshipDirection(object):
+    ANY = constants.RELATIONSHIPS_ALL
     ALL = constants.RELATIONSHIPS_ALL
     INCOMING = constants.RELATIONSHIPS_IN
     OUTGOING = constants.RELATIONSHIPS_OUT
