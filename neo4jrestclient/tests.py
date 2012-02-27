@@ -16,6 +16,10 @@ class NodesTestCase(unittest.TestCase):
         self.url = "http://localhost:7474/db/data/"
         self.gdb = client.GraphDatabase(self.url)
 
+    def tearDown(self):
+        if self.gdb:
+            self.gdb.flush()
+
     def test_connection_cache(self):
         import options as clientCache
         clientCache.CACHE = True
@@ -459,6 +463,8 @@ class TraversalsTestCase(IndexesTestCase):
         """
         Tests the use of paginated traversals.
         """
+        import options as clientDebug
+        clientDebug.DEBUG = False
         nodes = [self.gdb.nodes.create() for i in xrange(10)]
         # Chain them into a linked list
         last = None
@@ -675,7 +681,6 @@ class ExtensionsTestCase(TraversalsTestCase):
         self.assertEqual(len(rels), 2)
         for rel in rels:
             self.assertTrue(isinstance(rel, client.Relationship))
-            pass
         clientDebug.DEBUG = False
 
     def test_gremlin_extension_reference_raw_returns(self):
@@ -925,6 +930,66 @@ class TransactionsTestCase(ExtensionsTestCase):
             rel = n1.Knows(n2)
             rel["when"] = "January"
         self.assertEqual(rel.properties, {"when": "January"})
+
+    # The next tests for transaction were taken from @mhluongo fork
+    # https://github.com/mhluongo/neo4j-rest-client/blob/master/neo4jrestclient/tests.py
+    def test_transaction_index_creation(self):
+        """
+        Tests whether indexes are properly created during a transaction. 
+        Asserts the creation also behaves transactionally (ie, not until
+        commit).
+        """
+        with self.gdb.transaction():
+            i1 = self.gdb.nodes.indexes.create('index_from_tx')
+            transactionality_test = i1()
+        self.assertTrue(isinstance(transactionality_test, dict))
+        self.assertTrue(i1 is not None)
+        self.assertTrue(isinstance(i1, client.Index))
+        i2 = self.gdb.nodes.indexes.get('index_from_tx')
+        self.assertTrue(i1 == i2)
+
+    def test_transaction_add_node_to_index(self):
+        """
+        Tests whether a node can be added to an index within a transaction.
+        Does not assert transactionality.
+        """
+        n1 = self.gdb.nodes.create()
+        index = self.gdb.nodes.indexes.create('index_nodes')
+        with self.gdb.transaction():
+            index.add('test1','test1', n1)
+            index['test2']['test2'] = n1
+        self.assertTrue(index['test1']['test1'][-1] == n1)
+        self.assertTrue(index['test2']['test2'][-1] == n1)
+
+    def test_transaction_index_add_rel_to_index(self):
+        """
+        Tests whether a relationship can be added to an index within a transaction.
+        Does not assert transactionality.
+        """
+        #test nodes
+        n1 = self.gdb.nodes.create()
+        n2 = self.gdb.nodes.create()
+        r = n1.relationships.create('Knows', n2)
+        index = self.gdb.relationships.indexes.create('index_rel')
+        with self.gdb.transaction():
+            index.add('test1','test1', r)
+            index['test2']['test2'] = r
+        self.assertTrue(index['test1']['test1'][-1] == r)
+        self.assertTrue(index['test2']['test2'][-1] == r)
+
+    def test_transaction_index_query(self):
+        """
+        Tests whether the transaction methods work with index queries.
+        Note- this test does not prove query transactionality.
+        """
+        n1 = self.gdb.nodes.create()
+        index = self.gdb.nodes.indexes.create('index2')
+        index.add('test2','test2', n1)
+        # Test getting nodes from index during transaction
+        tx = self.gdb.transaction()
+        index_hits = index['test2']['test2']
+        tx.commit()
+        self.assertTrue(n1 == index_hits[:][-1])
 
 
 class PickleTestCase(TransactionsTestCase):

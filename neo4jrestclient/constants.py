@@ -35,7 +35,9 @@ PATH = "path"
 FULLPATH = "fullpath"
 POSITION = "position"
 RAW = "raw"
+ITERABLE = "iterable"
 # Indexes
+INDEX = "index"
 INDEX_EXACT = "exact"
 INDEX_FULLTEXT = "fulltext"
 # Transactions
