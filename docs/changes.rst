@@ -3,6 +3,7 @@ Changes
 
 1.6.0 (2012-02-27)
 ------------------
+- Adding documentation site.
 - Finishing the experimental support for indexing and transactions.
 - Adding preliminar indexing support in trasnsactions.
 - Adding a new way to traverse the graph based on python-embedded.
