@@ -1,6 +1,11 @@
 Changes
 =======
 
+1.6.1 (2012-02-27)
+------------------
+- Fixes #29. Adding support for authentication.
+
+
 1.6.0 (2012-02-27)
 ------------------
 - Adding documentation site.

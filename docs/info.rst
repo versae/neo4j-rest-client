@@ -21,6 +21,10 @@ Or::
 
   $ easy_install neo4jrestclient
 
+Or even if you want to use the development branch::
+
+  $ pip install git+https://github.com/versae/neo4j-rest-client.git
+
 
 Getting started
 ---------------
@@ -30,6 +34,14 @@ The main class is *GraphDatabase*, exactly how in neo4j.py_::
   >>> from neo4jrestclient.client import GraphDatabase
   
   >>> gdb = GraphDatabase("http://localhost:7474/db/data/")
+
+For providing authentication like is needed in services like Heroku_, you
+should add the proper parameters::
+
+  >>> url = "http://<instance>.hosted.neo4j.org:7000/db/data/"
+  
+  >>> gdb = GraphDatabase(url, username="username", password="password")
+
 
 Options
 -------
@@ -53,3 +65,4 @@ of 'NotFoundError' in some cases)::
 
 .. _neo4j.py: http://components.neo4j.org/neo4j.py/
 .. _lucene-querybuilder: http://github.com/scholrly/lucene-querybuilder
+.. _Heroku: http://devcenter.heroku.com/articles/neo4j
