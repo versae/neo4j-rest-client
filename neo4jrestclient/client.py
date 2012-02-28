@@ -62,7 +62,14 @@ class GraphDatabase(object):
     Main class for connection to Ne4j standalone REST server.
     """
 
-    def __init__(self, url):
+    def __init__(self, url, username=None, password=None, cert_file=None,
+                 key_file=None):
+        self._auth = {
+            "username": username,
+            "password": password,
+            "cert_file": cert_file,
+            "key_file": key_file,
+        }
         self._transactions = {}
         self.url = None
         if url.endswith("/"):
@@ -71,7 +78,7 @@ class GraphDatabase(object):
             self.url = "%s/" % url
         response, content = None, None
         try:
-            response, content = Request().get(url)
+            response, content = Request(**self._auth).get(url)
         except Exception:
             raise NotFoundError(result="Unable get root")
         if response.status == 200:
@@ -82,9 +89,11 @@ class GraphDatabase(object):
             self._reference_node = response_json.get('reference_node', None)
             self._extensions_info = response_json['extensions_info']
             self._extensions = response_json['extensions']
-            self.extensions = ExtensionsProxy(self._extensions)
+            self.extensions = ExtensionsProxy(self._extensions,
+                                              auth=self._auth)
             self.nodes = NodesProxy(self._node, self._reference_node,
-                                    self._node_index)
+                                    self._node_index,
+                                    auth=self._auth)
             # Backward compatibility. The current style is more pythonic
             self.node = self.nodes
             # HACK: Neo4j doesn't provide the URLs to access to relationships
@@ -92,7 +101,8 @@ class GraphDatabase(object):
             self._relationship = "%s%s%s" % (url_parts[0], RELATIONSHIP,
                                              url_parts[2])
             self.relationships = RelationshipsProxy(self._relationship,
-                                                    self._relationship_index)
+                                                    self._relationship_index,
+                                                    auth=self._auth)
             self.Traversal = self._get_traversal_class()
             self._batch = "%sbatch" % self.url
         else:
@@ -118,7 +128,7 @@ class GraphDatabase(object):
         return start_node.traverse(*args, **kwargs)
 
     def traversal(self):
-        return TraversalDescription()
+        return TraversalDescription(auth=self._auth)
 
     def _get_traversal_class(self):
         cls = self
@@ -323,16 +333,18 @@ class TransactionOperationProxy(dict, object):
     def get_job_id(self):
         return self._job_id
 
-    def change(self, cls, url, data=None):
+    def change(self, cls, url, data=None, auth=None):
+        _auth = auth or {}
         _type = object.__getattribute__(self, "_extras")["type"]
         if _type in (INDEX_NODE, INDEX_RELATIONSHIP):
             # TODO: Improve the way we get the name of the index,
             #       maybe including the name in the results
             name = data["location"].split(data["from"])[1][1:-1]
             if NODE in data["from"]:
-                self._proxy = cls(index_for=NODE, name=name, **data["body"])
+                self._proxy = cls(index_for=NODE, name=name, auth=_auth,
+                                  **data["body"])
             else:
-                self._proxy = cls(index_for=RELATIONSHIP, name=name,
+                self._proxy = cls(index_for=RELATIONSHIP, name=name, auth=_auth,
                                   **data["body"])
         elif _type == ITERABLE:
             if not data["body"] or len(data["body"]) == 0:
@@ -341,19 +353,22 @@ class TransactionOperationProxy(dict, object):
                 first_element = data["body"][0]
                 if "self" in first_element:
                     if NODE in first_element["self"]:
-                        self._proxy = cls(Node, data["body"], "self")
+                        self._proxy = cls(Node, data["body"], "self",
+                                          auth=_auth)
                     elif RELATIONSHIP in first_element["self"]:
-                        self._proxy = cls(Relationship, data["body"], "self")
+                        self._proxy = cls(Relationship, data["body"], "self",
+                                          auth=_auth)
                 else:
-                    self._proxy = cls(Path, data["body"])
+                    self._proxy = cls(Path, data["body"], auth=_auth)
         else:
             if "self" in data["body"] and data["body"]["self"] != url:
                 self._proxy = cls(data["body"]["self"],
-                                  update_dict=data["body"])
+                                  update_dict=data["body"], auth=_auth)
             elif data["body"] == data["returns"]:
+                # Basic types likes strings or integers
                 self._proxy = cls(data["body"])
             else:
-                self._proxy = cls(url, update_dict=data["body"])
+                self._proxy = cls(url, update_dict=data["body"], auth=_auth)
 
     # Common functions
     def _get_id(self):
@@ -515,7 +530,8 @@ class Transaction(object):
         return result_dict
 
     def _batch(self):
-        response, content = Request().post(self.url, data=self.operations)
+        request = Request(**self._class._auth)
+        response, content = request.post(self.url, data=self.operations)
         if response.status == 200:
             results_list = json.loads(content)
             results_dict = self._results_list_to_dict(results_list)
@@ -524,6 +540,7 @@ class Transaction(object):
             raise TransactionException(response.status)
 
     def commit(self, *args, **kwargs):
+        auth = self._class._auth
         self._class.flush()
         results = self._batch()
         # Objects to update
@@ -547,12 +564,13 @@ class Transaction(object):
                             url = result["body"]["self"]
                         elif isinstance(result["body"], (tuple, list)):
                             url = None
-                            ref_object.change(cls, url, data=result)
+                            ref_object.change(cls, url, data=result, auth=auth)
                         elif result["body"] == result["returns"]:
                             url = None
-                            ref_object.change(cls.__class__, cls, data=result)
+                            ref_object.change(cls.__class__, cls, data=result,
+                                              auth=auth)
                     if cls and url:
-                        ref_object.change(cls, url, data=result)
+                        ref_object.change(cls, url, data=result, auth=auth)
         self.references = []
         self.operations = []
         # Destroy the object after commit
@@ -616,15 +634,16 @@ class Base(object):
     Base class.
     """
 
-    def __init__(self, url, create=False, data={}, update_dict={}):
+    def __init__(self, url, create=False, data={}, update_dict={}, auth=None):
         self._dic = {}
+        self._auth = auth or {}
         self.url = None
         # Allow update an object using only a new data dict of properties
         self._update_dict = update_dict
         if url.endswith("/"):
             url = url[:-1]
         if create:
-            response, content = Request().post(url, data=data)
+            response, content = Request(**self._auth).post(url, data=data)
             if response.status == 201:
                 self._dic.update(data.copy())
                 self._update_dict_data()
@@ -650,7 +669,7 @@ class Base(object):
             update_dict = self._update_dict
             status = 200
         else:
-            response, content = Request().get(self.url)
+            response, content = Request(**self._auth).get(self.url)
             update_dict = json.loads(content).copy()
             status = response.status
         if status == 200:
@@ -658,7 +677,9 @@ class Base(object):
             if extensions:
                 self._extensions = self._dic.get('extensions', {})
                 if self._extensions:
-                    self.extensions = ExtensionsProxy(self._extensions)
+                    self.extensions = ExtensionsProxy(self._extensions,
+                                                      auth=self._auth)
+            self._update_dict = {}
         elif delete_on_not_found and status == 404:
             self.url = None
             self._dic = {}
@@ -673,7 +694,7 @@ class Base(object):
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_DELETE, self.url, obj=self)
-        response, content = Request().delete(self.url)
+        response, content = Request(**self._auth).delete(self.url)
         if response.status == 204:
             del self
         elif response.status == 404:
@@ -688,7 +709,7 @@ class Base(object):
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_GET, property_url, obj=self)
-        response, content = Request().get(property_url)
+        response, content = Request(**self._auth).get(property_url)
         if response.status == 200:
             self._dic["data"][key] = json.loads(content)
         else:
@@ -733,7 +754,8 @@ class Base(object):
                 transaction_url = self._dic["property"].replace("{key}", "")
                 return tx.subscribe(TX_PUT, transaction_url, {key: value},
                                     obj=self)
-            response, content = Request().put(property_url, data=value)
+            response, content = Request(**self._auth).put(property_url,
+                                                          data=value)
             if response.status == 204:
                 self._dic["data"].update({key: value})
             elif response.status == 404:
@@ -752,7 +774,7 @@ class Base(object):
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_DELETE, property_url, obj=self)
-        response, content = Request().delete(property_url)
+        response, content = Request(**self._auth).delete(property_url)
         if response.status == 204:
             del self._dic["data"][key]
         elif response.status == 404:
@@ -810,7 +832,8 @@ class Base(object):
         if not props:
             return None
         properties_url = self._dic["properties"]
-        response, content = Request().put(properties_url, data=props)
+        response, content = Request(**self._auth).put(properties_url,
+                                                      data=props)
         if response.status == 204:
             self._dic["data"] = props.copy()
             self._update_dict_data()
@@ -822,7 +845,7 @@ class Base(object):
 
     def _del_properties(self):
         properties_url = self._dic["properties"]
-        response, content = Request().delete(properties_url)
+        response, content = Request(**self._auth).delete(properties_url)
         if response.status == 204:
             self._dic["data"] = {}
         else:
@@ -837,10 +860,11 @@ class NodesProxy(dict):
     create new nodes through calling.
     """
 
-    def __init__(self, node, reference_node=None, node_index=None):
+    def __init__(self, node, reference_node=None, node_index=None, auth=None):
         self._node = node
         self._reference_node = reference_node
         self._node_index = node_index
+        self._auth = auth or {}
 
     def __call__(self, **kwargs):
         tx = Transaction.get_transaction(kwargs.get("tx", None))
@@ -860,9 +884,9 @@ class NodesProxy(dict):
                                     obj=self)
         else:
             if isinstance(key, (str, unicode)) and key.startswith(self._node):
-                return Node(key)
+                return Node(key, auth=self._auth)
             else:
-                return Node("%s/%s/" % (self._node, key))
+                return Node("%s/%s/" % (self._node, key), auth=self._auth)
 
     def get(self, key, *args, **kwargs):
         tx = Transaction.get_transaction(kwargs.get("tx", None))
@@ -886,7 +910,7 @@ class NodesProxy(dict):
                               returns=NODE)
             return op
         else:
-            return Node(self._node, create=True, data=kwargs)
+            return Node(self._node, create=True, data=kwargs, auth=self._auth)
 
     def delete(self, key, tx=None):
         tx = Transaction.get_transaction(tx)
@@ -898,7 +922,7 @@ class NodesProxy(dict):
 
     def _indexes(self):
         if self._node_index:
-            return IndexesProxy(self._node_index, NODE)
+            return IndexesProxy(self._node_index, NODE, auth=self._auth)
     indexes = property(_indexes)
 
 
@@ -938,11 +962,15 @@ class Node(Base):
             if tx:
                 return tx.subscribe(TX_POST, create_relationship_url,
                                     data=data, obj=self, returns=RELATIONSHIP)
-            response, content = Request().post(create_relationship_url,
-                                               data=data)
+            request = Request(**self._auth)
+            response, content = request.post(create_relationship_url,
+                                            data=data)
             if response.status == 201:
+                update_dict = json.loads(content)
                 return Relationship(response.get("location",
-                                         response.get("content-location")))
+                                         response.get("content-location")),
+                                    auth=self._auth,
+                                    update_dict=update_dict)
             elif response.status == 404:
                 raise NotFoundError(response.status, "Node specified by the " \
                                                      "URI not of \"to\" node" \
@@ -970,7 +998,7 @@ class Node(Base):
         """
         HACK: Return a 3-methods class: incoming, outgoing and all.
         """
-        return Relationships(self)
+        return Relationships(self, auth=self._auth)
     relationships = property(_get_relationships)
 
     def _get_id(self):
@@ -1041,21 +1069,25 @@ class Node(Base):
             if traverse_params:
                 traverse_url = "%s?%s" % (traverse_url,
                                           "&".join(traverse_params))
-            return PaginatedTraversal(traverse_url, returns, data=data)
+            return PaginatedTraversal(traverse_url, returns, data=data,
+                                      auth=self._auth)
         else:
             traverse_url = self._dic["traverse"].replace("{returnType}",
                                                          returns)
-            response, content = Request().post(traverse_url, data=data)
+            response, content = Request(**self._auth).post(traverse_url,
+                                                           data=data)
             if response.status == 200:
                 results_list = json.loads(content)
                 if returns == NODE:
-                    return Iterable(Node, results_list, "self")
+                    return Iterable(Node, results_list, "self",
+                                    auth=self._auth)
                 elif returns == RELATIONSHIP:
-                    return Iterable(Relationship, results_list, "self")
+                    return Iterable(Relationship, results_list, "self",
+                                    auth=self._auth)
                 elif returns == PATH:
-                    return Iterable(Path, results_list)
+                    return Iterable(Path, results_list, auth=self._auth)
                 elif returns == POSITION:
-                    return Iterable(Position, results_list)
+                    return Iterable(Position, results_list, auth=self._auth)
             elif response.status == 404:
                 raise NotFoundError(response.status, "Node or relationship " \
                                                      "not found")
@@ -1068,12 +1100,14 @@ class PaginatedTraversal(object):
     Class for paged traversals.
     """
 
-    def __init__(self, url, returns, data=None):
+    def __init__(self, url, returns, data=None, auth=None):
+        self._auth = auth or {}
         self.url = url
         self.returns = returns
         self.data = data
         self._results = []
-        response, content = Request().post(self.url, data=self.data)
+        response, content = Request(**self._auth).post(self.url,
+                                                       data=self.data)
         if response.status == 201:
             self._results = json.loads(content)
             self._next_url = response.get("location",
@@ -1088,16 +1122,19 @@ class PaginatedTraversal(object):
         if self._results:
             self._item = False
             if self.returns == NODE:
-                results = Iterable(Node, self._results, "self")
+                results = Iterable(Node, self._results, "self", auth=self._auth)
             elif self.returns == RELATIONSHIP:
-                results = Iterable(Relationship, self._results, "self")
+                results = Iterable(Relationship, self._results, "self",
+                                   auth=self._auth)
             elif self.returns == PATH:
-                results = Iterable(Path, self._results)
+                results = Iterable(Path, self._results,
+                                   auth=self._auth)
             elif self.returns == POSITION:
-                results = Iterable(Position, self._results)
+                results = Iterable(Position, self._results,
+                                   auth=self._auth)
             self._results = []
             if self._next_url:
-                response, content = Request().get(self._next_url)
+                response, content = Request(**self._auth).get(self._next_url)
                 if response.status == 200:
                     self._results = json.loads(content)
                     self._next_url = response.get("location",
@@ -1114,7 +1151,8 @@ class IndexesProxy(dict):
     Class proxy for indexes (nodes and relationships).
     """
 
-    def __init__(self, index_url, index_for=NODE):
+    def __init__(self, index_url, index_for=NODE, auth=None):
+        self._auth = auth or {}
         self.url = index_url
         self._index_for = index_for
         self._dict = self._get_dict()
@@ -1133,7 +1171,7 @@ class IndexesProxy(dict):
 
     def _get_dict(self):
         indexes_dict = {}
-        response, content = Request().get(self.url)
+        response, content = Request(**self._auth).get(self.url)
         if response.status == 200:
             indexes_dict = json.loads(content)
             for index_name, index_properties in indexes_dict.items():
@@ -1141,6 +1179,7 @@ class IndexesProxy(dict):
                 for key, val in index_properties.items():
                     index_props[str(key)] = val
                 indexes_dict[index_name] = Index(self._index_for, index_name,
+                                                 auth=self._auth,
                                                  **index_props)
             return indexes_dict
         elif response.status == 404:
@@ -1175,13 +1214,15 @@ class IndexesProxy(dict):
             return op
         else:
             if name not in self._dict:
-                response, content = Request().post(self.url, data=data)
+                response, content = Request(**self._auth).post(self.url,
+                                                               data=data)
                 if response.status == 201:
                     loaded_dict = json.loads(content)
                     result_dict = {}
                     for key, val in loaded_dict.items():
                         result_dict[str(key)] = val
                     self._dict[name] = Index(self._index_for, name,
+                                             auth=self._auth,
                                              **result_dict)
                 else:
                     raise StatusException(response.status, "Invalid data sent")
@@ -1218,18 +1259,18 @@ class Index(object):
     """
 
     @staticmethod
-    def _get_results(url, node_or_rel, tx=None):
+    def _get_results(url, node_or_rel, auth={}, tx=None):
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_GET, url, obj=None, returns=ITERABLE)
         else:
-            response, content = Request().get(url)
+            response, content = Request(**auth).get(url)
             if response.status == 200:
                 data_list = json.loads(content)
                 if node_or_rel == NODE:
-                    return Iterable(Node, data_list, "self")
+                    return Iterable(Node, data_list, "self", auth=auth)
                 else:
-                    return Iterable(Relationship, data_list, "self")
+                    return Iterable(Relationship, data_list, "self", auth=auth)
             elif response.status == 404:
                 raise NotFoundError(response.status,
                                     "Node or relationship not found")
@@ -1248,7 +1289,8 @@ class Index(object):
         be sent when the value is specified.
         """
 
-        def __init__(self, index_for, url, name, tx=None):
+        def __init__(self, index_for, url, name, auth=None, tx=None):
+            self._auth = auth or {}
             self._index_for = index_for
             if url[-1] == '/':
                 url = url[:-1]
@@ -1263,7 +1305,7 @@ class Index(object):
                 value = value.get_value()
             tx = Transaction.get_transaction(tx)
             url = "%s/%s" % (self.url, smart_quote(value))
-            return Index._get_results(url, self._index_for, tx=tx)
+            return Index._get_results(url, self._index_for, auth=self._auth, tx=tx)
 
         def __setitem__(self, value, item):
             tx = self.tx
@@ -1301,16 +1343,19 @@ class Index(object):
                                   obj=self, returns=self._index_for)
                 return op
             else:
-                response, content = Request().post(request_url_and_key[0],
-                                                   data=data)
+                request = Request(**self._auth)
+                response, content = request.post(request_url_and_key[0],
+                                                 data=data)
                 if response.status == 201:
                     # Returns object that was indexed
                     entity = json.loads(content)
                     if self._index_for == NODE:
-                        return Node(entity['self'], data=entity['data'])
+                        return Node(entity['self'], data=entity['data'],
+                                    auth=self._auth, update_dict=entity)
                     else:
                         return Relationship(entity['self'],
-                                            data=entity['data'])
+                                            data=entity['data'],
+                                            auth=self._auth)
                 else:
                     raise StatusException(response.status,
                                           "Error requesting index with POST " \
@@ -1319,9 +1364,11 @@ class Index(object):
 
         def query(self, value, tx=None):
             url = "%s?query=%s" % (self.url, smart_quote(value))
-            return Index._get_results(url, self._index_for, tx=tx)
+            return Index._get_results(url, self._index_for, auth=self._auth,
+                                      tx=tx)
 
-    def __init__(self, index_for, name, **kwargs):
+    def __init__(self, index_for, name, auth=None, **kwargs):
+        self._auth = auth or {}
         self._index_for = index_for
         self.name = name
         self.template = kwargs.get("template")
@@ -1380,10 +1427,10 @@ class Index(object):
         if value:
             value = smart_quote(value)
             return self.IndexKey(self._index_for, "%s/%s" % (self.url, key),
-                                name=self.name, tx=tx)[value]
+                                name=self.name, auth=self._auth, tx=tx)[value]
         else:
             return self.IndexKey(self._index_for, "%s/%s" % (self.url, key),
-                                 name=self.name, tx=tx)
+                                 name=self.name, auth=self._auth, tx=tx)
 
     def delete(self, key=None, value=None, item=None, tx=None):
         if not key and not value and not item:
@@ -1418,7 +1465,7 @@ class Index(object):
         if tx:
             return tx.subscribe(TX_DELETE, request_url, obj=self)
         else:
-            response, content = Request().delete(url)
+            response, content = Request(**self._auth).delete(url)
             if response.status == 404:
                 if options.SMART_ERRORS:
                     raise KeyError(self._index_for.capitalize())
@@ -1463,7 +1510,8 @@ class RelationshipsProxy(dict):
     and create new relationships through calling.
     """
 
-    def __init__(self, relationship, relationship_index):
+    def __init__(self, relationship, relationship_index, auth=None):
+        self._auth = auth or {}
         self._relationship = relationship
         self._relationship_index = relationship_index
 
@@ -1473,7 +1521,8 @@ class RelationshipsProxy(dict):
             return tx.subscribe(TX_GET, "%s/%s" % (self._relationship, key),
                                 obj=self)
         else:
-            return Relationship("%s/%s" % (self._relationship, key))
+            return Relationship("%s/%s" % (self._relationship, key),
+                                auth=self._auth)
 
     def get(self, key, *args, **kwargs):
         tx = Transaction.get_transaction(kwargs.get("tx", None))
@@ -1500,7 +1549,8 @@ class RelationshipsProxy(dict):
 
     def _indexes(self):
         if self._relationship_index:
-            return IndexesProxy(self._relationship_index, RELATIONSHIP)
+            return IndexesProxy(self._relationship_index, RELATIONSHIP,
+                                auth=self._auth)
     indexes = property(_indexes)
 
 
@@ -1509,13 +1559,15 @@ class Relationships(object):
     Relationships class for a node.
     """
 
-    def __init__(self, node):
+    def __init__(self, node, auth=None):
+        self._auth = auth or {}
         self._node = node
         self._pattern = "{-list|&|types}"
         self._dict = {}
         self._len = 0
 
     def __getattr__(self, relationship_type):
+        auth = object.__getattribute__(self, "_auth")
 
         def get_relationships(types=None, *args, **kwargs):
             tx = Transaction.get_transaction(kwargs.get("tx", None))
@@ -1529,11 +1581,11 @@ class Relationships(object):
                     url = self._node._dic[key]
                 if tx:
                     return tx.subscribe(TX_GET, url, obj=self)
-                response, content = Request().get(url)
+                response, content = Request(**self._auth).get(url)
                 if response.status == 200:
                     relationship_list = json.loads(content)
                     relationships = Iterable(Relationship, relationship_list,
-                                             "self")
+                                             "self", auth=self._auth)
                     # relationships = [Relationship(r["self"])
                     #                  for r in relationship_list]
                     self._dict[relationship_type] = relationships
@@ -1592,11 +1644,11 @@ class Relationship(Base):
     """
 
     def _get_start(self):
-        return Node(self._dic['start'])
+        return Node(self._dic['start'], auth=self._auth)
     start = property(_get_start)
 
     def _get_end(self):
-        return Node(self._dic['end'])
+        return Node(self._dic['end'], auth=self._auth)
     end = property(_get_end)
 
     def _get_type(self):
@@ -1613,22 +1665,24 @@ class Path(object):
     Path class for return type PATH in traversals.
     """
 
-    def __init__(self, dic):
+    def __init__(self, dic, auth=None):
+        self._auth = auth or {}
         self._dic = dic
         self._length = int(dic["length"])
         self._nodes = []
         self._relationships = []
         self._iterable = []
-        self._start = Node(self._dic["start"])
-        self._end = Node(self._dic["end"])
+        self._start = Node(self._dic["start"], auth=self._auth)
+        self._end = Node(self._dic["end"], auth=self._auth)
         for i in range(0, len(dic["relationships"])):
-            node = Node(dic["nodes"][i])
+            node = Node(dic["nodes"][i], auth=self._auth)
             self._nodes.append(node)
-            relationship = Relationship(dic["relationships"][i])
+            relationship = Relationship(dic["relationships"][i],
+                                        auth=self._auth)
             self._relationships.append(relationship)
             self._iterable.append(node)
             self._iterable.append(relationship)
-        node = Node(dic["nodes"][-1])
+        node = Node(dic["nodes"][-1], auth=self._auth)
         self._nodes.append(node)
         self._iterable.append(node)
 
@@ -1668,13 +1722,15 @@ class Position(object):
     Position class for return type POSITION in traversals.
     """
 
-    def __init__(self, dic):
-        self._node = Node(dic["node"])
+    def __init__(self, dic, auth=None):
+        self._auth = auth or {}
+        self._node = Node(dic["node"], auth=self._auth)
         self._depth = int(dic["depth"])
         relationship = Relationship(dic.get("last relationship",
-                                    dic.get("last_relationship", None)))
+                                    dic.get("last_relationship", None)),
+                                    auth=self._auth)
         self._last_relationship = relationship
-        self._path = Path(dic["path"])
+        self._path = Path(dic["path"], auth=self._auth)
 
     def _get_node(self):
         return self._node
@@ -1733,9 +1789,10 @@ class ExtensionsProxy(dict):
     and class name and executing with the right params through calling.
     """
 
-    def __init__(self, extensions):
+    def __init__(self, extensions, auth=None):
         self._extensions = extensions
         self._dict = {}
+        self._auth = auth or {}
 
     def __getitem__(self, attr):
         return self.__getattr__(attr)
@@ -1744,6 +1801,7 @@ class ExtensionsProxy(dict):
         if attr in self._dict:
             return self._dict[attr]
         class_name = self._extensions[attr]
+        auth = self._auth
         # Using an anonymous class
         return type("ExtensionModule", (dict, ), {
             '__str__': lambda self: self.__unicode__(),
@@ -1752,7 +1810,8 @@ class ExtensionsProxy(dict):
                                         % (self.__class__.__name__,
                                            unicode(class_name.keys())),
             '__getitem__': lambda self, _attr: self.__getattr__(_attr),
-            '__getattr__': lambda self, _attr: Extension(class_name[_attr]),
+            '__getattr__': lambda self, _attr: Extension(class_name[_attr],
+                                                         auth=auth),
             'get': lambda self, _attr: self.__getattr__(_attr),
         })()
 
@@ -1803,12 +1862,13 @@ class Extension(object):
     Extension class.
     """
 
-    def __init__(self, url):
+    def __init__(self, url, auth=None):
+        self._auth = auth or {}
         self._dic = {}
         if url.endswith("/"):
             url = url[:-1]
         self.url = url
-        response, content = Request().get(self.url)
+        response, content = Request(**self._auth).get(self.url)
         if response.status == 200:
             self._dic.update(json.loads(content).copy())
             self.description = self._dic['description']
@@ -1824,7 +1884,8 @@ class Extension(object):
         # the extensions is implemented in Neo4j
         returns = kwargs.pop("returns", None)
         parameters = self._parse_parameters(args, kwargs)
-        response, content = Request().post(self.url, data=parameters)
+        response, content = Request(**self._auth).post(self.url,
+                                                       data=parameters)
         if response.status == 200:
             result = json.loads(content)
             # Another option is to inspect the results
@@ -1837,22 +1898,24 @@ class Extension(object):
                 return result
             if isinstance(result, (tuple, list)) and returns:
                 if NODE in returns:
-                    return Iterable(Node, result, "self")
+                    return Iterable(Node, result, "self", auth=self._auth)
                 elif RELATIONSHIP in returns:
-                    return Iterable(Relationship, result, "self")
+                    return Iterable(Relationship, result, "self",
+                                    auth=self._auth)
                 elif PATH in returns or FULLPATH in returns:
-                    return Iterable(Path, result)
+                    return Iterable(Path, result, auth=self._auth)
                 elif POSITION in returns:
-                    return Iterable(Position, result)
+                    return Iterable(Position, result, auth=self._auth)
             elif isinstance(result, dict) and returns:
                 if NODE in returns:
-                    return Node(result["self"], data=result)
+                    return Node(result["self"], data=result, auth=self._auth)
                 elif RELATIONSHIP in returns:
-                    return Relationship(result["self"], data=result)
+                    return Relationship(result["self"], data=result,
+                                        auth=self._auth)
                 elif PATH in returns:
-                    return Path(result)
+                    return Path(result, auth=self._auth)
                 elif POSITION in returns:
-                    return Position(result)
+                    return Position(result, auth=self._auth)
             elif result:
                 return result
             else:

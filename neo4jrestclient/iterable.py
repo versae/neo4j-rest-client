@@ -6,7 +6,8 @@ class Iterable(list):
     Class to iterate among returned objects.
     """
 
-    def __init__(self, cls, lst, attr=None):
+    def __init__(self, cls, lst, attr=None, auth=None):
+        self._auth = auth or {}
         self._list = lst
         self._index = len(lst)
         self._class = cls
@@ -16,17 +17,19 @@ class Iterable(list):
     def __getslice__(self, *args, **kwargs):
         eltos = super(Iterable, self).__getslice__(*args, **kwargs)
         if self._attribute:
-            return [self._class(elto[self._attribute], update_dict=elto)
-                                for elto in eltos]
+            return [self._class(elto[self._attribute], update_dict=elto,
+                                auth=self._aith)
+                    for elto in eltos]
         else:
-            return [self._class(elto) for elto in eltos]
+            return [self._class(elto, auth=self._auth) for elto in eltos]
 
     def __getitem__(self, index):
         elto = super(Iterable, self).__getitem__(index)
         if self._attribute:
-            return self._class(elto[self._attribute], update_dict=elto)
+            return self._class(elto[self._attribute], update_dict=elto,
+                               auth=self._auth)
         else:
-            return self._class(elto)
+            return self._class(elto, auth=self._auth)
 
     def __repr__(self):
         return self.__unicode__()

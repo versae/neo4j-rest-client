@@ -57,7 +57,8 @@ class Traverser(object):
     PATH = constants.PATH
     FULLPATH = constants.FULLPATH
 
-    def __init__(self, start_node, data):
+    def __init__(self, start_node, data, auth=None):
+        self._auth = auth or {}
         self._data = data
         self._endpoint = start_node._dic["traverse"]
         self._cache = {}
@@ -67,7 +68,7 @@ class Traverser(object):
             return self._cache[return_type]
         except KeyError:
             url = self._endpoint.replace("{returnType}", return_type)
-            response, content =  Request().post(url, data=self._data)
+            response, content =  Request(**self._auth).post(url, data=self._data)
             if response.status == 200:
                 results_list = json.loads(content)
                 self._cache[return_type] = results_list
@@ -96,13 +97,14 @@ class Traverser(object):
     def __iter__(self):
         from client import Path
         results = self.request(Traverser.PATH)
-        return Iterable(Path, results)
+        return Iterable(Path, results, auth=self._auth)
 
 
 class TraversalDescription(object):
     """https://github.com/neo4j/community/blob/master/kernel/src/main/java/org/neo4j/graphdb/traversal/TraversalDescription.java"""
 
-    def __init__(self):
+    def __init__(self, auth=None):
+        self._auth = auth or {}
         self._data = {}
         self.uniqueness(Uniqueness.NODE_GLOBAL)
         # self.max_depth(1)
@@ -171,7 +173,7 @@ class TraversalDescription(object):
             del self._data["max_depth"]
         except KeyError:
             pass
-        return Traverser(start_node, self._data)
+        return Traverser(start_node, self._data, auth=self._auth)
 
 
 class Traversal(object):

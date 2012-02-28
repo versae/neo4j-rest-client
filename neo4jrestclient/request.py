@@ -6,7 +6,7 @@ import httplib2
 import re
 import json
 import time
-from urlparse import urlsplit
+from urlparse import urlparse
 
 import options
 from constants import __version__
@@ -242,7 +242,22 @@ class Request(object):
         return json.dumps(ret, ensure_ascii=ensure_ascii)
 
     def _request(self, method, url, data={}, headers={}):
-        splits = urlsplit(url)
+        splits = urlparse(url)
+        if splits.query and splits.fragment:
+            root_uri = "%s://%s:%s%s?%s#%s" % (splits.scheme, splits.hostname,
+                                               splits.port, splits.path,
+                                               splits.query, splits.fragment)
+        elif splits.query:
+            root_uri = "%s://%s:%s%s?%s" % (splits.scheme, splits.hostname,
+                                            splits.port, splits.path,
+                                            splits.query)
+        elif splits.fragment:
+            root_uri = "%s://%s:%s%s#%s" % (splits.scheme, splits.hostname,
+                                            splits.port, splits.path,
+                                            splits.fragment)
+        else:
+            root_uri = "%s://%s:%s%s" % (splits.scheme, splits.hostname,
+                                         splits.port, splits.path)
         scheme = splits.scheme
         # Not used, it makes pyflakes happy
         # hostname = splits.hostname
@@ -270,6 +285,7 @@ class Request(object):
         headers['Connection'] = 'close'
         headers['User-Agent'] = 'Neo4jPythonClient/%s ' % __version__
         if username and password:
+            http.add_credentials(username, password)
             credentials = "%s:%s" % (username, password)
             base64_credentials = base64.encodestring(credentials)
             authorization = "Basic %s" % base64_credentials[:-1]
@@ -285,7 +301,7 @@ class Request(object):
         # else:
         body = self._json_encode(data, ensure_ascii=True)
         try:
-            response, content = http.request(url, method, headers=headers,
+            response, content = http.request(root_uri, method, headers=headers,
                                              body=body)
             if response.status == 401:
                 raise StatusException(401, "Authorization Required")
