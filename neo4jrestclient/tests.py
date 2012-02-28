@@ -15,12 +15,12 @@ class NodesTestCase(unittest.TestCase):
 
     def setUp(self):
         self.url = "http://localhost:7474/db/data/"
-#        self.gdb = client.GraphDatabase(self.url)
-        self.secured_url = "http://e85a563f1.hosted.neo4j.org:7000/db/data/"
-        self.username = "cb863d2e7"
-        self.password = "a1f2a3364"
-        self.gdb = client.GraphDatabase(self.secured_url, username=self.username,
-                                        password=self.password)
+        self.gdb = client.GraphDatabase(self.url)
+        # self.secured_url = "http://<instance>.hosted.neo4j.org:7000/db/data/"
+        # self.username = "username"
+        # self.password = "password"
+        # self.gdb = client.GraphDatabase(self.secured_url, username=self.username,
+        #                                 password=self.password)
 
     def tearDown(self):
         import options as clientCacheDebug
