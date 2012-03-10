@@ -787,9 +787,9 @@ class Base(object):
                 raise KeyError()
             else:
                 raise NotFoundError(response.status,
-                                    "Node or propery not found")
+                                    "Node or property not found")
         else:
-            raise StatusException(response.status, "Node or propery not found")
+            raise StatusException(response.status, "Node or property not found")
 
     def __len__(self):
         return len(self._dic["data"])
