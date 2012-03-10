@@ -761,7 +761,12 @@ class Base(object):
             elif response.status == 404:
                 raise NotFoundError(response.status, "Node or property not found")
             else:
-                raise StatusException(response.status, "Invalid data sent")
+                msg = "Invalid data sent"
+                try:
+                    msg += ": " + json.loads(content).get('message')
+                except (ValueError, AttributeError, KeyError):
+                    pass
+                raise StatusException(response.status, msg)
 
     def set(self, key, value, tx=None):
         tx = Transaction.get_transaction(tx)
@@ -839,7 +844,12 @@ class Base(object):
             self._update_dict_data()
             return props
         elif response.status == 400:
-            raise StatusException(response.status, "Invalid data sent")
+            msg = "Invalid data sent"
+            try:
+                msg += ": " + json.loads(content).get('message')
+            except (ValueError, AttributeError, KeyError):
+                pass
+            raise StatusException(response.status, msg)
         else:
             raise NotFoundError(response.status, "Properties not found")
 
@@ -976,7 +986,12 @@ class Node(Base):
                                                      "URI not of \"to\" node" \
                                                      "not found")
             else:
-                raise StatusException(response.status, "Invalid data sent")
+                msg = "Invalid data sent"
+                try:
+                    msg += ": " + json.loads(content).get('message')
+                except (ValueError, AttributeError, KeyError):
+                    pass
+                raise StatusException(response.status, msg)
         return relationship
 
     # HACK: Special methods for handle pickling manually
@@ -1092,7 +1107,12 @@ class Node(Base):
                 raise NotFoundError(response.status, "Node or relationship " \
                                                      "not found")
             else:
-                raise StatusException(response.status, "Invalid data sent")
+                msg = "Invalid data sent"
+                try:
+                    msg += ": " + json.loads(content).get('message')
+                except (ValueError, AttributeError, KeyError):
+                    pass
+                raise StatusException(response.status, msg)
 
 
 class PaginatedTraversal(object):
@@ -1225,7 +1245,12 @@ class IndexesProxy(dict):
                                              auth=self._auth,
                                              **result_dict)
                 else:
-                    raise StatusException(response.status, "Invalid data sent")
+                    msg = "Invalid data sent"
+                    try:
+                        msg += ": " + json.loads(content).get('message')
+                    except (ValueError, AttributeError, KeyError):
+                        pass
+                    raise StatusException(response.status, msg)
             return self._dict[name]
 
     def get(self, attr, *args, **kwargs):
@@ -1923,7 +1948,12 @@ class Extension(object):
         elif response.status == 404:
             raise NotFoundError(response.status, "Extension not found")
         else:
-            raise StatusException(response.status, "Invalid data sent")
+            msg = "Invalid data sent"
+            try:
+                msg += ": " + json.loads(content).get('message')
+            except (ValueError, AttributeError, KeyError):
+                pass
+            raise StatusException(response.status, msg)
 
     def __repr__(self):
         return self.__unicode__()
