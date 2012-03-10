@@ -1950,8 +1950,8 @@ class Extension(object):
         else:
             msg = "Invalid data sent"
             try:
-                msg += ": " + json.loads(content).get('message')
-            except (ValueError, AttributeError, KeyError):
+                msg += ": " + json.loads(content)['message']
+            except (ValueError, AttributeError, KeyError, TypeError):
                 pass
             raise StatusException(response.status, msg)
 
