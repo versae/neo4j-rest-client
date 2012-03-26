@@ -1516,7 +1516,7 @@ class Index(object):
                             'and a query) (%d given)' % (len(args) + 1))
         elif len(args) == 1:
             query, = args
-            return self.get('text').query(str(query))
+            return self.get('text').query(unicode(query))
         else:
             key, query = args
             index_key = self.get(key)
@@ -1526,7 +1526,7 @@ class Index(object):
                 if query.fielded:
                     raise ValueError('Queries with an included key should '\
                                      'not include a field.')
-                return index_key.query(str(query))
+                return index_key.query(unicode(query))
 
 
 class RelationshipsProxy(dict):
