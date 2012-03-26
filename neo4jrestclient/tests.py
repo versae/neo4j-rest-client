@@ -276,6 +276,14 @@ class IndexesTestCase(RelationshipsTestCase):
         self.assertTrue(n1 in index["is_real"][True])
         self.assertTrue(n1 in index["is_fake"][False])
 
+    def test_create_index_for_nodes_and_number(self):
+        n1 = self.gdb.nodes.create(name="John", age=30, mean=2.7)
+        index = self.gdb.nodes.indexes.create(name="number")
+        index["age"][30] = n1
+        index["mean"][2.7] = n1
+        self.assertTrue(n1 in index["age"][30])
+        self.assertTrue(n1 in index["mean"][2.7])
+
     def test_create_index_for_nodes_url_safe(self):
         n1 = self.gdb.nodes.create(name="Brian", place="AC/DC")
         index = self.gdb.nodes.indexes.create(name="doe")

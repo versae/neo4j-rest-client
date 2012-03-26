@@ -2003,7 +2003,7 @@ class Extension(object):
 
 
 def smart_quote(val):
-    if isinstance(val, bool):
+    if isinstance(val, (bool, int, float, long)):
         return urllib.quote(json.dumps(val), safe="")
     else:
         try:
