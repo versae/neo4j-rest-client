@@ -1,6 +1,14 @@
 Changes
 =======
 
+1.6.2 (2012-03-26)
+------------------
+- Fixing an error indexing with numeric values
+- Fixing an error indexing with boolean values
+- Adding initial unicode suppport for indices
+  Adding better debug messages to 400 response codes
+
+
 1.6.1 (2012-02-27)
 ------------------
 - Fixes #29. Adding support for authentication.

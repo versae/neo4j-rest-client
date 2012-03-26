@@ -16,6 +16,7 @@ APPRECIATED CONTRIBUTORS:
     * Steve Jalim, https://github.com/stevejalim
     * Dan Brown, https://github.com/dbro
     * Adam Venturella: https://github.com/aventurella
+    * Rami Chowdhury: https://github.com/necaris
 
 And a big THANK YOU goes to:
 
