@@ -1330,7 +1330,8 @@ class Index(object):
                 value = value.get_value()
             tx = Transaction.get_transaction(tx)
             url = "%s/%s" % (self.url, smart_quote(value))
-            return Index._get_results(url, self._index_for, auth=self._auth, tx=tx)
+            return Index._get_results(url, self._index_for, auth=self._auth,
+                                      tx=tx)
 
         def __setitem__(self, value, item):
             tx = self.tx
@@ -2002,9 +2003,11 @@ class Extension(object):
 
 
 def smart_quote(val):
-    # TODO: Improve the unicode checking
-    try:
-        safe_key = urllib.quote(val, safe="")
-    except (KeyError, UnicodeEncodeError, UnicodeError):
-        safe_key = urllib.quote(val.encode("utf8"), safe="")
-    return safe_key
+    if isinstance(val, bool):
+        return urllib.quote(json.dumps(val), safe="")
+    else:
+        try:
+            safe_key = urllib.quote(val, safe="")
+        except (KeyError, UnicodeEncodeError, UnicodeError):
+            safe_key = urllib.quote(val.encode("utf8"), safe="")
+        return safe_key

@@ -258,7 +258,7 @@ class IndexesTestCase(RelationshipsTestCase):
     def test_create_index_for_nodes_and_dots(self):
         # From https://github.com/versae/neo4j-rest-client/issues/43
         n1 = self.gdb.nodes.create(name="John.Doe", place="Texas.s")
-        index = self.gdb.nodes.indexes.create(name="doe")
+        index = self.gdb.nodes.indexes.create(name="dots")
         index["surnames.s"]["d.d"] = n1
         self.assertTrue(n1 in index["surnames.s"]["d.d"])
 
@@ -267,6 +267,14 @@ class IndexesTestCase(RelationshipsTestCase):
         index = self.gdb.nodes.indexes.create(name="doe")
         index["bands"]["Motörhead"] = n1
         self.assertTrue(n1 in index["bands"]["Motörhead"])
+
+    def test_create_index_for_nodes_and_boolean(self):
+        n1 = self.gdb.nodes.create(name="John", is_real=True, is_fake=False)
+        index = self.gdb.nodes.indexes.create(name="boolean")
+        index["is_real"][True] = n1
+        index["is_fake"][False] = n1
+        self.assertTrue(n1 in index["is_real"][True])
+        self.assertTrue(n1 in index["is_fake"][False])
 
     def test_create_index_for_nodes_url_safe(self):
         n1 = self.gdb.nodes.create(name="Brian", place="AC/DC")
