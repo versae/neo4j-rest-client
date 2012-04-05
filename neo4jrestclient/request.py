@@ -243,21 +243,25 @@ class Request(object):
 
     def _request(self, method, url, data={}, headers={}):
         splits = urlparse(url)
-        if splits.query and splits.fragment:
-            root_uri = "%s://%s:%s%s?%s#%s" % (splits.scheme, splits.hostname,
-                                               splits.port, splits.path,
-                                               splits.query, splits.fragment)
-        elif splits.query:
-            root_uri = "%s://%s:%s%s?%s" % (splits.scheme, splits.hostname,
-                                            splits.port, splits.path,
-                                            splits.query)
-        elif splits.fragment:
-            root_uri = "%s://%s:%s%s#%s" % (splits.scheme, splits.hostname,
-                                            splits.port, splits.path,
-                                            splits.fragment)
+        if splits.port:
+            port = u":%s" % splits.port
         else:
-            root_uri = "%s://%s:%s%s" % (splits.scheme, splits.hostname,
-                                         splits.port, splits.path)
+            port = u""
+        if splits.query and splits.fragment:
+            root_uri = "%s://%s%s%s?%s#%s" % (splits.scheme, splits.hostname,
+                                              port, splits.path,
+                                              splits.query, splits.fragment)
+        elif splits.query:
+            root_uri = "%s://%s%s%s?%s" % (splits.scheme, splits.hostname,
+                                           port, splits.path,
+                                           splits.query)
+        elif splits.fragment:
+            root_uri = "%s://%s%s%s#%s" % (splits.scheme, splits.hostname,
+                                           port, splits.path,
+                                           splits.fragment)
+        else:
+            root_uri = "%s://%s%s%s" % (splits.scheme, splits.hostname,
+                                        port, splits.path)
         scheme = splits.scheme
         # Not used, it makes pyflakes happy
         # hostname = splits.hostname
