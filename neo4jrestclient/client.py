@@ -1360,7 +1360,9 @@ class Index(object):
             else:
                 url_ref = item
             request_url_and_key = self.url.rsplit('/', 1)  # assumes a key
-            data = {"key": request_url_and_key[1],
+            # It's URL encoded and we need Unicode
+            key = urllib.unquote(str(request_url_and_key[1])).decode("utf8")
+            data = {"key": key,
                     "value": value,  # smart_quote is not needed anymore
                     "uri": url_ref}
             if tx:

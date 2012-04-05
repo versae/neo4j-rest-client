@@ -284,6 +284,21 @@ class IndexesTestCase(RelationshipsTestCase):
         self.assertTrue(n1 in index["age"][30])
         self.assertTrue(n1 in index["mean"][2.7])
 
+    def test_create_index_for_nodes_and_unicode(self):
+        index = self.gdb.nodes.indexes.create(name="unicode")
+        n1 = self.gdb.nodes.create(name="First")
+        key = u"Profesión"
+        value = u"Înformáticö"
+        n1.set(key, value)
+        index[key][value] = n1
+        self.assertTrue(n1 in index[key][value])
+        n2 = self.gdb.nodes.create(name="Second")
+        key = u"Título/Nombre"
+        value = u"Necronomicón"
+        n2.set(key, value)
+        index[key][value] = n2
+        self.assertTrue(n2 in index[key][value])
+
     def test_create_index_for_nodes_url_safe(self):
         n1 = self.gdb.nodes.create(name="Brian", place="AC/DC")
         index = self.gdb.nodes.indexes.create(name="doe")
