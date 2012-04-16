@@ -18,7 +18,7 @@ class Iterable(list):
         eltos = super(Iterable, self).__getslice__(*args, **kwargs)
         if self._attribute:
             return [self._class(elto[self._attribute], update_dict=elto,
-                                auth=self._aith)
+                                auth=self._auth)
                     for elto in eltos]
         else:
             return [self._class(elto, auth=self._auth) for elto in eltos]
