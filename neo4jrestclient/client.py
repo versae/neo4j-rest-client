@@ -662,7 +662,11 @@ class Base(object):
                                       for k, v in self._dic["data"].items())
 
     def _safe_string(self, s):
-        return unicode(s.decode("utf-8"))
+        if isinstance(s, basestring):
+            return unicode(s.decode("utf-8"))
+        else:
+            # We avoid convert non-string values
+            return s
 
     def update(self, extensions=True, delete_on_not_found=False):
         if self._update_dict:

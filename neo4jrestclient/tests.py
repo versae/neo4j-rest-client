@@ -125,6 +125,12 @@ class NodesTestCase(unittest.TestCase):
         n2 = self.gdb.node[n1.id]
         self.assertEqual(n1.properties, n2.properties)
 
+    def test_set_node_properties_numbers_set(self):
+        n1 = self.gdb.node()
+        properties = {"name": "Jimmy Doe", "age": 30, "active": False}
+        n1.properties = properties
+        self.assertEqual(n1.properties, properties)
+
     def test_set_node_property_safe(self):
         n1 = self.gdb.node(language="Español antigüillo")
         n1.set("Idioma de los subtítulos", "Español antigüillo")
