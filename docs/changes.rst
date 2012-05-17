@@ -1,6 +1,14 @@
 Changes
 =======
 
+1.7.0 (2012-05-17)
+------------------
+- Fixing an error when reating relationships with nodes created previously in
+  a transactions.
+- Fixing typo (self._aith vs self_auth).
+- Fixing #60. Adding support when no port is specified.
+- Fixing an error with unicode property names and indexing.
+
 1.6.2 (2012-03-26)
 ------------------
 - Fixing an error indexing with numeric values
