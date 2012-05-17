@@ -205,6 +205,14 @@ class RelationshipsTestCase(NodesTestCase):
         rel = n1.Knows(n2, since=1970)
         self.assertEqual(rel.properties, {"since": 1970})
 
+    def test_set_relationships_properties_numbers_set(self):
+        n1 = self.gdb.node()
+        n2 = self.gdb.node()
+        rel = n1.Knows(n2)
+        properties = {"name": "Jimmy Doe", "age": 30, "active": False}
+        rel.properties = properties
+        self.assertEqual(rel.properties, properties)
+
     def test_create_relationship_functional_properties(self):
         n1 = self.gdb.nodes.create()
         n2 = self.gdb.nodes.create()
