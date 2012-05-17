@@ -956,7 +956,8 @@ class Node(Base):
             tx = Transaction.get_transaction(kwargs.get("tx", None))
             create_relationship_url = self._dic["create_relationship"]
             # Check if target node doesn't exist yet
-            if isinstance(to, TransactionOperationProxy):
+            if (isinstance(to, TransactionOperationProxy)
+                and not isinstance(to, Node)):
                 to_url = "{%s}" % to()["id"]
             else:
                 to_url = to.url

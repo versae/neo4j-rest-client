@@ -1155,6 +1155,13 @@ class TransactionsTestCase(ExtensionsTestCase):
         else:
             edge = EDGE_DICT[(id1,id2)]
 
+    def test_transaction_access_node(self):
+        frame = self.gdb.node.create()
+        with self.gdb.transaction():
+            edge = self.gdb.node(name='EDGE')
+        frame.FRAME_EDGE(edge)
+
+
 class PickleTestCase(TransactionsTestCase):
 
     def test_node_pickle(self):
