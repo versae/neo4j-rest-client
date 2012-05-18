@@ -1149,31 +1149,38 @@ class TransactionsTestCase(ExtensionsTestCase):
 #        #a non-transactional traversal will be 1 node short
 #        self.assertEqual(len(traversal), len(nodes))
 
-    def test_transaction_create_nodes_relationship(self):
+    def test_transaction_create_1000_nodes_relationship(self):
         TAG_DICT = {}
         EDGE_DICT = {}
-        id1 = 1001
-        id2 = 1002
-        TAG_DICT[id1] = self.gdb.node.create(tag="tag1")
-        TAG_DICT[id2] = self.gdb.node.create(tag="tag2")
-        if not (id1, id2) in EDGE_DICT:
-            with self.gdb.transaction():
-                edge = self.gdb.node(name='EDGE_%04d_%04d' % (id1, id2),
-                                     type='edge', tag1=id1, tag2=id2)
-                tag1 = TAG_DICT[id1]
-                tag2 = TAG_DICT[id2]
-                edge.relationships.create("EDGE_TAG", tag1)
-                edge.relationships.create("EDGE_TAG", tag2)
-                RUN.relationships.create("RUN_EDGE", edge)
-                EDGE_DICT[(id1,id2)] = edge
-        else:
-            edge = EDGE_DICT[(id1,id2)]
+        operations = 0
+        with self.gdb.transaction() as tx:
+            for i in xrange(1, 1000):
+                operations = len(tx.operations)
+                id1 = i
+                id2 = i + 1
+                TAG_DICT[id1] = self.gdb.node.create(tag="tag1")
+                TAG_DICT[id2] = self.gdb.node.create(tag="tag2")
+                RUN = self.gdb.node.create(name="RUN")
+                if not (id1, id2) in EDGE_DICT:
+                    edge = self.gdb.node(name='EDGE_%04d_%04d' % (id1, id2),
+                                         type='edge', tag1=id1, tag2=id2)
+                    tag1 = TAG_DICT[id1]
+                    tag2 = TAG_DICT[id2]
+                    edge.relationships.create("EDGE_TAG", tag1)
+                    edge.relationships.create("EDGE_TAG", tag2)
+                    RUN.relationships.create("RUN_EDGE", edge)
+                    EDGE_DICT[(id1,id2)] = edge
+                else:
+                    edge = EDGE_DICT[(id1,id2)]
+        print i, operations
+        self.assertTrue(operations >= i)
 
     def test_transaction_access_node(self):
         frame = self.gdb.node.create()
         with self.gdb.transaction():
             edge = self.gdb.node(name='EDGE')
-        frame.FRAME_EDGE(edge)
+        rel = frame.FRAME_EDGE(edge)
+        self.assertTrue(isinstance(rel, client.Relationship))
 
 
 class PickleTestCase(TransactionsTestCase):

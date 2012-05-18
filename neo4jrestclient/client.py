@@ -597,15 +597,17 @@ class Transaction(object):
             params.update({"body": data})
         # Reunify PUT methods in just one
         transaction_operation = None
-        for i, operation in enumerate(self.operations):
-            if (operation()["method"] == params["method"] == TX_PUT
-                and operation()["to"] == params["to"]):
-                if "body" in operation():
-                    self.operations[i]()["body"].update(params["body"])
-                else:
-                    self.operations[i]()["body"] = params["body"]
-                transaction_operation = operation
-                break
+        if method == TX_PUT:
+            # TODO: Improve the performance of this search
+            for i, operation in enumerate(self.operations):
+                if (operation()["method"] == params["method"] == TX_PUT
+                    and operation()["to"] == params["to"]):
+                    if "body" in operation():
+                        self.operations[i]()["body"].update(params["body"])
+                    else:
+                        self.operations[i]()["body"] = params["body"]
+                    transaction_operation = operation
+                    break
         if not transaction_operation:
             transaction_operation = TransactionOperationProxy(obj=obj,
                                                               job=job_id,
