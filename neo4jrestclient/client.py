@@ -76,11 +76,7 @@ class GraphDatabase(object):
             self.url = url
         else:
             self.url = "%s/" % url
-        response, content = None, None
-        try:
-            response, content = Request(**self._auth).get(url)
-        except Exception:
-            raise NotFoundError(result="Unable get root")
+        response, content = Request(**self._auth).get(url)
         if response.status == 200:
             response_json = json.loads(content)
             self._relationship_index = response_json['relationship_index']
