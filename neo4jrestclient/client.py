@@ -1597,7 +1597,7 @@ class Relationships(object):
         self._dict = {}
         self._len = 0
 
-    def __getattr__(self, relationship_type):
+    def __getattr__(self, relationship_type, tx=None):
         auth = object.__getattribute__(self, "_auth")
 
         def get_relationships(types=None, *args, **kwargs):
@@ -1666,7 +1666,7 @@ class Relationships(object):
 
     def get(self, index, tx=None):
         tx = Transaction.get_transaction(tx)
-        return self.__getattr__(index, tx=tx)
+        return self.__getattr__(index)(tx=tx)
 
 
 class Relationship(Base):
