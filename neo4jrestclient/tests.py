@@ -1041,7 +1041,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         tx = self.gdb.transaction()
         index_hits = index['test2']['test2']
         tx.commit()
-        self.assertTrue(n1 == index_hits[:][-1])
+        self.assertTrue(n1 == index_hits[-1])
 
     def test_transaction_remove_node_from_index(self):
         index = self.gdb.nodes.indexes.create('index3')
@@ -1181,6 +1181,23 @@ class TransactionsTestCase(ExtensionsTestCase):
             edge = self.gdb.node(name='EDGE')
         rel = frame.FRAME_EDGE(edge)
         self.assertTrue(isinstance(rel, client.Relationship))
+
+    # Test from http://stackoverflow.com/questions/11407546/
+    def test_a_transaction_index_access_create_relationship(self):
+        s = self.gdb.node.create(id=1)
+        d = self.gdb.node.create(id=2)
+        nidx = self.gdb.nodes.indexes.create('nodelist')
+        nidx.add('nid',1, s)
+        nidx.add('nid',2, d)
+        nodelist = [(1, 2)]
+        with self.gdb.transaction():
+            for s_id, d_id in nodelist:
+                sn = nidx['nid'][s_id][-1]
+                dn = nidx['nid'][d_id][-1]
+#                rel = sn.Follows(dn)
+#        self.assertTrue(isinstance(rel, client.Relationship))
+        self.assertEqual(s, sn)
+        self.assertEqual(d, dn)
 
 
 class PickleTestCase(TransactionsTestCase):
