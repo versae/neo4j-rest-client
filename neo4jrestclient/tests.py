@@ -1198,6 +1198,32 @@ class TransactionsTestCase(ExtensionsTestCase):
 #        self.assertTrue(isinstance(rel, client.Relationship))
         self.assertEqual(s, sn)
         self.assertEqual(d, dn)
+    
+    # Test from https://github.com/versae/neo4j-rest-client/issues/69
+    def test_transaction_split(self):
+        
+        with self.gdb.transaction():
+            a = self.gdb.nodes.create(name='a')
+            b = self.gdb.nodes.create(name='b')
+        
+        with self.gdb.transaction():
+            a.relationships.create("Test", b)
+            c = self.gdb.nodes.create(name='c')
+            b.relationships.create("Test", c)
+            c.relationships.create("Test", a)
+            
+        a = self.gdb.nodes[a.id]
+        b = self.gdb.nodes[b.id]
+        c = self.gdb.nodes[c.id]
+        
+        rel_ab = a.relationships.outgoing()[0]
+        assert(rel_ab.start == a and rel_ab.end == b)
+        
+        rel_bc = b.relationships.outgoing()[0]
+        assert(rel_bc.start == b and rel_bc.end == c)
+        
+        rel_ca = c.relationships.outgoing()[0]
+        assert(rel_ca.start == c and rel_ca.end == a)
 
 
 class PickleTestCase(TransactionsTestCase):
