@@ -403,7 +403,8 @@ class TransactionOperationProxy(dict, object):
             object.__getattribute__(self, "_extras")["to"] = to
             create_relationship_url = "{%s}/relationships" % _job_id
             # Check if target node doesn't exist yet
-            if isinstance(to, TransactionOperationProxy):
+            if (isinstance(to, TransactionOperationProxy)
+                and not isinstance(to, Node)):
                 to_url = "{%s}" % to()["id"]
             else:
                 to_url = to.url
