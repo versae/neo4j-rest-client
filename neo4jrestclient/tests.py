@@ -741,6 +741,12 @@ class ExtensionsTestCase(TraversalsTestCase):
         n = ext.execute_script(script='g.v(0)', returns=constants.RAW)
         self.assertTrue(isinstance(n, dict))
 
+    def test_gremlin_results_raw(self):
+        # Assuming the GremlinPlugin installed
+        ext = self.gdb.extensions.GremlinPlugin
+        n = ext.execute_script(script='results = [1,2]', returns=constants.RAW)
+        self.assertTrue(isinstance(n, list))
+        self.assertEqual(n, [1, 2])
 
 class TransactionsTestCase(ExtensionsTestCase):
 
@@ -1183,7 +1189,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertTrue(isinstance(rel, client.Relationship))
 
     # Test from http://stackoverflow.com/questions/11407546/
-    def test_a_transaction_index_access_create_relationship(self):
+    def test_transaction_index_access_create_relationship(self):
         s = self.gdb.node.create(id=1)
         d = self.gdb.node.create(id=2)
         nidx = self.gdb.nodes.indexes.create('nodelist')
