@@ -76,7 +76,7 @@ class GraphDatabase(object):
             self.url = url
         else:
             self.url = "%s/" % url
-        response, content = Request(**self._auth).get(url)
+        response, content = Request(**self._auth).get(self.url)
         if response.status == 200:
             response_json = json.loads(content)
             self._relationship_index = response_json['relationship_index']
