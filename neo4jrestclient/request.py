@@ -11,6 +11,15 @@ from urlparse import urlparse
 import options
 from constants import __version__
 
+if options.DEBUG:
+    httplib2.debuglevel = 1
+else:
+    httplib2.debuglevel = 0
+if options.CACHE:
+    http = httplib2.Http(".cache")
+else:
+    http = httplib2.Http()
+
 
 class StatusException(Exception):
     """
@@ -269,24 +278,15 @@ class Request(object):
         username = splits.username or self.username
         password = splits.password or self.password
         headers = headers or {}
-        if options.DEBUG:
-            httplib2.debuglevel = 1
-        else:
-            httplib2.debuglevel = 0
-        if options.CACHE:
-            headers['Cache-Control'] = 'no-cache'
-            http = httplib2.Http(".cache")
-        else:
-            http = httplib2.Http()
+
         if scheme.lower() == 'https':
             http.add_certificate(self.key_file, self.cert_file, self.url)
         headers['Accept'] = 'application/json'
         headers['Accept-Encoding'] = '*'
         headers['Accept-Charset'] = 'ISO-8859-1,utf-8;q=0.7,*;q=0.7'
-        # I'm not sure on the right policy about cache with Neo4j REST Server
-        # headers['Cache-Control'] = 'no-cache'
-        # TODO: Handle all requests with the same Http object
-        headers['Connection'] = 'close'
+        headers['Connection'] = 'keep-alive'
+        if not options.CACHE:
+            headers['Cache-Control'] = 'no-cache'
         headers['User-Agent'] = 'Neo4jPythonClient/%s ' % __version__
         if username and password:
             http.add_credentials(username, password)
