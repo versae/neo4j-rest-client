@@ -16,7 +16,7 @@ if options.DEBUG:
 else:
     httplib2.debuglevel = 0
 if options.CACHE:
-    http = httplib2.Http(".cache")
+    http = httplib2.Http(options.CACHE_STORE)
 else:
     http = httplib2.Http()
 

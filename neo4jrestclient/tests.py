@@ -6,21 +6,19 @@ except:
     import pickle
 
 import client
+import options
+import sys
 import constants
 import request
 import unittest
+import os
 
+NEO4J_URL = os.environ.get('NEO4J_URL', "http://localhost:7474/db/data/")
 
 class NodesTestCase(unittest.TestCase):
-
     def setUp(self):
-        self.url = "http://localhost:7474/db/data/"
+        self.url = NEO4J_URL
         self.gdb = client.GraphDatabase(self.url)
-        # self.secured_url = "http://<instance>.hosted.neo4j.org:7000/db/data/"
-        # self.username = "username"
-        # self.password = "password"
-        # self.gdb = client.GraphDatabase(self.secured_url, username=self.username,
-        #                                 password=self.password)
 
     def tearDown(self):
         import options as clientCacheDebug
@@ -1249,6 +1247,46 @@ class PickleTestCase(TransactionsTestCase):
 
 class Neo4jPythonClientTestCase(PickleTestCase):
     pass
+
+
+class FakeCache(object):
+    def __init__(self, called):
+        self.called = called
+
+    def get(self, key):
+        self.called['get'] = True
+        return None
+
+    def set(self, key, value):
+        self.called['set'] = True
+
+    def delete(self, key):
+        pass
+
+
+class XtraCacheTestCase(unittest.TestCase):
+    def setUp(self):
+        self.cache_called = {}
+        options.CACHE = True
+        options.CACHE_STORE = FakeCache(self.cache_called)
+        # reload modules now cache set
+        del sys.modules['neo4jrestclient.request']
+        del sys.modules['neo4jrestclient.client']
+        import client
+        gdb = client.GraphDatabase(NEO4J_URL)
+
+    def test_custom_cache_used(self):
+        self.assertTrue(self.cache_called['get'])
+        self.assertTrue(self.cache_called['set'])
+
+    def tearDown(self):
+        # leave everything as we found it
+        options.CACHE = False
+        options.CACHE_STORE = '.cache'
+        del sys.modules['neo4jrestclient.request']
+        del sys.modules['neo4jrestclient.client']
+        import client
+
 
 if __name__ == '__main__':
     test_loader = unittest.TestLoader()
