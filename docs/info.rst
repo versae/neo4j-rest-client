@@ -52,6 +52,10 @@ the same URL will be taken from cache::
 
   neo4jrestclient.options.CACHE = False # Default
 
+You can also use your own custom cache, (e.g LocMemCache from django)::
+
+    neo4jrestclient.options.CACHE_STORE = LocMemCache()
+
 If DEBUG is 'True', 'httplib2' is set to debuglevel = 1::
 
   neo4jrestclient.options.DEBUG = False # Default
