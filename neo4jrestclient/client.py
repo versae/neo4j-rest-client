@@ -1834,6 +1834,35 @@ class Direction(object):
     OUTGOING = Outgoing
 
 
+class ExtensionModule(dict):
+    def __init__(self, klass_name, auth):
+        self.klass_name = klass_name
+        self.auth = auth
+        self.cache = {}
+
+    def __repr__(self):
+        return self.__unicode__()
+
+    def __str__(self):
+        return self.__unicode__()
+
+    def __unicode__(self):
+        return u"<Neo4j %s: %s>" % (self.__class__.__name__, unicode(self.klass_name.keys()))
+
+    def __getitem__(self, attr):
+        return self.__getattr__(attr)
+
+    def get(self, attr):
+        return self.__getattr__(attr)
+
+    def __getattr__(self, attr):
+        if attr in self.cache:
+            return self.cache[attr]
+        else:
+            self.cache[attr] = Extension(self.klass_name[attr], auth=self.auth)
+            return self.cache[attr]
+
+
 class ExtensionsProxy(dict):
     """
     Class proxy for extensions in order to allow get an extension by module
@@ -1851,20 +1880,8 @@ class ExtensionsProxy(dict):
     def __getattr__(self, attr):
         if attr in self._dict:
             return self._dict[attr]
-        class_name = self._extensions[attr]
-        auth = self._auth
-        # Using an anonymous class
-        return type("ExtensionModule", (dict, ), {
-            '__str__': lambda self: self.__unicode__(),
-            '__repr__': lambda self: self.__unicode__(),
-            '__unicode__': lambda self: u"<Neo4j %s: %s>" \
-                                        % (self.__class__.__name__,
-                                           unicode(class_name.keys())),
-            '__getitem__': lambda self, _attr: self.__getattr__(_attr),
-            '__getattr__': lambda self, _attr: Extension(class_name[_attr],
-                                                         auth=auth),
-            'get': lambda self, _attr: self.__getattr__(_attr),
-        })()
+        self._dict[attr] = ExtensionModule(self._extensions[attr], self._auth)
+        return self._dict[attr]
 
     def __repr__(self):
         return self.__unicode__()
