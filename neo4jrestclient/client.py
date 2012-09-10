@@ -679,6 +679,8 @@ class Base(object):
                                       for k, v in self._dic["data"].items())
 
     def _safe_string(self, s):
+        if isinstance(s, unicode):
+            return s
         if isinstance(s, basestring):
             return unicode(s.decode("utf-8"))
         else:
