@@ -1,0 +1,367 @@
+# -*- coding: utf-8 -*-
+# Inspired by: https://github.com/CulturePlex/Sylva/tree/master/sylva/engines/gdb/lookups
+import json
+from collections import Sequence
+
+from constants import RAW
+from request import Request, StatusException
+
+
+class BaseQ(object):
+    # Based on: https://github.com/scholrly/lucene-querybuilder/blob/master/lucenequerybuilder/query.py
+    """
+    Q is a query builder for the Neo4j Cypher language backend
+
+    It allows to build filters like
+    Q("Artwork title", istartswith="copy", nullable=False)
+    Q(property="Artwork title", lookup="istartswith", match="copy")
+    """
+
+    matchs = ("exact", "iexact",
+              "contains", "icontains",
+              "startswith", "istartswith",
+              "endswith", "iendswith",
+              "regex", "iregex",
+              "gt", "gte", "lt", "lte",
+              "in", "inrange", "isnull",
+              "eq", "equals", "neq", "notequals")
+
+    def __init__(self, property=None, lookup=None, match=None,
+                 nullable=None, var=u"n", **kwargs):
+        self._and = None
+        self._or = None
+        self._not = None
+        self.property = property
+        self.lookup = lookup
+        self.match = match
+        self.nullable = nullable
+        self.var = var
+        if property and (not self.lookup or not self.match):
+            for m in self.matchs:
+                if m in kwargs:
+                    self.lookup = m
+                    self.match = kwargs[m]
+                    break
+            else:
+                all_matchs = ", ".join(self.matchs)
+                raise ValueError("Q objects must have at least a lookup method"
+                                 " (%s) and a match case".format(all_matchs))
+
+    def is_valid(self):
+        return ((self.property and self.lookup and self.match) or
+                (self._and or self._or or self._not))
+
+    def _make_and(q1, q2):
+        q = q1.__class__()
+        q._and = (q1, q2)
+        return q
+
+    def _make_not(q1):
+        q = q1.__class__()
+        q._not = q1
+        return q
+
+    def _make_or(q1, q2):
+        q = q1.__class__()
+        q._or = (q1, q2)
+        return q
+
+    def __and__(self, other):
+        return BaseQ._make_and(self, other)
+
+    def __or__(self, other):
+        return BaseQ._make_or(self, other)
+
+    def __invert__(self):
+        return BaseQ._make_not(self)
+
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
+    def __hash__(self):
+        return hash((self.property, self.lookup, self.match,
+                     self.nullable))
+
+    def get_query_objects(self, var=None, prefix=None, params=None):
+        """
+        :return query, params: Query string and a dictionary for lookups
+        """
+        raise NotImplementedError("Method has to be implemented")
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8')
+
+    def __unicode__(self):
+        query, params = self.get_query_objects()
+        return query.format(**params)
+
+
+class Q(BaseQ):
+
+    def _escape(self, s):
+        return s
+
+    def _get_lookup_and_match(self):
+        if self.lookup == "exact":
+            lookup = u"="
+            match = u"'{0}'".format(self.match)
+        elif self.lookup == "iexact":
+            lookup = u"=~"
+            match = u"'(?i){0}'".format(self.match)
+        elif self.lookup == "contains":
+            lookup = u"=~"
+            match = u".*{0}.*".format(self.match)
+        elif self.lookup == "icontains":
+            lookup = u"=~"
+            match = u"(?i).*{0}.*".format(self.match)
+        elif self.lookup == "startswith":
+            lookup = u"=~"
+            match = u"{0}.*".format(self.match)
+        elif self.lookup == "istartswith":
+            lookup = u"=~"
+            match = u"(?i){0}.*".format(self.match)
+        elif self.lookup == "endswith":
+            lookup = u"=~"
+            match = u".*{0}".format(self.match)
+        elif self.lookup == "iendswith":
+            lookup = u"=~"
+            match = u"(?i).*{0}".format(self.match)
+        elif self.lookup == "regex":
+            lookup = u"=~"
+            match = u"{0}".format(self.match)
+        elif self.lookup == "iregex":
+            lookup = u"=~"
+            match = u"(?i){0}".format(self.match)
+        elif self.lookup == "gt":
+            lookup = u">"
+            match = u"{0}".format(self.match)
+        elif self.lookup == "gte":
+            lookup = u">"
+            match = u"{0}".format(self.match)
+        elif self.lookup == "lt":
+            lookup = u"<"
+            match = u"{0}".format(self.match)
+        elif self.lookup == "lte":
+            lookup = u"<"
+            match = u"{0}".format(self.match)
+        elif self.lookup in ["in", "inrange"]:
+            lookup = u"IN"
+            match = u"['{0}']".format(u"', '".join([self._escape(m)
+                                      for m in self.match]))
+        elif self.lookup == "isnull":
+            if self.match:
+                lookup = u"="
+            else:
+                lookup = u"<>"
+            match = u"null"
+        elif self.lookup in ["eq", "equals"]:
+            lookup = u"="
+            match = u"'{0}'".format(self._escape(self.match))
+        elif self.lookup in ["neq", "notequals"]:
+            lookup = u"<>"
+            match = u"'{0}'".format(self._escape(self.match))
+        else:
+            lookup = self.lookup
+            match = u""
+        return lookup, match
+
+    def get_query_objects(self, var=None, prefix=None, params=None):
+        if var:
+            self.var = var
+        if not params:
+            params = {}
+        if not prefix:
+            prefix = u""
+        else:
+            params.update(params)
+        if self._and is not None:
+            left_and = self._and[0].get_query_objects(params=params)
+            params.update(left_and[1])
+            right_and = self._and[1].get_query_objects(params=params)
+            params.update(right_and[1])
+            if self._and[0].is_valid() and self._and[1].is_valid():
+                query = u"( {0} AND {1} )".format(left_and[0], right_and[0])
+            elif self._and[0].is_valid() and not self._and[1].is_valid():
+                query = u" {0} ".format(left_and[0])
+            elif not self._and[0].is_valid() and self._and[1].is_valid():
+                query = u" {0} ".format(right_and[0])
+            else:
+                query = u" "
+        elif self._not is not None:
+            op_not = self._not.get_query_objects(params=params)
+            params.update(op_not[1])
+            query = u"NOT ( {0} )".format(op_not[0])
+        elif self._or is not None:
+            left_or = self._or[0].get_query_objects(params=params)
+            params.update(left_or[1])
+            right_or = self._or[1].get_query_objects(params=params)
+            params.update(right_or[1])
+            if self._or[0].is_valid() and self._or[1].is_valid():
+                query = u"( {0} OR {1} )".format(left_or[0], right_or[0])
+            elif self._or[0].is_valid() and not self._or[1].is_valid():
+                query = u" {0} ".format(left_or[0])
+            elif not self._or[0].is_valid() and self._or[1].is_valid():
+                query = u" {0} ".format(right_or[0])
+            else:
+                query = u" "
+        else:
+            query = u""
+            lookup, match = self._get_lookup_and_match()
+        if self.property is not None and self.var is not None:
+            key = u"{0}p{1}".format(prefix, len(params))
+            property = unicode(self.property).replace(u"`", u"\\`")
+            if self.nullable is True:
+                nullable = u"!"
+            elif self.nullable is False:
+                nullable = u"?"
+            else:
+                nullable = u""
+            params[key] = match
+            try:
+                query_format = u"{0}.`{1}`{2} {3} {{{4}}}"
+                query = query_format.format(self.var, property, nullable,
+                                            lookup, key)
+            except AttributeError:
+                query = u"%s.`%s`%s %s {%s}" % (self.var, property, nullable,
+                                                lookup, key)
+        return query, params
+
+
+class CypherException(Exception):
+    pass
+
+
+class Query(Sequence):
+
+    def __init__(self, cypher, auth, q, params=None, types=None, returns=None):
+        self.q = q
+        self.params = params
+        self._auth = auth
+        self._cypher = cypher
+        # This way we avoit a circular reference
+        self._types = types or {}
+        response = self.get_response()
+        try:
+            self._elements = self.cast(elements=response["data"],
+                                       returns=returns)
+        except:
+            self._elements = response
+
+    def __getitem__(self, key):
+        return self._elements[key]
+
+    def __contains__(self, item):
+        return item in self._elements
+
+    def __iter__(self):
+        return (e for e in self._elements)
+
+    def __len__(self):
+        return len(self._elements)
+
+    def __reversed__(self):
+        return reversed(self._elements)
+
+    def get_response(self):
+        data = {
+            "query": self.q,
+            "params": self.params,
+        }
+        response, content = Request(**self._auth).post(self._cypher, data=data)
+        if response.status == 200:
+            response_json = json.loads(content)
+            return response_json
+        elif response.status == 400:
+            err_msg = u"Cypher query exception"
+            try:
+                err_msg = "%s: %s" % (err_msg, json.loads(content)["message"])
+            except:
+                err_msg = "%s: %s" % (err_msg, content)
+            raise CypherException(err_msg)
+        else:
+            raise StatusException(response.status, "Invalid data sent")
+
+    def cast(self, elements, returns=None):
+        neutral = lambda x: x
+        if not returns or returns is RAW:
+            return elements
+        else:
+            results = []
+            if not isinstance(returns, (tuple, list)):
+                returns = [returns]
+            else:
+                returns = list(returns)
+            for row in elements:
+                # We need both list to have the same lenght
+                len_row = len(row)
+                len_returns = len(returns)
+                if len_row > len_returns:
+                    returns += [neutral] * (len_row - len_returns)
+                returns = returns[:len_row]
+                # And now, apply i-th function to the i-th column in each row
+                casted_row = []
+                for i, element in enumerate(row):
+                    func = returns[i]
+                    # We also allow the use of constants like NODE, etc
+                    if (isinstance(func, basestring)
+                            and func.lower() in self._types.keys()):
+                        func = self._types[func.lower()]
+                    if func in (self._types["node"],
+                                self._types["relationship"]):
+                        obj = func(element["self"], data=element,
+                                   auth=self._auth)
+                        casted_row.append(obj)
+                    elif func in (self._types["path"],
+                                  self._types["position"]):
+                        obj = func(element, auth=self._auth)
+                        casted_row.append(obj)
+                    else:
+                        casted_row.append(func(element))
+                results.append(casted_row)
+            return results
+
+
+class Filter(Query):
+
+    def __init__(self, cypher, auth, start=None, lookups=[],
+                 skip=None, limit=None, order_by=None, returns=None):
+        start = start or u"node(*)"
+        q = u"start n={start} "
+        where = None
+        params = {}
+        if lookups:
+            wheres = Q()
+            for lookup in lookups:
+                if isinstance(lookup, Q):
+                    wheres &= lookup
+                elif isinstance(lookup, dict):
+                    wheres &= Q(**lookup)
+            where, params = wheres.get_query_objects(var="n")
+        if where:
+            q = u"%s where %s return n " % (q, where)
+        else:
+            q = u"%s return n " % q
+        if order_by:
+            if not isinstance(order_by, (tuple, list)):
+                order_by = [order_by]
+            orders = []
+            for o, order in enumerate(order_by):
+                if order.startswith(u"-"):
+                    orders.append(u"n.`{order_by_%s}` desc" % o)
+                else:
+                    orders.append(u"n.`{order_by_%s}` " % o)
+                params["order_by_%s" % o] = order
+            if orders:
+                q = u"%s order by %s" % (q, ", ".join(orders))
+        if skip:
+            q = u"%s skip {skip} " % q
+            params["skip"] = skip
+        if limit:
+            q = u"%s limit {limit} " % q
+            params["limit"] = limit
+        params["start"] = start
+        super(Filter, self).__init__(cypher=cypher, auth=auth, q=q,
+                                     params=params, returns=returns)

@@ -10,6 +10,7 @@ import warnings
 from lucenequerybuilder import Q
 
 import options
+from query import Query, Filter, CypherException
 from constants import (BREADTH_FIRST, DEPTH_FIRST,
                        STOP_AT_END_OF_GRAPH,
                        NODE_GLOBAL, NODE_PATH, NODE_RECENT,
@@ -85,6 +86,8 @@ class GraphDatabase(object):
             self._reference_node = response_json.get('reference_node', None)
             self._extensions_info = response_json['extensions_info']
             self._extensions = response_json['extensions']
+            self._cypher = response_json.get('cypher', None)
+            self.VERSION = response_json.get('neo4j_version', None)
             self.extensions = ExtensionsProxy(self._extensions,
                                               auth=self._auth)
             self.nodes = NodesProxy(self._node, self._reference_node,
@@ -100,7 +103,10 @@ class GraphDatabase(object):
                                                     self._relationship_index,
                                                     auth=self._auth)
             self.Traversal = self._get_traversal_class()
-            self._batch = "%sbatch" % self.url
+            try:
+                self._batch = response_json["batch"]
+            except KeyError:
+                self._batch = "%sbatch" % self.url
         else:
             raise NotFoundError(response.status, "Unable get root")
 
@@ -175,6 +181,28 @@ class GraphDatabase(object):
         if using_globals:
             globals()[options.TX_NAME] = self._transactions[transaction_id]
         return self._transactions[transaction_id]
+
+    def query(self, q, params=None, returns=RAW):
+        if self._cypher:
+            types = {
+                "node": Node,
+                "relationship": Relationship,
+                "path": Path,
+                "position": Position,
+            }
+            return Query(self._cypher, self._auth, q=q, params=params,
+                         types=types, returns=returns)
+        else:
+            raise CypherException
+
+    def filter(self, start=None, lookups=[], skip=None, limit=None,
+               returns=None):
+        if self._cypher:
+            return Filter(self._cypher, self._auth, start=start,
+                          lookups=lookups, skip=skip, limit=limit,
+                          returns=returns)
+        else:
+            raise CypherException
 
 
 class TransactionOperationProxy(dict, object):

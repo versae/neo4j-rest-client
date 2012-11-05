@@ -565,7 +565,7 @@ class TraversalsTestCase(IndexesTestCase):
         traverser = db.traversal()\
             .relationships('related_to')\
             .traverse(start_node)
-        # The graph is traversed as 
+        # The graph is traversed as
         # you loop through the result.
         for node in traverser.nodes:
             pass
@@ -991,7 +991,7 @@ class TransactionsTestCase(ExtensionsTestCase):
     # https://github.com/mhluongo/neo4j-rest-client/blob/master/neo4jrestclient/tests.py
     def test_transaction_index_creation(self):
         """
-        Tests whether indexes are properly created during a transaction. 
+        Tests whether indexes are properly created during a transaction.
         Asserts the creation also behaves transactionally (ie, not until
         commit).
         """
@@ -1060,7 +1060,7 @@ class TransactionsTestCase(ExtensionsTestCase):
 
     def test_transaction_query_index_for_new_node(self):
         #test nodes created in transaction
-        
+
         index = self.gdb.nodes.indexes.create('index4%s' \
                                               % datetime.now().microsecond)
         tx = self.gdb.transaction(using_globals=False)
@@ -1202,30 +1202,30 @@ class TransactionsTestCase(ExtensionsTestCase):
 #        self.assertTrue(isinstance(rel, client.Relationship))
         self.assertEqual(s, sn)
         self.assertEqual(d, dn)
-    
+
     # Test from https://github.com/versae/neo4j-rest-client/issues/69
     def test_transaction_split(self):
-        
+
         with self.gdb.transaction():
             a = self.gdb.nodes.create(name='a')
             b = self.gdb.nodes.create(name='b')
-        
+
         with self.gdb.transaction():
             a.relationships.create("Test", b)
             c = self.gdb.nodes.create(name='c')
             b.relationships.create("Test", c)
             c.relationships.create("Test", a)
-            
+
         a = self.gdb.nodes[a.id]
         b = self.gdb.nodes[b.id]
         c = self.gdb.nodes[c.id]
-        
+
         rel_ab = a.relationships.outgoing()[0]
         assert(rel_ab.start == a and rel_ab.end == b)
-        
+
         rel_bc = b.relationships.outgoing()[0]
         assert(rel_bc.start == b and rel_bc.end == c)
-        
+
         rel_ca = c.relationships.outgoing()[0]
         assert(rel_ca.start == c and rel_ca.end == a)
 
@@ -1245,7 +1245,63 @@ class PickleTestCase(TransactionsTestCase):
         self.assertEqual(r, pickle.loads(p))
 
 
-class Neo4jPythonClientTestCase(PickleTestCase):
+class QueryAndFilterTestCase(PickleTestCase):
+
+    def test_query_raw(self):
+        n1 = self.gdb.nodes.create(name="John")
+        n2 = self.gdb.nodes.create(name="William")
+        n1.knows(n2, since=1982)
+        q = """start n=node(*) return n"""
+        result = self.gdb.query(q=q)
+        self.assertTrue(result is not None)
+
+    def test_query_raw_returns(self):
+        n1 = self.gdb.nodes.create(name="John")
+        n2 = self.gdb.nodes.create(name="William")
+        n1.knows(n2, since=1982)
+        q = """start n=node(*) return n limit 2"""
+        results = self.gdb.query(q=q, returns=[client.Node])
+        row1, row2 = results
+        m1, m2 = row1[0], row2[0]
+        self.assertTrue(isinstance(m1, client.Node))
+        self.assertTrue(isinstance(m2, client.Node))
+
+    def test_query_raw_returns_tuple(self):
+        n1 = self.gdb.nodes.create(name="John")
+        n2 = self.gdb.nodes.create(name="William")
+        rel_type = u"rel%s" % unicode(datetime.now().microsecond)
+        r = n1.relationships.create(rel_type, n2, since=1982)
+        q = """start n=node(*) match n-[r:%s]-() """ \
+            """return n, n.name, r, r.since""" % rel_type
+        results = self.gdb.query(q, returns=(client.Node, unicode,
+                                             client.Relationship))
+        for node, name, rel, date in results:
+            self.assertTrue(node in (n1, n2))
+            self.assertTrue(name in (u"John", u"William"))
+            self.assertEqual(rel, r)
+            self.assertEqual(date, 1982)
+
+    def test_query_params_returns_tuple(self):
+        n1 = self.gdb.nodes.create(name="John")
+        n2 = self.gdb.nodes.create(name="William")
+        rel_type = u"rel%s" % unicode(datetime.now().microsecond)
+        r = n1.relationships.create(rel_type, n2, since=1982)
+        q = """start n=node(*) match n-[r:`{rel}`]-() """ \
+            """return n, n.name, r, r.since"""
+        params = {
+            "rel": rel_type,
+        }
+        results = self.gdb.query(q, params=params,
+                                 returns=(client.Node, unicode,
+                                          client.Relationship))
+        for node, name, rel, date in results:
+            self.assertTrue(node in (n1, n2))
+            self.assertTrue(name in (u"John", u"William"))
+            self.assertEqual(rel, r)
+            self.assertEqual(date, 1982)
+
+
+class Neo4jPythonClientTestCase(QueryAndFilterTestCase):
     pass
 
 
