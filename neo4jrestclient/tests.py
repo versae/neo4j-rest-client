@@ -694,14 +694,17 @@ class ExtensionsTestCase(TraversalsTestCase):
     def test_gremlin_extension_reference_node(self):
         # Assuming the GremlinPlugin installed
         ext = self.gdb.extensions.GremlinPlugin
-        n = ext.execute_script(script='g.v(0)')
-        self.assertTrue(isinstance(n, client.Node))
+        n = self.gdb.nodes.create()
+        gremlin_n = ext.execute_script(script='g.v(%s)' % n.id)
+        self.assertEqual(gremlin_n, n)
 
     def test_gremlin_extension_reference_node_returns(self):
         # Assuming the GremlinPlugin installed
         ext = self.gdb.extensions.GremlinPlugin
-        n = ext.execute_script(script='g.v(0)', returns=constants.NODE)
-        self.assertTrue(isinstance(n, client.Node))
+        n = self.gdb.nodes.create()
+        gremlin_n = ext.execute_script(script='g.v(%s)' % n.id,
+                                       returns=constants.NODE)
+        self.assertEqual(gremlin_n, n)
 
     def test_gremlin_extension_relationships(self):
         # Assuming the GremlinPlugin installed
@@ -736,8 +739,11 @@ class ExtensionsTestCase(TraversalsTestCase):
     def test_gremlin_extension_reference_raw_returns(self):
         # Assuming the GremlinPlugin installed
         ext = self.gdb.extensions.GremlinPlugin
-        n = ext.execute_script(script='g.v(0)', returns=constants.RAW)
-        self.assertTrue(isinstance(n, dict))
+        n = self.gdb.nodes.create(name="Test")
+        gremlin_n = ext.execute_script(script='g.v(%s)' % n.id,
+                                       returns=constants.RAW)
+        self.assertEqual(gremlin_n["data"], n.properties)
+        self.assertTrue(isinstance(gremlin_n, dict))
 
     def test_gremlin_results_raw(self):
         # Assuming the GremlinPlugin installed
@@ -816,9 +822,10 @@ class TransactionsTestCase(ExtensionsTestCase):
         })
 
     def test_transaction_get(self):
-        n1 = self.gdb.nodes.get(1)
+        n = self.gdb.nodes.create()
+        n1 = self.gdb.nodes.get(n.id)
         with self.gdb.transaction():
-            n2 = self.gdb.nodes.get(1)
+            n2 = self.gdb.nodes.get(n.id)
         self.assertTrue(isinstance(n1, client.Node))
         self.assertTrue(isinstance(n2, client.Node))
         self.assertEqual(n1, n2)
@@ -936,9 +943,13 @@ class TransactionsTestCase(ExtensionsTestCase):
     def test_transaction_conections(self):
         import options as clientDebug
         clientDebug.DEBUG = True
+        id_list = []
+        for i in range(5):
+            n = self.gdb.nodes.create(number=i)
+            id_list.append(n.id)
         nodes = []
         with self.gdb.transaction(commit=False) as tx:
-            for i in range(5):
+            for i in id_list:
                 nodes.append(self.gdb.node[i])
         tx.commit()
         clientDebug.DEBUG = False
