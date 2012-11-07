@@ -107,10 +107,10 @@ class Q(BaseQ):
     def _get_lookup_and_match(self):
         if self.lookup == "exact":
             lookup = u"="
-            match = u"'{0}'".format(self.match)
+            match = u"{0}".format(self.match)
         elif self.lookup == "iexact":
             lookup = u"=~"
-            match = u"'(?i){0}'".format(self.match)
+            match = u"(?i){0}".format(self.match)
         elif self.lookup == "contains":
             lookup = u"=~"
             match = u".*{0}.*".format(self.match)
@@ -239,36 +239,53 @@ class Query(Sequence):
     def __init__(self, cypher, auth, q, params=None, types=None, returns=None):
         self.q = q
         self.params = params
+        self.skip = None
+        self.limit = None
+        self.returns = returns
         self._auth = auth
         self._cypher = cypher
-        # This way we avoit a circular reference
+        # This way we avoid a circular reference, by passing objects like Node
         self._types = types or {}
-        response = self.get_response()
-        try:
-            self._elements = self.cast(elements=response["data"],
-                                       returns=returns)
-        except:
-            self._elements = response
+        self._elements = None
+
+    def _get_elements(self):
+        if self._elements is None:
+            response = self.get_response()
+            try:
+                self._elements = self.cast(elements=response["data"],
+                                           returns=self.returns)
+            except:
+                self._elements = response
+        return self._elements
+    elements = property(_get_elements)
 
     def __getitem__(self, key):
-        return self._elements[key]
+        return self.elements[key]
 
     def __contains__(self, item):
-        return item in self._elements
+        return item in self.elements
 
     def __iter__(self):
-        return (e for e in self._elements)
+        return (e for e in self.elements)
 
     def __len__(self):
-        return len(self._elements)
+        return len(self.elements)
 
     def __reversed__(self):
-        return reversed(self._elements)
+        return reversed(self.elements)
 
     def get_response(self):
+        q = self.q
+        params = self.params
+        if isinstance(self.skip, int) and "_skip" not in params:
+            q = u"%s skip {_skip} " % q
+            params["_skip"] = self.skip
+        if isinstance(self.limit, int) and "_limit" not in params:
+            q = u"%s limit {_limit} " % q
+            params["_limit"] = self.limit
         data = {
-            "query": self.q,
-            "params": self.params,
+            "query": q,
+            "params": params,
         }
         response, content = Request(**self._auth).post(self._cypher, data=data)
         if response.status == 200:
@@ -303,12 +320,14 @@ class Query(Sequence):
                 returns = returns[:len_row]
                 # And now, apply i-th function to the i-th column in each row
                 casted_row = []
+                types_keys = self._types.keys()
                 for i, element in enumerate(row):
                     func = returns[i]
                     # We also allow the use of constants like NODE, etc
-                    if (isinstance(func, basestring)
-                            and func.lower() in self._types.keys()):
-                        func = self._types[func.lower()]
+                    if isinstance(func, basestring):
+                        func_lower = func.lower()
+                        if func_lower in types_keys:
+                            func = self._types[func_lower]
                     if func in (self._types["node"],
                                 self._types["relationship"]):
                         obj = func(element["self"], data=element,
@@ -318,6 +337,9 @@ class Query(Sequence):
                                   self._types["position"]):
                         obj = func(element, auth=self._auth)
                         casted_row.append(obj)
+                    elif func in (None, True, False):
+                        sub_func = lambda x: x is func
+                        casted_row.append(sub_func(element))
                     else:
                         casted_row.append(func(element))
                 results.append(casted_row)
@@ -327,9 +349,9 @@ class Query(Sequence):
 class Filter(Query):
 
     def __init__(self, cypher, auth, start=None, lookups=[],
-                 skip=None, limit=None, order_by=None, returns=None):
+                 order_by=None, types=None, returns=None):
         start = start or u"node(*)"
-        q = u"start n={start} "
+        q = u"start n=%s " % start
         where = None
         params = {}
         if lookups:
@@ -356,12 +378,13 @@ class Filter(Query):
                 params["order_by_%s" % o] = order
             if orders:
                 q = u"%s order by %s" % (q, ", ".join(orders))
-        if skip:
-            q = u"%s skip {skip} " % q
-            params["skip"] = skip
-        if limit:
-            q = u"%s limit {limit} " % q
-            params["limit"] = limit
         params["start"] = start
         super(Filter, self).__init__(cypher=cypher, auth=auth, q=q,
-                                     params=params, returns=returns)
+                                     params=params, types=types,
+                                     returns=returns)
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            self.skip = key.start
+            self.limit = key.stop
+        return super(Filter, self).__getitem__(key)

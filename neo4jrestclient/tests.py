@@ -4,14 +4,16 @@ try:
     import cPickle as pickle
 except:
     import pickle
-
-import client
-import options
 import sys
-import constants
-import request
 import unittest
 import os
+
+import constants
+import client
+import options
+import query
+import request
+
 
 NEO4J_URL = os.environ.get('NEO4J_URL', "http://localhost:7474/db/data/")
 
@@ -962,7 +964,7 @@ class TransactionsTestCase(ExtensionsTestCase):
             rel["when"] = "January"
         self.assertEqual(rel.properties, {"when": "January"})
 
-    def test_transaction_create_relationship_functional_mixed2(self):
+    def test_transaction_create_relationship_functional_mixed1(self):
         n1 = self.gdb.node()
         with self.gdb.transaction():
             n2 = self.gdb.node()
@@ -978,7 +980,7 @@ class TransactionsTestCase(ExtensionsTestCase):
             rel["when"] = "January"
         self.assertEqual(rel.properties, {"when": "January"})
 
-    def test_transaction_create_relationship_functional(self):
+    def test_transaction_create_relationship_functional2(self):
         with self.gdb.transaction():
             n1 = self.gdb.node()
             n2 = self.gdb.node()
@@ -1256,7 +1258,7 @@ class PickleTestCase(TransactionsTestCase):
         self.assertEqual(r, pickle.loads(p))
 
 
-class QueryAndFilterTestCase(PickleTestCase):
+class QueryAndFilterTestCase(NodesTestCase):
 
     def test_query_raw(self):
         n1 = self.gdb.nodes.create(name="John")
@@ -1310,6 +1312,35 @@ class QueryAndFilterTestCase(PickleTestCase):
             self.assertTrue(name in (u"John", u"William"))
             self.assertEqual(rel, r)
             self.assertEqual(date, 1982)
+
+    def test_filter_nodes(self):
+        Q = query.Q
+        for i in range(5):
+            self.gdb.nodes.create(name="William %s" % i)
+        lookup = Q("name", istartswith="william", nullable=True)
+        williams = self.gdb.nodes.filter(lookup)
+        self.assertTrue(len(williams) >= 5)
+
+    def test_filter_nodes_complex_lookups(self):
+        Q = query.Q
+        for i in range(5):
+            self.gdb.nodes.create(name="James", surname="Smith %s" % i)
+        lookups = (
+            Q("name", exact="James", nullable=True) &
+            (Q("surname", startswith="Smith", nullable=True) &
+             ~Q("surname", endswith="1", nullable=True))
+        )
+        williams = self.gdb.nodes.filter(lookups)
+        self.assertTrue(len(williams) >= 5)
+
+    def test_filter_slicing(self):
+        Q = query.Q
+        for i in range(5):
+            self.gdb.nodes.create(name="William %s" % i)
+        lookup = Q("name", istartswith="william", nullable=True)
+        import ipdb; ipdb.set_trace()
+        williams = self.gdb.nodes.filter(lookup)[:4]
+        self.assertTrue(len(williams) == 4)
 
 
 class Neo4jPythonClientTestCase(QueryAndFilterTestCase):

@@ -92,7 +92,7 @@ class GraphDatabase(object):
                                               auth=self._auth)
             self.nodes = NodesProxy(self._node, self._reference_node,
                                     self._node_index,
-                                    auth=self._auth)
+                                    auth=self._auth, cypher=self._cypher)
             # Backward compatibility. The current style is more pythonic
             self.node = self.nodes
             # HACK: Neo4j doesn't provide the URLs to access to relationships
@@ -101,7 +101,8 @@ class GraphDatabase(object):
                                              url_parts[2])
             self.relationships = RelationshipsProxy(self._relationship,
                                                     self._relationship_index,
-                                                    auth=self._auth)
+                                                    auth=self._auth,
+                                                    cypher=self._cypher)
             self.Traversal = self._get_traversal_class()
             try:
                 self._batch = response_json["batch"]
@@ -192,15 +193,6 @@ class GraphDatabase(object):
             }
             return Query(self._cypher, self._auth, q=q, params=params,
                          types=types, returns=returns)
-        else:
-            raise CypherException
-
-    def filter(self, start=None, lookups=[], skip=None, limit=None,
-               returns=None):
-        if self._cypher:
-            return Filter(self._cypher, self._auth, start=start,
-                          lookups=lookups, skip=skip, limit=limit,
-                          returns=returns)
         else:
             raise CypherException
 
@@ -921,11 +913,13 @@ class NodesProxy(dict):
     create new nodes through calling.
     """
 
-    def __init__(self, node, reference_node=None, node_index=None, auth=None):
+    def __init__(self, node, reference_node=None, node_index=None, auth=None,
+                 cypher=None):
         self._node = node
         self._reference_node = reference_node
         self._node_index = node_index
         self._auth = auth or {}
+        self._cypher = cypher
 
     def __call__(self, **kwargs):
         tx = Transaction.get_transaction(kwargs.get("tx", None))
@@ -981,9 +975,37 @@ class NodesProxy(dict):
             node = self.__getitem__(key)
             del node
 
+    def filter(self, lookups=[], start=None, skip=None, limit=None):
+        if self._cypher:
+            if start:
+                starts = []
+                if not isinstance(start, (list, tuple)):
+                    starts = [start]
+                for start_element in starts:
+                    if isinstance(start_element, Node):
+                        starts.append(start_element.id)
+                    else:
+                        starts.append(start_element)
+            else:
+                starts = u"*"
+            start = u"node(%s)" % u", ".join(starts)
+            if not isinstance(lookups, (list, tuple)):
+                lookups = [lookups]
+            types = {
+                "node": Node,
+                "relationship": Relationship,
+                "path": Path,
+                "position": Position,
+            }
+            return Filter(self._cypher, self._auth, start=start, types=types,
+                          lookups=lookups, returns=(Node))
+        else:
+            raise CypherException
+
     def _indexes(self):
         if self._node_index:
-            return IndexesProxy(self._node_index, NODE, auth=self._auth)
+            return IndexesProxy(self._node_index, NODE, auth=self._auth,
+                                cypher=self._cypher)
     indexes = property(_indexes)
 
 
@@ -1223,8 +1245,9 @@ class IndexesProxy(dict):
     Class proxy for indexes (nodes and relationships).
     """
 
-    def __init__(self, index_url, index_for=NODE, auth=None):
+    def __init__(self, index_url, index_for=NODE, auth=None, cypher=None):
         self._auth = auth or {}
+        self._cypher = cypher
         self.url = index_url
         self._index_for = index_for
         self._dict = self._get_dict()
@@ -1367,8 +1390,10 @@ class Index(object):
         be sent when the value is specified.
         """
 
-        def __init__(self, index_for, url, name, auth=None, tx=None):
+        def __init__(self, index_for, url, name, auth=None, cypher=None,
+                     tx=None):
             self._auth = auth or {}
+            self._cypher = cypher
             self._index_for = index_for
             if url[-1] == '/':
                 url = url[:-1]
@@ -1448,8 +1473,9 @@ class Index(object):
             return Index._get_results(url, self._index_for, auth=self._auth,
                                       tx=tx)
 
-    def __init__(self, index_for, name, auth=None, **kwargs):
+    def __init__(self, index_for, name, auth=None, cypher=None, **kwargs):
         self._auth = auth or {}
+        self._cypher = cypher
         self._index_for = index_for
         self.name = name
         self.template = kwargs.get("template")
@@ -1508,10 +1534,12 @@ class Index(object):
         if value:
             value = smart_quote(value)
             return self.IndexKey(self._index_for, "%s/%s" % (self.url, key),
-                                name=self.name, auth=self._auth, tx=tx)[value]
+                                name=self.name, auth=self._auth,
+                                cypher=self._cypher, tx=tx)[value]
         else:
             return self.IndexKey(self._index_for, "%s/%s" % (self.url, key),
-                                 name=self.name, auth=self._auth, tx=tx)
+                                 name=self.name, auth=self._auth,
+                                 cypher=self._cypher, tx=tx)
 
     def delete(self, key=None, value=None, item=None, tx=None):
         if not key and not value and not item:
@@ -1591,8 +1619,10 @@ class RelationshipsProxy(dict):
     and create new relationships through calling.
     """
 
-    def __init__(self, relationship, relationship_index, auth=None):
+    def __init__(self, relationship, relationship_index, auth=None,
+                 cypher=None):
         self._auth = auth or {}
+        self._cypher = cypher
         self._relationship = relationship
         self._relationship_index = relationship_index
 
@@ -1631,7 +1661,7 @@ class RelationshipsProxy(dict):
     def _indexes(self):
         if self._relationship_index:
             return IndexesProxy(self._relationship_index, RELATIONSHIP,
-                                auth=self._auth)
+                                auth=self._auth, cypher=self._cypher)
     indexes = property(_indexes)
 
 
