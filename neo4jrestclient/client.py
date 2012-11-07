@@ -10,7 +10,7 @@ import warnings
 from lucenequerybuilder import Q
 
 import options
-from query import Query, Filter, CypherException
+from query import QuerySequence, FilterSequence, CypherException
 from constants import (BREADTH_FIRST, DEPTH_FIRST,
                        STOP_AT_END_OF_GRAPH,
                        NODE_GLOBAL, NODE_PATH, NODE_RECENT,
@@ -191,8 +191,8 @@ class GraphDatabase(object):
                 "path": Path,
                 "position": Position,
             }
-            return Query(self._cypher, self._auth, q=q, params=params,
-                         types=types, returns=returns)
+            return QuerySequence(self._cypher, self._auth, q=q, params=params,
+                                 types=types, returns=returns)
         else:
             raise CypherException
 
@@ -975,17 +975,17 @@ class NodesProxy(dict):
             node = self.__getitem__(key)
             del node
 
-    def filter(self, lookups=[], start=None, skip=None, limit=None):
+    def filter(self, lookups=[], start=None):
         if self._cypher:
             if start:
                 starts = []
                 if not isinstance(start, (list, tuple)):
-                    starts = [start]
-                for start_element in starts:
-                    if isinstance(start_element, Node):
-                        starts.append(start_element.id)
+                    start = [start]
+                for start_element in start:
+                    if hasattr(start_element, "id"):
+                        starts.append(unicode(start_element.id))
                     else:
-                        starts.append(start_element)
+                        starts.append(unicode(start_element))
             else:
                 starts = u"*"
             start = u"node(%s)" % u", ".join(starts)
@@ -997,8 +997,8 @@ class NodesProxy(dict):
                 "path": Path,
                 "position": Position,
             }
-            return Filter(self._cypher, self._auth, start=start, types=types,
-                          lookups=lookups, returns=(Node))
+            return FilterSequence(self._cypher, self._auth, start=start,
+                                  types=types, lookups=lookups, returns=Node)
         else:
             raise CypherException
 
@@ -1657,6 +1657,33 @@ class RelationshipsProxy(dict):
         else:
             relationship = self.__getitem__(key)
             del relationship
+
+    def filter(self, lookups=[], start=None):
+        if self._cypher:
+            if start:
+                starts = []
+                if not isinstance(start, (list, tuple)):
+                    start = [start]
+                for start_element in start:
+                    if hasattr(start_element, "id"):
+                        starts.append(unicode(start_element.id))
+                    else:
+                        starts.append(unicode(start_element))
+            else:
+                starts = u"*"
+            start = u"rel(%s)" % u", ".join(starts)
+            if not isinstance(lookups, (list, tuple)):
+                lookups = [lookups]
+            types = {
+                "node": Node,
+                "relationship": Relationship,
+                "path": Path,
+                "position": Position,
+            }
+            return FilterSequence(self._cypher, self._auth, start=start,
+                                  types=types, lookups=lookups, returns=Node)
+        else:
+            raise CypherException
 
     def _indexes(self):
         if self._relationship_index:

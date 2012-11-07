@@ -42,6 +42,9 @@ INDEX_NODE = "index_node"
 INDEX_RELATIONSHIP = "index_relationship"
 INDEX_EXACT = "exact"
 INDEX_FULLTEXT = "fulltext"
+# Cypher ordering
+ASC = "asc"
+DESC = "desc"
 # Transactions
 TX_GET = "GET"
 TX_PUT = "PUT"

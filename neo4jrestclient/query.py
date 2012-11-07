@@ -27,7 +27,7 @@ class BaseQ(object):
               "eq", "equals", "neq", "notequals")
 
     def __init__(self, property=None, lookup=None, match=None,
-                 nullable=None, var=u"n", **kwargs):
+                 nullable=True, var=u"n", **kwargs):
         self._and = None
         self._or = None
         self._not = None
@@ -137,16 +137,16 @@ class Q(BaseQ):
             match = u"(?i){0}".format(self.match)
         elif self.lookup == "gt":
             lookup = u">"
-            match = u"{0}".format(self.match)
+            match = self.match
         elif self.lookup == "gte":
-            lookup = u">"
-            match = u"{0}".format(self.match)
+            lookup = u">="
+            match = self.match
         elif self.lookup == "lt":
             lookup = u"<"
-            match = u"{0}".format(self.match)
+            match = self.match
         elif self.lookup == "lte":
-            lookup = u"<"
-            match = u"{0}".format(self.match)
+            lookup = u"<="
+            match = self.match
         elif self.lookup in ["in", "inrange"]:
             lookup = u"IN"
             match = u"['{0}']".format(u"', '".join([self._escape(m)
@@ -234,14 +234,16 @@ class CypherException(Exception):
     pass
 
 
-class Query(Sequence):
+class QuerySequence(Sequence):
 
     def __init__(self, cypher, auth, q, params=None, types=None, returns=None):
         self.q = q
         self.params = params
-        self.skip = None
-        self.limit = None
-        self.returns = returns
+        self._skip = None
+        self._limit = None
+        self._order_by = None
+        self._returns = returns
+        self._return_single_rows = False
         self._auth = auth
         self._cypher = cypher
         # This way we avoid a circular reference, by passing objects like Node
@@ -253,7 +255,7 @@ class Query(Sequence):
             response = self.get_response()
             try:
                 self._elements = self.cast(elements=response["data"],
-                                           returns=self.returns)
+                                           returns=self._returns)
             except:
                 self._elements = response
         return self._elements
@@ -275,14 +277,32 @@ class Query(Sequence):
         return reversed(self.elements)
 
     def get_response(self):
+        # Preparing slicing and ordering
         q = self.q
         params = self.params
-        if isinstance(self.skip, int) and "_skip" not in params:
+        if self._order_by:
+            orders = []
+            for o, order in enumerate(self._order_by):
+                order_key = "_order_by_%s" % o
+                if order_key not in params:
+                    nullable = ""
+                    if len(order) == 3:
+                        if order[2] is True:
+                            nullable = "!"
+                        elif order[2] is False:
+                            nullable = "?"
+                    orders.append(u"n.`{%s}`%s %s" % (order_key, nullable, order[1]))
+                    params[order_key] = order[0]
+            if orders:
+                q = u"%s order by %s" % (q, ", ".join(orders))
+        # Lazy slicing
+        if isinstance(self._skip, int) and "_skip" not in params:
             q = u"%s skip {_skip} " % q
-            params["_skip"] = self.skip
-        if isinstance(self.limit, int) and "_limit" not in params:
+            params["_skip"] = self._skip
+        if isinstance(self._limit, int) and "_limit" not in params:
             q = u"%s limit {_limit} " % q
-            params["_limit"] = self.limit
+            params["_limit"] = self._limit
+        # Making the real resquest
         data = {
             "query": q,
             "params": params,
@@ -342,11 +362,14 @@ class Query(Sequence):
                         casted_row.append(sub_func(element))
                     else:
                         casted_row.append(func(element))
-                results.append(casted_row)
+                if self._return_single_rows:
+                    results.append(*casted_row)
+                else:
+                    results.append(casted_row)
             return results
 
 
-class Filter(Query):
+class FilterSequence(QuerySequence):
 
     def __init__(self, cypher, auth, start=None, lookups=[],
                  order_by=None, types=None, returns=None):
@@ -366,25 +389,20 @@ class Filter(Query):
             q = u"%s where %s return n " % (q, where)
         else:
             q = u"%s return n " % q
-        if order_by:
-            if not isinstance(order_by, (tuple, list)):
-                order_by = [order_by]
-            orders = []
-            for o, order in enumerate(order_by):
-                if order.startswith(u"-"):
-                    orders.append(u"n.`{order_by_%s}` desc" % o)
-                else:
-                    orders.append(u"n.`{order_by_%s}` " % o)
-                params["order_by_%s" % o] = order
-            if orders:
-                q = u"%s order by %s" % (q, ", ".join(orders))
-        params["start"] = start
-        super(Filter, self).__init__(cypher=cypher, auth=auth, q=q,
-                                     params=params, types=types,
-                                     returns=returns)
+        super(FilterSequence, self).__init__(cypher=cypher, auth=auth, q=q,
+                                             params=params, types=types,
+                                             returns=returns)
+        self._return_single_rows = True
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            self.skip = key.start
-            self.limit = key.stop
-        return super(Filter, self).__getitem__(key)
+            self._skip = key.start
+            self._limit = key.stop
+        return super(FilterSequence, self).__getitem__(key)
+
+    def order_by(self, property=None, type=None, nullable=True, *args):
+        if property is None and isinstance(args, (list, tuple)):
+            self._order_by = args
+        else:
+            self._order_by = [(property, type, nullable)]
+        return self

@@ -1258,7 +1258,7 @@ class PickleTestCase(TransactionsTestCase):
         self.assertEqual(r, pickle.loads(p))
 
 
-class QueryAndFilterTestCase(NodesTestCase):
+class QueryTestCase(PickleTestCase):
 
     def test_query_raw(self):
         n1 = self.gdb.nodes.create(name="John")
@@ -1313,11 +1313,14 @@ class QueryAndFilterTestCase(NodesTestCase):
             self.assertEqual(rel, r)
             self.assertEqual(date, 1982)
 
+
+class FilterTestCase(QueryTestCase):
+
     def test_filter_nodes(self):
         Q = query.Q
         for i in range(5):
             self.gdb.nodes.create(name="William %s" % i)
-        lookup = Q("name", istartswith="william", nullable=True)
+        lookup = Q("name", istartswith="william")
         williams = self.gdb.nodes.filter(lookup)
         self.assertTrue(len(williams) >= 5)
 
@@ -1326,24 +1329,59 @@ class QueryAndFilterTestCase(NodesTestCase):
         for i in range(5):
             self.gdb.nodes.create(name="James", surname="Smith %s" % i)
         lookups = (
-            Q("name", exact="James", nullable=True) &
-            (Q("surname", startswith="Smith", nullable=True) &
-             ~Q("surname", endswith="1", nullable=True))
+            Q("name", exact="James") &
+            (Q("surname", startswith="Smith") &
+             ~Q("surname", endswith="1"))
         )
         williams = self.gdb.nodes.filter(lookups)
         self.assertTrue(len(williams) >= 5)
 
-    def test_filter_slicing(self):
+    def test_filter_nodes_slicing(self):
         Q = query.Q
         for i in range(5):
             self.gdb.nodes.create(name="William %s" % i)
-        lookup = Q("name", istartswith="william", nullable=True)
-        import ipdb; ipdb.set_trace()
+        lookup = Q("name", istartswith="william")
         williams = self.gdb.nodes.filter(lookup)[:4]
         self.assertTrue(len(williams) == 4)
 
+    def test_filter_nodes_ordering(self):
+        Q = query.Q
+        for i in range(5):
+            self.gdb.nodes.create(name="William", code=i)
+        lookup = Q("code", gte=2)
+        williams = self.gdb.nodes.filter(lookup).order_by("code",
+                                                          constants.DESC)
+        self.assertTrue(williams[-1]["code"] > williams[0]["code"])
 
-class Neo4jPythonClientTestCase(QueryAndFilterTestCase):
+    def test_filter_nodes_nullable(self):
+        Q = query.Q
+        for i in range(5):
+            self.gdb.nodes.create(name="William %s" % i)
+        lookup = Q("name", istartswith="william", nullable=False)
+        williams = self.gdb.nodes.filter(lookup)[:10]
+        self.assertTrue(len(williams) > 5)
+
+    def test_filter_nodes_start(self):
+        Q = query.Q
+        nodes = []
+        for i in range(5):
+            nodes.append(self.gdb.nodes.create(name="William %s" % i))
+        lookup = Q("name", istartswith="william")
+        williams = self.gdb.nodes.filter(lookup, start=nodes)
+        self.assertTrue(len(williams) == 5)
+
+    def test_filter_relationships(self):
+        Q = query.Q
+        for i in range(10):
+            n1 = self.gdb.nodes.create(name="William %s" % i)
+            n2 = self.gdb.nodes.create(name="Rose %s" % i)
+            n1.loves(n2, since=(1995 + i))
+        lookup = Q("since", lte=2000)
+        old_loves = self.gdb.relationships.filter(lookup)
+        self.assertTrue(len(old_loves) >= 5)
+
+
+class Neo4jPythonClientTestCase(FilterTestCase):
     pass
 
 
