@@ -278,9 +278,9 @@ class Request(object):
         username = splits.username or self.username
         password = splits.password or self.password
         headers = headers or {}
-
         if scheme.lower() == 'https':
-            http.add_certificate(self.key_file, self.cert_file, self.url)
+            http.add_certificate(key=self.key_file, cert=self.cert_file,
+                                 domain='')
         headers['Accept'] = 'application/json'
         headers['Accept-Encoding'] = '*'
         headers['Accept-Charset'] = 'ISO-8859-1,utf-8;q=0.7,*;q=0.7'
