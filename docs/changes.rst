@@ -1,6 +1,42 @@
 Changes
 =======
 
+
+1.8.0 (2012-12-09)
+------------------
+- Updated lucene-querybuilder requirement.
+- Add support for using Indexes as start points when filtering
+- Add support for using filters in indices.
+- Fixes an error when using cert and key files.
+- Adding order by and filtering for relationships.
+- First implementation of complex filtering and slicing for nodes based on
+  Cypher.
+- Improving stability of tests.
+- Fixes #74. Added the new .query() method and casting for returns. Also a very
+  initial .filter method with an special Q object for composing complex filters.
+- Fixes #64, added a small unicode check.
+- Feature cache store and cache extension requests. Every time extension is used
+  a get request is made before post this only needs to happen once per extension.
+- Allow user to configure own cache engine, (e.g djangos cache).
+- Read test db url from environ.
+- Fixes #71. Pass correct url to get. Get with missing '/' was causing an
+  additional 302.
+- Support keep-alive / pipelining: httplib now instantiated on module load not
+  per quest this also fixes caching, when the CACHE option was set a no-cache
+  header was added that by passed the cache system.
+- Fixes #68. Gremlin query trips on "simple" list, but not an error no
+  neo4j-rest-client side.
+- Fixes #69. Incorrect node references when splitting transactions.
+- Adding support for retrieving index elements in a transaction.
+- Fixes #66. Ditch exception catch on root fetch at GraphDatabase.__init__().
+  As per #65, current behaviour when auth fails is that a 401 StatusException
+  is raised, and caught by this try/except block and a misleading NotFoundError
+  is raised in its place - lets just let the StatusException through. Unsure
+  about what other Exceptions may be raised but cannot reproduce.
+- Fixed issue #69. Transaction split.
+- Adding support for retrieving index elements in a transaction.
+
+
 1.7.0 (2012-05-17)
 ------------------
 - Fixing an error when reating relationships with nodes created previously in
@@ -9,12 +45,13 @@ Changes
 - Fixing #60. Adding support when no port is specified.
 - Fixing an error with unicode property names and indexing.
 
+
 1.6.2 (2012-03-26)
 ------------------
-- Fixing an error indexing with numeric values
-- Fixing an error indexing with boolean values
-- Adding initial unicode suppport for indices
-  Adding better debug messages to 400 response codes
+- Fixing an error indexing with numeric values.
+- Fixing an error indexing with boolean values.
+- Adding initial unicode suppport for indices.
+  Adding better debug messages to 400 response codes.
 
 
 1.6.1 (2012-02-27)
@@ -66,8 +103,10 @@ Changes
 ------------------
 - Adding more testing to returns parameter in the extensions.
 - Fixes 32. It needs some more testing, maybe.
-- Updated to using lucene-querybuilder 0.1.5 (bugfixes and better wildcard support).
-- Fixed the test issue found in #34, and updated the REST client to using lucene-querybuilder 0.1.5.
+- Updated to using lucene-querybuilder 0.1.5 (bugfixes and better wildcard
+  support).
+- Fixed the test issue found in #34, and updated the REST client to using
+  lucene-querybuilder 0.1.5.
 - Fixes #34. Fixing dependency of lucene-querybuilder version
 - Fixes #30. Fixing an issue deleting all index entries for a node.
 - Fixing an issue with parameters in extensions.

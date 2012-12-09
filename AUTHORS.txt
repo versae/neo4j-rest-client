@@ -17,6 +17,9 @@ APPRECIATED CONTRIBUTORS:
     * Dan Brown, https://github.com/dbro
     * Adam Venturella: https://github.com/aventurella
     * Rami Chowdhury: https://github.com/necaris
+    * Robin Edwards: https://github.com/robinedwards
+    * André Panisson: https://github.com/panisson
+    * Kristian Glass: https://github.com/doismellburning
 
 And a big THANK YOU goes to:
 
