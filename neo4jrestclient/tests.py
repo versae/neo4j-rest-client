@@ -1380,6 +1380,34 @@ class FilterTestCase(QueryTestCase):
         old_loves = self.gdb.relationships.filter(lookup)
         self.assertTrue(len(old_loves) >= 5)
 
+    def test_filter_index_for_nodes(self):
+        Q = query.Q
+        n1 = self.gdb.nodes.create(name="Lemmy", band="Motörhead")
+        index = self.gdb.nodes.indexes.create(name="music")
+        index["bandś"]["Motörhead"] = n1
+        lookup = Q("name", icontains='Lemmy')
+        self.assertTrue(n1 in index.filter(lookup))
+        self.assertTrue(n1 in index.filter(lookup, key="bandś"))
+        self.assertTrue(n1 in index.filter(lookup, key="bandś",
+                                           value="Motörhead"))
+        self.assertTrue(n1 in index["bandś"].filter(lookup))
+        self.assertTrue(n1 in index["bandś"].filter(lookup, value="Motörhead"))
+
+    def test_filter_index_for_relationships(self):
+        Q = query.Q
+        n1 = self.gdb.nodes.create(name="Jóhn Doe", place="Texaś")
+        n2 = self.gdb.nodes.create(name="Míchael Doe", place="Tíjuana")
+        r1 = self.gdb.relationships.create(n1, "Hateś", n2, since=1995)
+        index = self.gdb.relationships.indexes.create(name="bróthers")
+        index["feelińg"]["háte"] = r1
+        lookup = Q("since", lte=2000)
+        self.assertTrue(r1 in index.filter(lookup))
+        self.assertTrue(r1 in index.filter(lookup, key="feelińg"))
+        self.assertTrue(r1 in index.filter(lookup, key="feelińg",
+                                           value="háte"))
+        self.assertTrue(r1 in index["feelińg"].filter(lookup))
+        self.assertTrue(r1 in index["feelińg"].filter(lookup, value="háte"))
+
 
 class Neo4jPythonClientTestCase(FilterTestCase):
     pass
@@ -1410,6 +1438,7 @@ class XtraCacheTestCase(unittest.TestCase):
         del sys.modules['neo4jrestclient.client']
         import client
         gdb = client.GraphDatabase(NEO4J_URL)
+        gdb
 
     def test_custom_cache_used(self):
         self.assertTrue(self.cache_called['get'])
@@ -1422,6 +1451,7 @@ class XtraCacheTestCase(unittest.TestCase):
         del sys.modules['neo4jrestclient.request']
         del sys.modules['neo4jrestclient.client']
         import client
+        client
 
 
 if __name__ == '__main__':

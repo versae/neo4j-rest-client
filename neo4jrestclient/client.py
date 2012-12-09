@@ -694,11 +694,12 @@ class Base(object):
 
     def _update_dict_data(self):
         if "data" in self._dic:
-            self._dic["data"] = dict((self._safe_string(k),
-                                      self._safe_string(v))
+            self._dic["data"] = dict((Base._safe_string(k),
+                                      Base._safe_string(v))
                                       for k, v in self._dic["data"].items())
 
-    def _safe_string(self, s):
+    @staticmethod
+    def _safe_string(s):
         if isinstance(s, unicode):
             return s
         if isinstance(s, basestring):
@@ -1275,6 +1276,7 @@ class IndexesProxy(dict):
                     index_props[str(key)] = val
                 indexes_dict[index_name] = Index(self._index_for, index_name,
                                                  auth=self._auth,
+                                                 cypher=self._cypher,
                                                  **index_props)
             return indexes_dict
         elif response.status == 404:
@@ -1318,6 +1320,7 @@ class IndexesProxy(dict):
                         result_dict[str(key)] = val
                     self._dict[name] = Index(self._index_for, name,
                                              auth=self._auth,
+                                             cypher=self._cypher,
                                              **result_dict)
                 else:
                     msg = "Invalid data sent"
@@ -1363,7 +1366,7 @@ class Index(object):
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_GET, url, obj=None, returns=ITERABLE,
-                            of=node_or_rel)
+                                of=node_or_rel)
         else:
             response, content = Request(**auth).get(url)
             if response.status == 200:
@@ -1391,9 +1394,10 @@ class Index(object):
         """
 
         def __init__(self, index_for, url, name, auth=None, cypher=None,
-                     tx=None):
+                     key=None, tx=None):
             self._auth = auth or {}
             self._cypher = cypher
+            self._key = key
             self._index_for = index_for
             if url[-1] == '/':
                 url = url[:-1]
@@ -1473,6 +1477,10 @@ class Index(object):
             return Index._get_results(url, self._index_for, auth=self._auth,
                                       tx=tx)
 
+        def filter(self, lookups=[], value=None):
+            return Index._filter(self, lookups, self._key, value)
+
+
     def __init__(self, index_for, name, auth=None, cypher=None, **kwargs):
         self._auth = auth or {}
         self._cypher = cypher
@@ -1530,16 +1538,16 @@ class Index(object):
             tx = tx or key[1]
             key = key[0]
         tx = Transaction.get_transaction(tx)
-        key = smart_quote(key)
+        _key = smart_quote(key)
         if value:
             value = smart_quote(value)
-            return self.IndexKey(self._index_for, "%s/%s" % (self.url, key),
+            return self.IndexKey(self._index_for, "%s/%s" % (self.url, _key),
                                 name=self.name, auth=self._auth,
-                                cypher=self._cypher, tx=tx)[value]
+                                cypher=self._cypher, key=key, tx=tx)[value]
         else:
-            return self.IndexKey(self._index_for, "%s/%s" % (self.url, key),
+            return self.IndexKey(self._index_for, "%s/%s" % (self.url, _key),
                                  name=self.name, auth=self._auth,
-                                 cypher=self._cypher, tx=tx)
+                                 cypher=self._cypher, key=key, tx=tx)
 
     def delete(self, key=None, value=None, item=None, tx=None):
         if not key and not value and not item:
@@ -1611,6 +1619,47 @@ class Index(object):
                     raise ValueError('Queries with an included key should '\
                                      'not include a field.')
                 return index_key.query(unicode(query))
+
+    def filter(self, lookups=[], key=None, value=None):
+        return Index._filter(self, lookups, key, value)
+
+    @staticmethod
+    def _filter(cls, lookups=[], key=None, value=None):
+        if cls._cypher:
+            if cls._index_for == NODE:
+                start = u"node:"
+                returns = Node
+            elif cls._index_for == RELATIONSHIP:
+                start = u"relationship:"
+                returns = Relationship
+            else:
+                raise CypherException("Index not valid")
+            index_name = Base._safe_string(cls.name)
+            start = u"%s`%s`" % (start, index_name.replace("`", "\\`"))
+            if key:
+                key = Base._safe_string(key)
+                if value:
+                    value = Base._safe_string(value)
+                    start = u"%s(\"%s:%s\")" % (start, key, value)
+                else:
+                    start = u"%s(\"%s:*\")" % (start, key)
+            elif value:
+                raise CypherException("Index key not valid")
+            else:
+                start = u"%s(\"*:*\")" % start
+            if not isinstance(lookups, (list, tuple)):
+                lookups = [lookups]
+            types = {
+                "node": Node,
+                "relationship": Relationship,
+                "path": Path,
+                "position": Position,
+            }
+            return FilterSequence(cls._cypher, cls._auth, start=start,
+                                  types=types, lookups=lookups,
+                                  returns=returns)
+        else:
+            raise CypherException
 
 
 class RelationshipsProxy(dict):

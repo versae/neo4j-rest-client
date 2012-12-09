@@ -43,10 +43,10 @@ class Iterable(list):
 
     def __contains__(self, value):
         # TODO: Find a better way to check if value is instance of Base
-        #       avoiding a circualr loop of imports
+        #       avoiding a circular loop of imports
         # if isinstance(value, Base) and hasattr(value, "url"):
         if (hasattr(value, "url") and hasattr(value, "id")
-            and hasattr(value, "_dic")):
+                and hasattr(value, "_dic")):
             if self._attribute:
                 return value.url in [elto[self._attribute]
                                      for elto in self._list]
