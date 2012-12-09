@@ -1,9 +1,9 @@
 Indices
 =======
 
-Due to the original neo4j.py_ currently doesn't provide support for the new
-index component, for nodes and for relationships, the syntax for indexing is
-not compliant, quite different and, hopefully, more intuitive::
+The original neo4j.py_ currently did not provide support for the new
+index component. However, the current syntax for indexing is now  compliant
+with the python-embedded_ API, and hopefully more intuitive::
 
   >>> i1 =  gdb.nodes.indexes.create("index1")
   
@@ -37,7 +37,7 @@ using the convenience methods::
    <Neo4j Node: http://localhost:7474/db/data/node/2>]
 
 Advanced queries are also supported if the index is created with the type
-'fulltext' ('lucene' is the default provider) by entering a Lucene query::
+`fulltext` (`lucene` is the default provider) by entering a Lucene query::
 
   >>> n1 = gdb.nodes.create(name="John Doe", place="Texas")
   
@@ -46,11 +46,11 @@ Advanced queries are also supported if the index is created with the type
   >>> i1 = gdb.nodes.indexes.create(name="do", type="fulltext")
   
   >>> i1["surnames"]["doe"] = n1
-
+  
   >>> i1["places"]["Texas"] = n1
   
   >>> i1["surnames"]["donald"] = n2
-
+  
   >>> i1["places"]["Tijuana"] = n2
   
   >>> i1.query("surnames", "do*")[:]
@@ -81,3 +81,4 @@ For deleting an index just call 'delete' with no arguments::
 
 .. _neo4j.py: http://components.neo4j.org/neo4j.py/
 .. _lucene-querybuilder: http://github.com/scholrly/lucene-querybuilder
+.. _python-embedded: http://docs.neo4j.org/chunked/snapshot/python-embedded.html

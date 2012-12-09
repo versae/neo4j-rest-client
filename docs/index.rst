@@ -10,11 +10,13 @@ Contents:
 
 .. toctree::
    :maxdepth: 2
-   
+
    info
    elements
    traversals
    indices
+   queries
+   filters
    extensions
    transactions
    changes
