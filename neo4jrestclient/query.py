@@ -291,7 +291,8 @@ class QuerySequence(Sequence):
                             nullable = "!"
                         elif order[2] is False:
                             nullable = "?"
-                    orders.append(u"n.`{%s}`%s %s" % (order_key, nullable, order[1]))
+                    orders.append(u"n.`{%s}`%s %s" % (order_key, nullable,
+                                                      order[1]))
                     params[order_key] = order[0]
             if orders:
                 q = u"%s order by %s" % (q, ", ".join(orders))

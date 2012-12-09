@@ -1075,7 +1075,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         #test nodes created in transaction
 
         index = self.gdb.nodes.indexes.create('index4%s' \
-                                              % datetime.now().microsecond)
+                                              % datetime.now().strftime('%s%f'))
         tx = self.gdb.transaction(using_globals=False)
         n4 = self.gdb.nodes.create(tx=tx)
         index.add('test3','test3', n4, tx=tx)
@@ -1282,7 +1282,7 @@ class QueryTestCase(PickleTestCase):
     def test_query_raw_returns_tuple(self):
         n1 = self.gdb.nodes.create(name="John")
         n2 = self.gdb.nodes.create(name="William")
-        rel_type = u"rel%s" % unicode(datetime.now().microsecond)
+        rel_type = u"rel%s" % unicode(datetime.now().strftime('%s%f'))
         r = n1.relationships.create(rel_type, n2, since=1982)
         q = """start n=node(*) match n-[r:%s]-() """ \
             """return n, n.name, r, r.since""" % rel_type
@@ -1297,7 +1297,7 @@ class QueryTestCase(PickleTestCase):
     def test_query_params_returns_tuple(self):
         n1 = self.gdb.nodes.create(name="John")
         n2 = self.gdb.nodes.create(name="William")
-        rel_type = u"rel%s" % unicode(datetime.now().microsecond)
+        rel_type = u"rel%s" % unicode(datetime.now().strftime('%s%f'))
         r = n1.relationships.create(rel_type, n2, since=1982)
         q = """start n=node(*) match n-[r:`{rel}`]-() """ \
             """return n, n.name, r, r.since"""
@@ -1370,15 +1370,19 @@ class FilterTestCase(QueryTestCase):
         williams = self.gdb.nodes.filter(lookup, start=nodes)
         self.assertTrue(len(williams) == 5)
 
-    def test_filter_relationships(self):
+    def test_filter_nodes_start_index(self):
         Q = query.Q
-        for i in range(10):
-            n1 = self.gdb.nodes.create(name="William %s" % i)
-            n2 = self.gdb.nodes.create(name="Rose %s" % i)
-            n1.loves(n2, since=(1995 + i))
-        lookup = Q("since", lte=2000)
-        old_loves = self.gdb.relationships.filter(lookup)
-        self.assertTrue(len(old_loves) >= 5)
+        t = unicode(datetime.now().strftime('%s%f'))
+        index_name = "filter_nodes_start_index_%s" % t
+        index = self.gdb.nodes.indexes.create(name=index_name)
+        for i in range(5):
+            n = self.gdb.nodes.create(name="William %s" % i)
+            index["name"]["William"] = n
+        lookup = Q("name", istartswith="william")
+        williams = self.gdb.nodes.filter(lookup, start=index)
+        self.assertTrue(len(williams) == 5)
+        williams = self.gdb.nodes.filter(lookup, start=index["name"])
+        self.assertTrue(len(williams) == 5)
 
     def test_filter_index_for_nodes(self):
         Q = query.Q
@@ -1407,6 +1411,34 @@ class FilterTestCase(QueryTestCase):
                                            value="háte"))
         self.assertTrue(r1 in index["feelińg"].filter(lookup))
         self.assertTrue(r1 in index["feelińg"].filter(lookup, value="háte"))
+
+    def test_filter_relationships_start(self):
+        Q = query.Q
+        rels = []
+        for i in range(5):
+            n1 = self.gdb.nodes.create(name="William %s" % i)
+            n2 = self.gdb.nodes.create(name="Rose %s" % i)
+            r = n1.loves(n2, since=(1990 + i))
+            rels.append(r)
+        lookup = Q("since", lte=2000)
+        old_loves = self.gdb.relationships.filter(lookup, start=rels)
+        self.assertTrue(len(old_loves) >= 5)
+
+    def test_filter_relationships_start_index(self):
+        Q = query.Q
+        t = unicode(datetime.now().strftime('%s%f'))
+        index_name = "filter_relationships_start_index_%s" % t
+        index = self.gdb.relationships.indexes.create(name=index_name)
+        for i in range(5):
+            n1 = self.gdb.nodes.create(name="William %s" % i)
+            n2 = self.gdb.nodes.create(name="Rose %s" % i)
+            r = n1.loves(n2, since=(1990 + i))
+            index["since"][1990] = r
+        lookup = Q("since", lte=2000)
+        old_loves = self.gdb.relationships.filter(lookup, start=index)
+        self.assertTrue(len(old_loves) == 5)
+        old_loves = self.gdb.relationships.filter(lookup, start=index["since"])
+        self.assertTrue(len(old_loves) == 5)
 
 
 class Neo4jPythonClientTestCase(FilterTestCase):

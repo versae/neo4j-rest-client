@@ -977,31 +977,8 @@ class NodesProxy(dict):
             del node
 
     def filter(self, lookups=[], start=None):
-        if self._cypher:
-            if start:
-                starts = []
-                if not isinstance(start, (list, tuple)):
-                    start = [start]
-                for start_element in start:
-                    if hasattr(start_element, "id"):
-                        starts.append(unicode(start_element.id))
-                    else:
-                        starts.append(unicode(start_element))
-            else:
-                starts = u"*"
-            start = u"node(%s)" % u", ".join(starts)
-            if not isinstance(lookups, (list, tuple)):
-                lookups = [lookups]
-            types = {
-                "node": Node,
-                "relationship": Relationship,
-                "path": Path,
-                "position": Position,
-            }
-            return FilterSequence(self._cypher, self._auth, start=start,
-                                  types=types, lookups=lookups, returns=Node)
-        else:
-            raise CypherException
+        return elements_filter(self, lookups=lookups, start=start,
+                               returns=Node)
 
     def _indexes(self):
         if self._node_index:
@@ -1355,6 +1332,104 @@ class IndexesProxy(dict):
         return self._dict.keys()
 
 
+class IndexKey(object):
+    """
+    Intermediate object so that lookups can be done like:
+    index[key][value]
+
+    Lookups are formated as http://.../{index_name}/{key}/{value}, so this
+    is the object that gets returned by index[key]. The REST request will
+    be sent when the value is specified.
+    """
+
+    def __init__(self, index_for, url, name, auth=None, cypher=None,
+                 key=None, tx=None):
+        self._auth = auth or {}
+        self._cypher = cypher
+        self._key = key
+        self._index_for = index_for
+        if url[-1] == '/':
+            url = url[:-1]
+        self.url = url
+        self.name = name
+        self.tx = tx
+
+    def __getitem__(self, value):
+        tx = None
+        if isinstance(value, Transaction):
+            tx = self.tx or value
+            value = value.get_value()
+        tx = Transaction.get_transaction(tx)
+        url = "%s/%s" % (self.url, smart_quote(value))
+        return Index._get_results(url, self._index_for, auth=self._auth,
+                                  tx=tx)
+
+    def __setitem__(self, value, item):
+        tx = self.tx
+        if isinstance(value, (list, tuple)):
+            tx = tx or value[1]
+            value = value[0]
+        if isinstance(item, Transaction):
+            tx = tx or item
+            item = item.get_value()
+        tx = Transaction.get_transaction(tx)
+        # Neo4j hardly crush if you try to index a relationship in a
+        # node index and viceversa.
+        is_node_index = (self._index_for == NODE
+                         and isinstance(item, Node))
+        is_relationship_index = (self._index_for == RELATIONSHIP
+                                 and isinstance(item, Relationship))
+        if not (is_node_index or is_relationship_index
+                or TransactionOperationProxy):
+            raise TypeError("%s is a %s and the index is for %ss"
+                            % (item, self._index_for.capitalize(),
+                               self._index_for))
+        if isinstance(item, Base):
+            url_ref = item.url
+        elif isinstance(item, TransactionOperationProxy):
+            url_ref = "{%s}" % item()["id"]
+        else:
+            url_ref = item
+        request_url_and_key = self.url.rsplit('/', 1)  # assumes a key
+        # It's URL encoded and we need Unicode
+        key = urllib.unquote(str(request_url_and_key[1])).decode("utf8")
+        data = {"key": key,
+                "value": value,  # smart_quote is not needed anymore
+                "uri": url_ref}
+        if tx:
+            request_url = "index/%s/%s" % (self._index_for, self.name)
+            op = tx.subscribe(TX_POST, request_url, data=data,
+                              obj=self, returns=self._index_for)
+            return op
+        else:
+            request = Request(**self._auth)
+            response, content = request.post(request_url_and_key[0],
+                                             data=data)
+            if response.status == 201:
+                # Returns object that was indexed
+                entity = json.loads(content)
+                if self._index_for == NODE:
+                    return Node(entity['self'], data=entity['data'],
+                                auth=self._auth, update_dict=entity)
+                else:
+                    return Relationship(entity['self'],
+                                        data=entity['data'],
+                                        auth=self._auth)
+            else:
+                raise StatusException(response.status,
+                                      "Error requesting index with POST " \
+                                      "%s, data %s" \
+                                      % (request_url_and_key[0], url_ref))
+
+    def query(self, value, tx=None):
+        url = "%s?query=%s" % (self.url, smart_quote(value))
+        return Index._get_results(url, self._index_for, auth=self._auth,
+                                  tx=tx)
+
+    def filter(self, lookups=[], value=None):
+        return Index._filter(self, lookups, self._key, value)
+
+
 class Index(object):
     """
     key/value indexed lookups. Create an index object with GraphDatabase.index.
@@ -1382,104 +1457,6 @@ class Index(object):
                 raise StatusException(response.status,
                                         "Error requesting index with GET %s" \
                                         % url)
-
-    class IndexKey(object):
-        """
-        Intermediate object so that lookups can be done like:
-        index[key][value]
-
-        Lookups are formated as http://.../{index_name}/{key}/{value}, so this
-        is the object that gets returned by index[key]. The REST request will
-        be sent when the value is specified.
-        """
-
-        def __init__(self, index_for, url, name, auth=None, cypher=None,
-                     key=None, tx=None):
-            self._auth = auth or {}
-            self._cypher = cypher
-            self._key = key
-            self._index_for = index_for
-            if url[-1] == '/':
-                url = url[:-1]
-            self.url = url
-            self.name = name
-            self.tx = tx
-
-        def __getitem__(self, value):
-            tx = None
-            if isinstance(value, Transaction):
-                tx = self.tx or value
-                value = value.get_value()
-            tx = Transaction.get_transaction(tx)
-            url = "%s/%s" % (self.url, smart_quote(value))
-            return Index._get_results(url, self._index_for, auth=self._auth,
-                                      tx=tx)
-
-        def __setitem__(self, value, item):
-            tx = self.tx
-            if isinstance(value, (list, tuple)):
-                tx = tx or value[1]
-                value = value[0]
-            if isinstance(item, Transaction):
-                tx = tx or item
-                item = item.get_value()
-            tx = Transaction.get_transaction(tx)
-            # Neo4j hardly crush if you try to index a relationship in a
-            # node index and viceversa.
-            is_node_index = (self._index_for == NODE
-                             and isinstance(item, Node))
-            is_relationship_index = (self._index_for == RELATIONSHIP
-                                     and isinstance(item, Relationship))
-            if not (is_node_index or is_relationship_index
-                    or TransactionOperationProxy):
-                raise TypeError("%s is a %s and the index is for %ss"
-                                % (item, self._index_for.capitalize(),
-                                   self._index_for))
-            if isinstance(item, Base):
-                url_ref = item.url
-            elif isinstance(item, TransactionOperationProxy):
-                url_ref = "{%s}" % item()["id"]
-            else:
-                url_ref = item
-            request_url_and_key = self.url.rsplit('/', 1)  # assumes a key
-            # It's URL encoded and we need Unicode
-            key = urllib.unquote(str(request_url_and_key[1])).decode("utf8")
-            data = {"key": key,
-                    "value": value,  # smart_quote is not needed anymore
-                    "uri": url_ref}
-            if tx:
-                request_url = "index/%s/%s" % (self._index_for, self.name)
-                op = tx.subscribe(TX_POST, request_url, data=data,
-                                  obj=self, returns=self._index_for)
-                return op
-            else:
-                request = Request(**self._auth)
-                response, content = request.post(request_url_and_key[0],
-                                                 data=data)
-                if response.status == 201:
-                    # Returns object that was indexed
-                    entity = json.loads(content)
-                    if self._index_for == NODE:
-                        return Node(entity['self'], data=entity['data'],
-                                    auth=self._auth, update_dict=entity)
-                    else:
-                        return Relationship(entity['self'],
-                                            data=entity['data'],
-                                            auth=self._auth)
-                else:
-                    raise StatusException(response.status,
-                                          "Error requesting index with POST " \
-                                          "%s, data %s" \
-                                          % (request_url_and_key[0], url_ref))
-
-        def query(self, value, tx=None):
-            url = "%s?query=%s" % (self.url, smart_quote(value))
-            return Index._get_results(url, self._index_for, auth=self._auth,
-                                      tx=tx)
-
-        def filter(self, lookups=[], value=None):
-            return Index._filter(self, lookups, self._key, value)
-
 
     def __init__(self, index_for, name, auth=None, cypher=None, **kwargs):
         self._auth = auth or {}
@@ -1541,13 +1518,13 @@ class Index(object):
         _key = smart_quote(key)
         if value:
             value = smart_quote(value)
-            return self.IndexKey(self._index_for, "%s/%s" % (self.url, _key),
-                                name=self.name, auth=self._auth,
-                                cypher=self._cypher, key=key, tx=tx)[value]
+            return IndexKey(self._index_for, "%s/%s" % (self.url, _key),
+                            name=self.name, auth=self._auth,
+                            cypher=self._cypher, key=key, tx=tx)[value]
         else:
-            return self.IndexKey(self._index_for, "%s/%s" % (self.url, _key),
-                                 name=self.name, auth=self._auth,
-                                 cypher=self._cypher, key=key, tx=tx)
+            return IndexKey(self._index_for, "%s/%s" % (self.url, _key),
+                            name=self.name, auth=self._auth,
+                            cypher=self._cypher, key=key, tx=tx)
 
     def delete(self, key=None, value=None, item=None, tx=None):
         if not key and not value and not item:
@@ -1708,31 +1685,8 @@ class RelationshipsProxy(dict):
             del relationship
 
     def filter(self, lookups=[], start=None):
-        if self._cypher:
-            if start:
-                starts = []
-                if not isinstance(start, (list, tuple)):
-                    start = [start]
-                for start_element in start:
-                    if hasattr(start_element, "id"):
-                        starts.append(unicode(start_element.id))
-                    else:
-                        starts.append(unicode(start_element))
-            else:
-                starts = u"*"
-            start = u"rel(%s)" % u", ".join(starts)
-            if not isinstance(lookups, (list, tuple)):
-                lookups = [lookups]
-            types = {
-                "node": Node,
-                "relationship": Relationship,
-                "path": Path,
-                "position": Position,
-            }
-            return FilterSequence(self._cypher, self._auth, start=start,
-                                  types=types, lookups=lookups, returns=Node)
-        else:
-            raise CypherException
+        return elements_filter(self, lookups=lookups, start=start,
+                               returns=Relationship)
 
     def _indexes(self):
         if self._relationship_index:
@@ -2178,6 +2132,41 @@ class Extension(object):
             else:
                 params_kwargs[param] = value
         return params_kwargs
+
+
+def elements_filter(cls, lookups=[], start=None, returns=None):
+    if isinstance(start, (Index, IndexKey)):
+        return start.filter(lookups=lookups)
+    elif cls._cypher:
+        if start:
+            starts = []
+            if not isinstance(start, (list, tuple)):
+                start = [start]
+            for start_element in start:
+                try:
+                    starts.append(unicode(start_element.id))
+                except AttributeError:
+                    starts.append(unicode(start_element))
+        else:
+            starts = u"*"
+        if returns is Node:
+            start = u"node(%s)" % u", ".join(starts)
+        elif returns is Relationship:
+            start = u"rel(%s)" % u", ".join(starts)
+        else:
+            raise CypherException
+        if not isinstance(lookups, (list, tuple)):
+            lookups = [lookups]
+        types = {
+            "node": Node,
+            "relationship": Relationship,
+            "path": Path,
+            "position": Position,
+        }
+        return FilterSequence(cls._cypher, cls._auth, start=start,
+                              types=types, lookups=lookups, returns=returns)
+    else:
+        raise CypherException
 
 
 def smart_quote(val):
