@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from datetime import datetime
+from datetime import date, datetime, time
 try:
     import cPickle as pickle
 except:
@@ -82,6 +82,25 @@ class NodesTestCase(unittest.TestCase):
         n = self.gdb.node(name="John Doe", profession="Hacker")
         self.assertEqual(n.get("surname", "Doe"), "Doe")
 
+    def test_create_node_date(self):
+        import options as clientSmartDates
+        clientSmartDates.SMART_DATES = True
+        dt = datetime.utcnow()
+        d = dt.date()
+        t = dt.time()
+        n = self.gdb.nodes.create(name="John Doe", datetime=dt, date=d, time=t)
+        self.assertEqual(n.properties, {"name": "John Doe",
+                                        "datetime": dt,
+                                        "date": d,
+                                        "time": t})
+        self.assertEqual(n["datetime"], dt)
+        self.assertEqual(n["date"], d)
+        self.assertEqual(n["time"], t)
+        self.assertEqual(n.get("datetime"), dt)
+        self.assertEqual(n.get("date"), d)
+        self.assertEqual(n.get("time"), t)
+        clientSmartDates.SMART_DATES = False
+
     def test_get_node(self):
         n1 = self.gdb.nodes.create(name="John Doe", profession="Hacker")
         n2 = self.gdb.nodes.get(n1.id)
@@ -118,6 +137,17 @@ class NodesTestCase(unittest.TestCase):
         n1.set("name", "Jimmy Doe")
         n2 = self.gdb.nodes.get(n1.id)
         self.assertEqual(n1.get("name"), n2.get("name"))
+
+    def test_set_node_property_date(self):
+        import options as clientSmartDates
+        clientSmartDates.SMART_DATES = True
+        dt = datetime.utcnow()
+        n1 = self.gdb.node(name="John Doe", profession="Hacker")
+        n1.set("birthdate", dt)
+        n2 = self.gdb.nodes.get(n1.id)
+        self.assertEqual(n1.get("birthdate"), dt)
+        self.assertEqual(n2.get("birthdate"), dt)
+        clientSmartDates.SMART_DATES = False
 
     def test_set_node_properties(self):
         n1 = self.gdb.node(name="John Doe", profession="Hacker")

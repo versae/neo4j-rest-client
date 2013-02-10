@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
+from datetime import date, datetime, time
+import json
 try:
     import cPickle as pickle
 except:
     import pickle
-import json
 import urllib
 import weakref
 import warnings
@@ -700,6 +701,25 @@ class Base(object):
 
     @staticmethod
     def _safe_string(s):
+        if options.SMART_DATES:
+            if isinstance(s, (datetime, date, time)):
+                return s
+            else:
+                try:
+                    dt = datetime.strptime(s, options.DATETIME_FORMAT)
+                except ValueError:
+                    for date_type in ["date", "time"]:
+                        try:
+                            option = "%s_FORMAT" % date_type.upper()
+                            format = getattr(options, option)
+                            t = getattr(datetime.strptime(s, format),
+                                        date_type)()
+                        except ValueError:
+                            pass
+                        else:
+                            return t
+                else:
+                    return dt
         if isinstance(s, unicode):
             return s
         if isinstance(s, basestring):
@@ -762,7 +782,10 @@ class Base(object):
             else:
                 raise NotFoundError(response.status,
                                     "Node or propery not found")
-        return self._dic["data"][key]
+        if options.SMART_DATES:
+            return Base._safe_string(self._dic["data"][key])
+        else:
+            return self._dic["data"][key]
 
     def get(self, key, *args, **kwargs):
         tx = kwargs.get("tx", None)
@@ -801,7 +824,10 @@ class Base(object):
             response, content = Request(**self._auth).put(property_url,
                                                           data=value)
             if response.status == 204:
-                self._dic["data"].update({key: value})
+                if options.SMART_DATES:
+                    self._dic["data"].update({key: Base._safe_string(value)})
+                else:
+                    self._dic["data"].update({key: value})
             elif response.status == 404:
                 raise NotFoundError(response.status, "Node or property not found")
             else:
@@ -875,6 +901,8 @@ class Base(object):
             return u"<Neo4j %s: %s>" % (self.__class__.__name__, self.url)
 
     def _get_properties(self):
+        if options.SMART_DATES:
+            self._update_dict_data()
         return self._dic["data"]
 
     def _set_properties(self, props={}):

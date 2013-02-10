@@ -214,8 +214,6 @@ class Request(object):
     def _json_encode(self, data, ensure_ascii=False):
 
         def _any(data):
-            DATE_FORMAT = "%Y-%m-%d"
-            TIME_FORMAT = "%H:%M:%S"
             ret = None
             if isinstance(data, (list, tuple)):
                 ret = _list(data)
@@ -224,12 +222,11 @@ class Request(object):
             elif isinstance(data, decimal.Decimal):
                 ret = str(data)
             elif isinstance(data, datetime.datetime):
-                ret = self._strftime(data,
-                                     "%s %s" % (DATE_FORMAT, TIME_FORMAT))
+                ret = self._strftime(data, options.DATETIME_FORMAT)
             elif isinstance(data, datetime.date):
-                ret = self._strftime(data, DATE_FORMAT)
+                ret = self._strftime(data, options.DATE_FORMAT)
             elif isinstance(data, datetime.time):
-                ret = data.strftime(TIME_FORMAT)
+                ret = data.strftime(options.TIME_FORMAT)
             else:
                 ret = data
             return ret
