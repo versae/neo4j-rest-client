@@ -1,0 +1,19 @@
+language: python
+python:
+  - "2.6"
+  - "2.7"
+before_install:
+  - export NEO4J_PORT="7474"
+  - sudo service neo4j stop || true
+  - sleep 3
+  - ./install_local_neo4j.bash $NEO4J_VERSION
+  - ./lib/neo4j/bin/neo4j start || ( cat ./lib/neo4j/data/log/*.log && exit 1 )
+  - curl http://localhost:$NEO4J_PORT/db/data/
+  - curl -X DELETE 'http://localhost:7474/cleandb/supersecretdebugkey!'
+install: pip install --use-mirrors -r requirements.txt
+env:
+  - NEO4J_VERSION="1.6.3"
+  - NEO4J_VERSION="1.7.2"
+  - NEO4J_VERSION="1.8.1"
+script:
+  - python neo4jrestclient/tests.py
