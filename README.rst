@@ -1,3 +1,5 @@
+.. image:: https://travis-ci.org/versae/neo4j-rest-client.png?branch=master
+
 Neo4j Python REST Client
 ========================
 
