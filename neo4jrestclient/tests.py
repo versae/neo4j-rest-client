@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from datetime import date, datetime, time
+from datetime import datetime
 try:
     import cPickle as pickle
 except:
@@ -16,6 +16,7 @@ import request
 
 
 NEO4J_URL = os.environ.get('NEO4J_URL', "http://localhost:7474/db/data/")
+
 
 class NodesTestCase(unittest.TestCase):
     def setUp(self):
@@ -164,7 +165,8 @@ class NodesTestCase(unittest.TestCase):
     def test_set_node_property_safe(self):
         n1 = self.gdb.node(language="Español antigüillo")
         n1.set("Idioma de los subtítulos", "Español antigüillo")
-        self.assertEqual(n1.get("Idioma de los subtítulos"), n1.get("language"))
+        self.assertEqual(n1.get("Idioma de los subtítulos"),
+                         n1.get("language"))
 
     def test_set_node_properties_safe(self):
         n1 = self.gdb.node()
@@ -466,7 +468,8 @@ class TraversalsTestCase(IndexesTestCase):
         # Test from @shahin: https://gist.github.com/1418704
         n1 = self.gdb.node()
         n2 = self.gdb.node()
-        rel = self.gdb.relationships.create(n1,'knows',n2)
+        rel = self.gdb.relationships.create(n1, 'knows', n2)
+
         # Define path traverser
         class PathTraverser(self.gdb.Traversal):
             stop = constants.STOP_AT_END_OF_GRAPH
@@ -513,11 +516,11 @@ class TraversalsTestCase(IndexesTestCase):
         n1.KNOWS(n2)
         n2.KNOWS(n3)
         #all traversal
-        traversal = n1.traverse(stop=3,\
+        traversal = n1.traverse(stop=3,
                                 returnable=constants.RETURN_ALL_NODES)
         self.assertEqual(len(traversal), 3)
         #all but start traversal
-        traversal = n1.traverse(stop=3,\
+        traversal = n1.traverse(stop=3,
                                 returnable=constants.RETURN_ALL_BUT_START_NODE)
         self.assertEqual(len(traversal), 2)
         #custom javascript return filter
@@ -588,6 +591,8 @@ class TraversalsTestCase(IndexesTestCase):
             target = self.gdb.node(message='world')
             relationship = self.source.related_to(target, message="graphy")
             secondrel = target.likes(self.source, message="buh")
+            relationship
+            secondrel
 
     def test_traverse_string_types(self):
         self.create_data()
@@ -607,7 +612,7 @@ class TraversalsTestCase(IndexesTestCase):
         from traversals import RelationshipDirection
         OUTGOING = RelationshipDirection.OUTGOING
         INCOMING = RelationshipDirection.INCOMING
-        ANY = RelationshipDirection.ANY
+        #ANY = RelationshipDirection.ANY
         traverser = db.traversal()\
             .relationships('related_to', OUTGOING)\
             .traverse(start_node)
@@ -687,7 +692,7 @@ class TraversalsTestCase(IndexesTestCase):
             self.assertNotEqual(start_node, None)
             self.assertNotEqual(end_node, None)
             # START SNIPPET: accessPathLastRelationship
-            last_relationship = path.last_relationship
+            #last_relationship = path.last_relationship
             # END SNIPPET: accessPathLastRelationship
             # START SNIPPET: loopThroughPath
             for item in path:
@@ -783,6 +788,7 @@ class ExtensionsTestCase(TraversalsTestCase):
         n = ext.execute_script(script='results = [1,2]', returns=constants.RAW)
         self.assertTrue(isinstance(n, list))
         self.assertEqual(n, [1, 2])
+
 
 class TransactionsTestCase(ExtensionsTestCase):
 
@@ -933,17 +939,17 @@ class TransactionsTestCase(ExtensionsTestCase):
         n["age"] = 25
         n["name"] = "John"
         n["place"] = "Houston"
-        with self.gdb.transaction(commit=False, using_globals=False) as tx1:
-            with self.gdb.transaction(commit=False, using_globals=False) as tx2:
-                n.delete("age", tx=tx1)
-                n["name"] = tx2("Jonathan")
-                n["place", tx2] = "Toronto"
+        with self.gdb.transaction(commit=False, using_globals=False) as t1:
+            with self.gdb.transaction(commit=False, using_globals=False) as t2:
+                n.delete("age", tx=t1)
+                n["name"] = t2("Jonathan")
+                n["place", t2] = "Toronto"
         self.assertTrue("age" in n.properties)
-        tx1.commit()
+        t1.commit()
         self.assertTrue("age" not in n.properties)
         self.assertEqual(n["name"], "John")
         self.assertEqual(n["place"], "Houston")
-        tx2.commit()
+        t2.commit()
         self.assertEqual(n["name"], "Jonathan")
         self.assertEqual(n["place"], "Toronto")
 
@@ -960,7 +966,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         tx.commit()
         self.assertEqual(initial_rels + rels_number, len(n1.relationships))
         self.assertTrue(all([isinstance(r, client.Relationship)]
-                             for r in relations))
+                            for r in relations))
 
     def test_transaction_dict(self):
         nodes = {}
@@ -1055,14 +1061,15 @@ class TransactionsTestCase(ExtensionsTestCase):
         n1 = self.gdb.nodes.create()
         index = self.gdb.nodes.indexes.create('index_nodes')
         with self.gdb.transaction():
-            index.add('test1','test1', n1)
+            index.add('test1', 'test1', n1)
             index['test2']['test2'] = n1
         self.assertTrue(index['test1']['test1'][-1] == n1)
         self.assertTrue(index['test2']['test2'][-1] == n1)
 
     def test_transaction_index_add_rel_to_index(self):
         """
-        Tests whether a relationship can be added to an index within a transaction.
+        Tests whether a relationship can be added to an index within a
+        transaction.
         Does not assert transactionality.
         """
         #test nodes
@@ -1071,7 +1078,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         r = n1.relationships.create('Knows', n2)
         index = self.gdb.relationships.indexes.create('index_rel')
         with self.gdb.transaction():
-            index.add('test1','test1', r)
+            index.add('test1', 'test1', r)
             index['test2']['test2'] = r
         self.assertTrue(index['test1']['test1'][-1] == r)
         self.assertTrue(index['test2']['test2'][-1] == r)
@@ -1083,7 +1090,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         """
         n1 = self.gdb.nodes.create()
         index = self.gdb.nodes.indexes.create('index2')
-        index.add('test2','test2', n1)
+        index.add('test2', 'test2', n1)
         # Test getting nodes from index during transaction
         tx = self.gdb.transaction()
         index_hits = index['test2']['test2']
@@ -1093,7 +1100,7 @@ class TransactionsTestCase(ExtensionsTestCase):
     def test_transaction_remove_node_from_index(self):
         index = self.gdb.nodes.indexes.create('index3')
         n = self.gdb.nodes.create()
-        index.add('test3','test3', n)
+        index.add('test3', 'test3', n)
         tx = self.gdb.transaction(using_globals=False)
         index.delete('test3', 'test3', n, tx=tx)
         # Assert transactional
@@ -1104,11 +1111,11 @@ class TransactionsTestCase(ExtensionsTestCase):
     def test_transaction_query_index_for_new_node(self):
         #test nodes created in transaction
 
-        index = self.gdb.nodes.indexes.create('index4%s' \
-                                              % datetime.now().strftime('%s%f'))
+        index_name = 'index4%s' % datetime.now().strftime('%s%f')
+        index = self.gdb.nodes.indexes.create(index_name)
         tx = self.gdb.transaction(using_globals=False)
         n4 = self.gdb.nodes.create(tx=tx)
-        index.add('test3','test3', n4, tx=tx)
+        index.add('test3', 'test3', n4, tx=tx)
         # Assert transactional
         transactional = True
         try:
@@ -1129,7 +1136,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         n1 = self.gdb.nodes.create()
         tx = self.gdb.transaction()
         index = self.gdb.nodes.indexes.create('index5')
-        index.add('test1','test1', n1)
+        index.add('test1', 'test1', n1)
         tx.commit()
         self.assertTrue(isinstance(index, client.Index))
         self.assertTrue(index['test1']['test1'][-1] == n1)
@@ -1153,8 +1160,7 @@ class TransactionsTestCase(ExtensionsTestCase):
 
     def test_transaction_properties_class(self):
         def has_props(node):
-            return node['test1'] == 'test1' and \
-                   node['test2'] == 'test2'
+            return node['test1'] == 'test1' and node['test2'] == 'test2'
 
         def set_props(node):
             node['test1'] = 'test1'
@@ -1216,9 +1222,9 @@ class TransactionsTestCase(ExtensionsTestCase):
                     edge.relationships.create("EDGE_TAG", tag1)
                     edge.relationships.create("EDGE_TAG", tag2)
                     RUN.relationships.create("RUN_EDGE", edge)
-                    EDGE_DICT[(id1,id2)] = edge
+                    EDGE_DICT[(id1, id2)] = edge
                 else:
-                    edge = EDGE_DICT[(id1,id2)]
+                    edge = EDGE_DICT[(id1, id2)]
         print i, operations
         self.assertTrue(operations >= i)
 
@@ -1234,8 +1240,8 @@ class TransactionsTestCase(ExtensionsTestCase):
         s = self.gdb.node.create(id=1)
         d = self.gdb.node.create(id=2)
         nidx = self.gdb.nodes.indexes.create('nodelist')
-        nidx.add('nid',1, s)
-        nidx.add('nid',2, d)
+        nidx.add('nid', 1, s)
+        nidx.add('nid', 2, d)
         nodelist = [(1, 2)]
         with self.gdb.transaction():
             for s_id, d_id in nodelist:
@@ -1271,6 +1277,41 @@ class TransactionsTestCase(ExtensionsTestCase):
 
         rel_ca = c.relationships.outgoing()[0]
         assert(rel_ca.start == c and rel_ca.end == a)
+
+    # def test_transaction_integration(self):
+    #     """
+    #     1. Create a new node.
+    #     2. Add it to an index if no entry exists already, otherwise fail the
+    #         transaction.
+    #     3. Link the newly created node to other existing nodes by looking up
+    #         the existing nodes in other indexes.
+    #     4. Index the newly created relationship linking the new node and the
+    #         existing nodes.
+    #     """
+    #     nidx = self.gdb.nodes.indexes.create('nodes')
+    #     ridx = self.gdb.nodes.indexes.create('rels')
+    #     nidx2 = self.gdb.nodes.indexes.create('nodes2')
+    #     for i in range(3):
+    #         nidx2['key2']['val2'] = self.gdb.nodes.create()
+
+    #     def use_case():
+    #         rollback = False
+    #         with self.gdb.transaction(commit=False) as tx:
+    #             n1 = self.gdb.nodes.create()
+    #             if n1 in nidx['key']['val']:
+    #                 rollback = True
+    #             else:
+    #                 nidx['key']['val'] = n1
+    #                 for n in nidx2['key2']['val2']:
+    #                     rel = n1.relationships.create("rel", n)
+    #                     ridx['key']['val'] = rel
+    #         if not rollback:
+    #             tx.commit()
+    #             return n1
+    #         return None
+
+    #     self.assertTrue(use_case() in nidx['key']['val'])
+    #     self.assertEqual(use_case(), None)
 
 
 class PickleTestCase(TransactionsTestCase):
@@ -1519,4 +1560,6 @@ class XtraCacheTestCase(unittest.TestCase):
 if __name__ == '__main__':
     test_loader = unittest.TestLoader()
     suite = test_loader.loadTestsFromTestCase(Neo4jPythonClientTestCase)
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    run = unittest.TextTestRunner(verbosity=2).run(suite)
+    if run.errors or run.failures:
+        exit(1)
