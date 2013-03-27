@@ -423,6 +423,31 @@ class IndexesTestCase(RelationshipsTestCase):
         results = index.query(-Q('surnames', 'donald') | +Q('place', 'Texas'))
         self.assertTrue(n2 not in results and n1 in results)
 
+    def test_index_get_or_create_created(self):
+        index = self.gdb.nodes.indexes.create(name="doe")
+        properties = {
+            "name": "Lemmy",
+            "band": "Motörhead",
+            "now": datetime.now().strftime('%s%f'),
+        }
+        n1 = index.get_or_create(key="bands", value="Motörhead",
+                                 properties=properties)
+        self.assertTrue(n1 in index["bands"]["Motörhead"])
+
+    def test_index_get_or_create_existing(self):
+        index = self.gdb.nodes.indexes.create(name="doe")
+        properties = {
+            "name": "Lemmy",
+            "band": "Motörhead",
+            "now": datetime.now().strftime('%s%f'),
+        }
+        n1 = self.gdb.nodes.create(**properties)
+        index["bands"]["Motörhead"] = n1
+        n2 = index.get_or_create(key="bands", value="Motörhead",
+                                 properties=properties)
+        self.assertEqueal(n1, n2)
+        self.assertTrue(n1 in index["bands"]["Motörhead"])
+
 
 class TraversalsTestCase(IndexesTestCase):
 

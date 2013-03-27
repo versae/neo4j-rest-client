@@ -1554,6 +1554,83 @@ class Index(object):
                             name=self.name, auth=self._auth,
                             cypher=self._cypher, key=key, tx=tx)
 
+    def get_or_create(self, key, value, item=None, properties=None,
+                      node_from=None, relationship_name=None, node_to=None,
+                      tx=None):
+        return self._uniqueness("get_or_create", key=key, value=value,
+                                item=item, properties=properties,
+                                node_from=node_from,
+                                relationship_name=relationship_name,
+                                node_to=node_to, tx=tx)
+
+    def create_or_fail(self, key, value, item=None, properties=None,
+                       node_from=None, relationship_name=None, node_to=None,
+                       tx=None):
+        return self._uniqueness("create_or_fail", key=key, value=value,
+                                item=item, properties=properties,
+                                node_from=node_from,
+                                relationship_name=relationship_name,
+                                node_to=node_to, tx=tx)
+
+    def _uniqueness(self, uniqueness, key, value, item=None, properties=None,
+                    node_from=None, relationship_name=None, node_to=None,
+                    tx=None):
+        url = "%s?uniqueness=%s" % (self.url, uniqueness)
+        if item:
+            properties = item.properties()
+        elif not properties:
+            properties = {}
+        if self._index_for == NODE:
+            data = {
+                "key": key,
+                "value": value,
+                "properties": properties,
+            }
+        else:
+            data = {
+                "key": key,
+                "value": value,
+            }
+            if properties:
+                data.update({"properties": properties})
+            if item:
+                data.update({
+                    "start": item.start,
+                    "end": item.end,
+                    "type": item.type,
+                })
+            else:
+                data.update({
+                    "start": node_from,
+                    "end": node_to,
+                    "type": relationship_name,
+                })
+        tx = Transaction.get_transaction(tx)
+        if tx:
+            op = tx.subscribe(TX_POST, url, data=data,
+                              obj=self, returns=self._index_for)
+            return op
+        else:
+            request = Request(**self._auth)
+            response, content = request.post(url, data=data)
+            if response.status in [200, 201]:
+                # Returns object that was indexed
+                entity = json.loads(content)
+                if self._index_for == NODE:
+                    return Node(entity['self'], data=entity['data'],
+                                auth=self._auth, update_dict=entity)
+                else:
+                    return Relationship(entity['self'],
+                                        data=entity['data'],
+                                        auth=self._auth)
+            else:
+                index_for = self._index_for.capitalize()
+                if options.SMART_ERRORS:
+                    raise KeyError(index_for)
+                else:
+                    raise NotFoundError(response.status,
+                                        "%s not found" % index_for)
+
     def delete(self, key=None, value=None, item=None, tx=None):
         if not key and not value and not item:
             url = self.template.replace("/{key}/{value}", "")
@@ -1580,7 +1657,7 @@ class Index(object):
                 request_url = "index/%s/%s/%s" % (self._index_for, self.name,
                                                   item.id)
             else:
-                raise TypeError("delete() takes at least 2 arguments, the " \
+                raise TypeError("delete() takes at least 2 arguments, the "
                                 "key of the index and the %s to remove"
                                 % self._index_for)
         tx = Transaction.get_transaction(tx)
