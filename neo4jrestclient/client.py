@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from datetime import date, datetime, time
 import json
+import sys
 try:
     import cPickle as pickle
 except:
@@ -29,6 +30,8 @@ from traversals import TraversalDescription
 
 __all__ = ["GraphDatabase", "Incoming", "Outgoing", "Undirected",
            "StopAtDepth", "NotFoundError", "StatusException", "Q"]
+
+PYTHON_VERSION = sys.version_info
 
 
 class StopAtDepth(object):
@@ -2279,12 +2282,25 @@ def elements_filter(cls, lookups=[], start=None, returns=None):
         raise CypherException
 
 
-def smart_quote(val):
-    if isinstance(val, (bool, int, float, long)):
-        return urllib.quote(json.dumps(val), safe="")
-    else:
-        try:
-            safe_key = urllib.quote(val, safe="")
-        except (KeyError, UnicodeEncodeError, UnicodeError):
-            safe_key = urllib.quote(val.encode("utf8"), safe="")
-        return safe_key
+if PYTHON_VERSION < (2, 7):
+    def smart_quote(val):
+        if isinstance(val, (bool, int, long)):
+            return urllib.quote(json.dumps(val), safe="")
+        elif isinstance(val, float):
+            return unicode(val)
+        else:
+            try:
+                safe_key = urllib.quote(val, safe="")
+            except (KeyError, UnicodeEncodeError, UnicodeError):
+                safe_key = urllib.quote(val.encode("utf8"), safe="")
+            return safe_key
+else:
+    def smart_quote(val):
+        if isinstance(val, (bool, int, float, long)):
+            return urllib.quote(json.dumps(val), safe="")
+        else:
+            try:
+                safe_key = urllib.quote(val, safe="")
+            except (KeyError, UnicodeEncodeError, UnicodeError):
+                safe_key = urllib.quote(val.encode("utf8"), safe="")
+            return safe_key
