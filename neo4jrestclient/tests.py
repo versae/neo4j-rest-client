@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
+from functools import wraps
 try:
     import cPickle as pickle
 except:
@@ -16,6 +17,26 @@ import request
 
 
 NEO4J_URL = os.environ.get('NEO4J_URL', "http://localhost:7474/db/data/")
+NEO4J_VERSION = os.environ.get('NEO4J_VERSION', None)
+
+
+def versions(supported=None, not_supported=None):
+    supported = supported or []
+    not_supported = not_supported or []
+
+    def _versions(fn):
+
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            if NEO4J_VERSION:
+                if ((supported and NEO4J_VERSION in supported)
+                        or (not_supported
+                            and NEO4J_VERSION not in not_supported)):
+                    fn(*args, **kwargs)
+            else:
+                fn(*args, **kwargs)
+        return wrapper
+    return _versions
 
 
 class NodesTestCase(unittest.TestCase):
@@ -1356,6 +1377,7 @@ class PickleTestCase(TransactionsTestCase):
 
 class QueryTestCase(PickleTestCase):
 
+    @versions(not_supported=["1.6.3"])
     def test_query_raw(self):
         n1 = self.gdb.nodes.create(name="John")
         n2 = self.gdb.nodes.create(name="William")
@@ -1364,6 +1386,7 @@ class QueryTestCase(PickleTestCase):
         result = self.gdb.query(q=q)
         self.assertTrue(result is not None)
 
+    @versions(not_supported=["1.6.3"])
     def test_query_raw_returns(self):
         n1 = self.gdb.nodes.create(name="John")
         n2 = self.gdb.nodes.create(name="William")
@@ -1375,6 +1398,7 @@ class QueryTestCase(PickleTestCase):
         self.assertTrue(isinstance(m1, client.Node))
         self.assertTrue(isinstance(m2, client.Node))
 
+    @versions(not_supported=["1.6.3"])
     def test_query_raw_returns_tuple(self):
         n1 = self.gdb.nodes.create(name="John")
         n2 = self.gdb.nodes.create(name="William")
@@ -1390,6 +1414,7 @@ class QueryTestCase(PickleTestCase):
             self.assertEqual(rel, r)
             self.assertEqual(date, 1982)
 
+    @versions(not_supported=["1.6.3"])
     def test_query_params_returns_tuple(self):
         n1 = self.gdb.nodes.create(name="John")
         n2 = self.gdb.nodes.create(name="William")
@@ -1412,6 +1437,7 @@ class QueryTestCase(PickleTestCase):
 
 class FilterTestCase(QueryTestCase):
 
+    @versions(not_supported=["1.6.3"])
     def test_filter_nodes(self):
         Q = query.Q
         for i in range(5):
@@ -1420,6 +1446,7 @@ class FilterTestCase(QueryTestCase):
         williams = self.gdb.nodes.filter(lookup)
         self.assertTrue(len(williams) >= 5)
 
+    @versions(not_supported=["1.6.3"])
     def test_filter_nodes_complex_lookups(self):
         Q = query.Q
         for i in range(5):
@@ -1432,6 +1459,7 @@ class FilterTestCase(QueryTestCase):
         williams = self.gdb.nodes.filter(lookups)
         self.assertTrue(len(williams) >= 5)
 
+    @versions(not_supported=["1.6.3"])
     def test_filter_nodes_slicing(self):
         Q = query.Q
         for i in range(5):
@@ -1440,6 +1468,7 @@ class FilterTestCase(QueryTestCase):
         williams = self.gdb.nodes.filter(lookup)[:4]
         self.assertTrue(len(williams) == 4)
 
+    @versions(not_supported=["1.6.3"])
     def test_filter_nodes_ordering(self):
         Q = query.Q
         for i in range(5):
@@ -1449,6 +1478,7 @@ class FilterTestCase(QueryTestCase):
                                                           constants.DESC)
         self.assertTrue(williams[-1]["code"] > williams[0]["code"])
 
+    @versions(not_supported=["1.6.3"])
     def test_filter_nodes_nullable(self):
         Q = query.Q
         for i in range(5):
@@ -1457,6 +1487,7 @@ class FilterTestCase(QueryTestCase):
         williams = self.gdb.nodes.filter(lookup)[:10]
         self.assertTrue(len(williams) > 5)
 
+    @versions(not_supported=["1.6.3"])
     def test_filter_nodes_start(self):
         Q = query.Q
         nodes = []
@@ -1466,6 +1497,7 @@ class FilterTestCase(QueryTestCase):
         williams = self.gdb.nodes.filter(lookup, start=nodes)
         self.assertTrue(len(williams) == 5)
 
+    @versions(not_supported=["1.6.3"])
     def test_filter_nodes_start_index(self):
         Q = query.Q
         t = unicode(datetime.now().strftime('%s%f'))
@@ -1480,6 +1512,7 @@ class FilterTestCase(QueryTestCase):
         williams = self.gdb.nodes.filter(lookup, start=index["name"])
         self.assertTrue(len(williams) == 5)
 
+    @versions(not_supported=["1.6.3"])
     def test_filter_index_for_nodes(self):
         Q = query.Q
         n1 = self.gdb.nodes.create(name="Lemmy", band="Motörhead")
@@ -1493,6 +1526,7 @@ class FilterTestCase(QueryTestCase):
         self.assertTrue(n1 in index["bandś"].filter(lookup))
         self.assertTrue(n1 in index["bandś"].filter(lookup, value="Motörhead"))
 
+    @versions(not_supported=["1.6.3"])
     def test_filter_index_for_relationships(self):
         Q = query.Q
         n1 = self.gdb.nodes.create(name="Jóhn Doe", place="Texaś")
@@ -1508,6 +1542,7 @@ class FilterTestCase(QueryTestCase):
         self.assertTrue(r1 in index["feelińg"].filter(lookup))
         self.assertTrue(r1 in index["feelińg"].filter(lookup, value="háte"))
 
+    @versions(not_supported=["1.6.3"])
     def test_filter_relationships_start(self):
         Q = query.Q
         rels = []
@@ -1520,6 +1555,7 @@ class FilterTestCase(QueryTestCase):
         old_loves = self.gdb.relationships.filter(lookup, start=rels)
         self.assertTrue(len(old_loves) >= 5)
 
+    @versions(not_supported=["1.6.3"])
     def test_filter_relationships_start_index(self):
         Q = query.Q
         t = unicode(datetime.now().strftime('%s%f'))
