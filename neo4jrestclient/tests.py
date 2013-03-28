@@ -1486,7 +1486,7 @@ class FilterTestCase(QueryTestCase):
              ~Q("surname", endswith="1"))
         )
         williams = self.gdb.nodes.filter(lookups)
-        self.assertTrue(len(williams) >= 5)
+        self.assertTrue(len(williams) >= 4)
 
     @versions(not_supported=["1.6.3"])
     def test_filter_nodes_slicing(self):
