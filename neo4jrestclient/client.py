@@ -1611,6 +1611,7 @@ class Index(object):
                               obj=self, returns=self._index_for)
             return op
         else:
+            index_for = self._index_for.capitalize()
             request = Request(**self._auth)
             response, content = request.post(url, data=data)
             if response.status in [200, 201]:
@@ -1623,13 +1624,17 @@ class Index(object):
                     return Relationship(entity['self'],
                                         data=entity['data'],
                                         auth=self._auth)
+            elif response.status == 409:  # Create or fail, failing
+                if options.SMART_ERRORS:
+                    raise ValueError("duplicated item in index '%s'"
+                                     % index_for)
+                else:
+                    raise StatusException(response.status, "Duplicated item")
             else:
-                index_for = self._index_for.capitalize()
                 if options.SMART_ERRORS:
                     raise KeyError(index_for)
                 else:
-                    raise NotFoundError(response.status,
-                                        "%s not found" % index_for)
+                    raise StatusException(response.status, "Duplicated item")
 
     def delete(self, key=None, value=None, item=None, tx=None):
         if not key and not value and not item:

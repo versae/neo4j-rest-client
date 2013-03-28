@@ -444,30 +444,59 @@ class IndexesTestCase(RelationshipsTestCase):
         results = index.query(-Q('surnames', 'donald') | +Q('place', 'Texas'))
         self.assertTrue(n2 not in results and n1 in results)
 
+    @versions(not_supported=["1.6.3", "1.7.2", "1.8.2"])
     def test_index_get_or_create_created(self):
         index = self.gdb.nodes.indexes.create(name="doe")
         properties = {
             "name": "Lemmy",
             "band": "Motörhead",
-            "now": datetime.now().strftime('%s%f'),
         }
         n1 = index.get_or_create(key="bands", value="Motörhead",
                                  properties=properties)
         self.assertTrue(n1 in index["bands"]["Motörhead"])
 
+    @versions(not_supported=["1.6.3", "1.7.2", "1.8.2"])
     def test_index_get_or_create_existing(self):
+        index = self.gdb.nodes.indexes.create(name="doe")
+        now = datetime.now().strftime('%s%f')
+        properties = {
+            "name": "Lemmy",
+            "band": "Motörhead",
+            "now": now,
+        }
+        n1 = self.gdb.nodes.create(**properties)
+        index["now"][now] = n1
+        n2 = index.get_or_create(key="now", value=now,
+                                 properties=properties)
+        self.assertEqual(n1, n2)
+        self.assertTrue(n1 in index["now"][now])
+        self.assertTrue(n2 in index["now"][now])
+
+    @versions(not_supported=["1.6.3", "1.7.2", "1.8.2"])
+    def test_index_create_or_fail_created(self):
         index = self.gdb.nodes.indexes.create(name="doe")
         properties = {
             "name": "Lemmy",
             "band": "Motörhead",
-            "now": datetime.now().strftime('%s%f'),
+        }
+        n1 = index.create_or_fail(key="bands", value="Motörhead",
+                                  properties=properties)
+        self.assertTrue(n1 in index["bands"]["Motörhead"])
+
+    @versions(not_supported=["1.6.3", "1.7.2", "1.8.2"])
+    def test_index_create_or_fail_existing(self):
+        index = self.gdb.nodes.indexes.create(name="doe")
+        now = datetime.now().strftime('%s%f')
+        properties = {
+            "name": "Lemmy",
+            "band": "Motörhead",
+            "now": now,
         }
         n1 = self.gdb.nodes.create(**properties)
-        index["bands"]["Motörhead"] = n1
-        n2 = index.get_or_create(key="bands", value="Motörhead",
-                                 properties=properties)
-        self.assertEqueal(n1, n2)
-        self.assertTrue(n1 in index["bands"]["Motörhead"])
+        index["now"][now] = n1
+        self.assertRaises((Exception, ValueError, request.StatusException),
+                          index.create_or_fail,
+                          key="now", value=now, properties=properties)
 
 
 class TraversalsTestCase(IndexesTestCase):
