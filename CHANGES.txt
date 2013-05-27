@@ -2,6 +2,19 @@ Changes
 =======
 
 
+1.9.0 (2013-05-27)
+------------------
+- Add Neo4j 1.9 and 2.0.0-M02 to tests and Travis.
+- Fix Python 2.6 compatibility. Last Python 2.6 issue fixed.
+- Fix test_filter_nodes_complex_lookups test for empty databases
+- Fix get_or_create and create_or_fail tests and add SMART_ERRORS for those functions
+- Add support for Neo4j versions when testing in Travis
+- Add support for get_or_create and create_or_fail index operations
+- Adding integration tests with Travis-CI
+- Updated requirements.txt with Shrubbery proposals
+- Add experimental support for smart dates
+
+
 1.8.0 (2012-12-09)
 ------------------
 - Updated lucene-querybuilder requirement.
