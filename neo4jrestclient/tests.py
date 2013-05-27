@@ -803,6 +803,7 @@ class ExtensionsTestCase(TraversalsTestCase):
             fail = True
         self.assertTrue(not fail)
 
+    @versions(supported=["1.6.3", "1.7.2", "1.8.2", "1.9.0"])
     def test_gremlin_extension_reference_node(self):
         # Assuming the GremlinPlugin installed
         ext = self.gdb.extensions.GremlinPlugin
@@ -810,6 +811,7 @@ class ExtensionsTestCase(TraversalsTestCase):
         gremlin_n = ext.execute_script(script='g.v(%s)' % n.id)
         self.assertEqual(gremlin_n, n)
 
+    @versions(supported=["1.6.3", "1.7.2", "1.8.2", "1.9.0"])
     def test_gremlin_extension_reference_node_returns(self):
         # Assuming the GremlinPlugin installed
         ext = self.gdb.extensions.GremlinPlugin
@@ -818,6 +820,7 @@ class ExtensionsTestCase(TraversalsTestCase):
                                        returns=constants.NODE)
         self.assertEqual(gremlin_n, n)
 
+    @versions(supported=["1.6.3", "1.7.2", "1.8.2", "1.9.0"])
     def test_gremlin_extension_relationships(self):
         # Assuming the GremlinPlugin installed
         n1 = self.gdb.nodes.create()
@@ -831,6 +834,7 @@ class ExtensionsTestCase(TraversalsTestCase):
         for rel in rels:
             self.assertTrue(isinstance(rel, client.Relationship))
 
+    @versions(supported=["1.6.3", "1.7.2", "1.8.2", "1.9.0"])
     def test_gremlin_extension_relationships_returns(self):
         # Assuming the GremlinPlugin installed
         n1 = self.gdb.nodes.create()
@@ -848,6 +852,7 @@ class ExtensionsTestCase(TraversalsTestCase):
             self.assertTrue(isinstance(rel, client.Relationship))
         clientDebug.DEBUG = False
 
+    @versions(supported=["1.6.3", "1.7.2", "1.8.2", "1.9.0"])
     def test_gremlin_extension_reference_raw_returns(self):
         # Assuming the GremlinPlugin installed
         ext = self.gdb.extensions.GremlinPlugin
@@ -857,6 +862,7 @@ class ExtensionsTestCase(TraversalsTestCase):
         self.assertEqual(gremlin_n["data"], n.properties)
         self.assertTrue(isinstance(gremlin_n, dict))
 
+    @versions(supported=["1.6.3", "1.7.2", "1.8.2", "1.9.0"])
     def test_gremlin_results_raw(self):
         # Assuming the GremlinPlugin installed
         ext = self.gdb.extensions.GremlinPlugin
