@@ -16,10 +16,10 @@ Creating a node::
 
 Specify properties for new node::
 
-  >>> n = gdb.nodes.create(color="Red", widht=16, height=32)
+  >>> n = gdb.nodes.create(color="Red", width=16, height=32)
   
   # Or
-  >>> n = gdb.node(color="Red", widht=16, height=32)
+  >>> n = gdb.node(color="Red", width=16, height=32)
 
 Accessing node by id::
 
