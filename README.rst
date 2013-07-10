@@ -71,7 +71,7 @@ For the extended and latest version of the documentation, please, visit the
 
 
 
-.. _python-embedded: http://docs.neo4j.org/chunked/snapshot/python-embedded.html
+.. _python-embedded: http://docs.neo4j.org/drivers/python-embedded/snapshot/
 .. _lucene-querybuilder: http://github.com/scholrly/lucene-querybuilder
 .. _`read the docs`: http://readthedocs.org/docs/neo4j-rest-client/en/latest/
 .. _Documentation: http://readthedocs.org/docs/neo4j-rest-client/en/latest/
