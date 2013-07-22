@@ -32,7 +32,7 @@ class RelationshipDirection(object):
 
 
 class Filters(object):
-    """Filters answer the question (return true/false) 
+    """Filters answer the question (return true/false)
     Evaluation.INCLUDE_AND_CONTINUE
     Evaluation.EXCLUDE_AND_CONTINUE
     """
@@ -44,7 +44,7 @@ class Filters(object):
 
 
 class PruneEvaluators(object):
-    """PruneEvaluators answer the question (return true/false) 
+    """PruneEvaluators answer the question (return true/false)
     Evaluation.INCLUDE_AND_PRUNE
     Evaluation.EXCLUDE_AND_PRUNE
     """
@@ -68,13 +68,14 @@ class Traverser(object):
             return self._cache[return_type]
         except KeyError:
             url = self._endpoint.replace("{returnType}", return_type)
-            response, content =  Request(**self._auth).post(url, data=self._data)
+            response, content = Request(**self._auth).post(url,
+                                                           data=self._data)
             if response.status == 200:
                 results_list = json.loads(content)
                 self._cache[return_type] = results_list
                 return results_list
             elif response.status == 404:
-                raise NotFoundError(response.status, "Node or relationship " \
+                raise NotFoundError(response.status, "Node or relationship "
                                                      "not found")
             raise StatusException(response.status, "Invalid data sent")
 
@@ -90,7 +91,7 @@ class Traverser(object):
         results = self.request(Traverser.RELATIONSHIP)
         return Iterable(Relationship, results, "self")
 
-    @property 
+    @property
     def fullpaths(self):
         raise NotImplementedError()
 
@@ -119,8 +120,8 @@ class TraversalDescription(object):
             self._data["return_filter"] = value
         except KeyError:
             self._data["return_filter"] = {
-                "language":"javascript",
-                "body":value,
+                "language": "javascript",
+                "body": value,
             }
         return self
 
@@ -129,7 +130,8 @@ class TraversalDescription(object):
             value["language"]
             self._data["prune_evaluator"] = value
         except KeyError:
-            self._data["prune_evaluator"] = {"language":language, "body":value}
+            self._data["prune_evaluator"] = {"language": language,
+                                             "body": value}
 
     def order(self, value):
         self._data["order"] = value
@@ -146,8 +148,8 @@ class TraversalDescription(object):
     def relationships(self, name, direction=RelationshipDirection.ALL):
         self._data["relationships"] = []
         if (not isinstance(name, (str, unicode)) and hasattr(name, "type")
-            and hasattr(name, "direction")):
-            directon = name.direction
+                and hasattr(name, "direction")):
+            direction = name.direction
             name = name.type
         self.relationships_append(name, direction)
         self.relationships = self.relationships_append
@@ -155,12 +157,12 @@ class TraversalDescription(object):
 
     def relationships_append(self, name, direction=RelationshipDirection.ALL):
         if (not isinstance(name, (str, unicode)) and hasattr(name, "type")
-            and hasattr(name, "direction")):
-            directon = name.direction
+                and hasattr(name, "direction")):
+            direction = name.direction
             name = name.type
         self._data["relationships"].append({
-            "direction":direction,
-            "type":name,
+            "direction": direction,
+            "type": name,
         })
         return self
 
@@ -180,7 +182,7 @@ class Traversal(object):
 
     def __init__(self, start_node):
         self._description = Traversal.description()
-        self._start_node  = start_node
+        self._start_node = start_node
 
     @property
     def description(self):
