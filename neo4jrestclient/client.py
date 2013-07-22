@@ -1011,6 +1011,9 @@ class NodesProxy(dict):
         return elements_filter(self, lookups=lookups, start=start,
                                returns=Node)
 
+    def all(self):
+        return self.filter()
+
     def _indexes(self):
         if self._node_index:
             return IndexesProxy(self._node_index, NODE, auth=self._auth,
@@ -1460,6 +1463,9 @@ class IndexKey(object):
     def filter(self, lookups=[], value=None):
         return Index._filter(self, lookups, self._key, value)
 
+    def all(self):
+        return self.filter()
+
 
 class Index(object):
     """
@@ -1713,6 +1719,9 @@ class Index(object):
     def filter(self, lookups=[], key=None, value=None):
         return Index._filter(self, lookups, key, value)
 
+    def all(self):
+        return self.filter()
+
     @staticmethod
     def _filter(cls, lookups=[], key=None, value=None):
         if cls._cypher:
@@ -1800,6 +1809,9 @@ class RelationshipsProxy(dict):
     def filter(self, lookups=[], start=None):
         return elements_filter(self, lookups=lookups, start=start,
                                returns=Relationship)
+
+    def all(self):
+        return self.filter()
 
     def _indexes(self):
         if self._relationship_index:
