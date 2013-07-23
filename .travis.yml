@@ -15,7 +15,7 @@ env:
   - NEO4J_VERSION="1.6.3"
   - NEO4J_VERSION="1.7.2"
   - NEO4J_VERSION="1.8.2"
-  - NEO4J_VERSION="1.9"
-  - NEO4J_VERSION="2.0.0-M02"
+  - NEO4J_VERSION="1.9.2"
+  - NEO4J_VERSION="2.0.0-M03"
 script:
   - python neo4jrestclient/tests.py
