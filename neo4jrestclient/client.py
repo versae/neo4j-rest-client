@@ -1169,8 +1169,8 @@ class Node(Base):
             traverse_params = []
             if page_size:
                 traverse_params.append("pageSize=%s" % page_size)
-            if time_out:
-                traverse_params.append("leaseTime=%s" % time_out)
+            if time_out is not None:
+                traverse_params.append("leaseTime=%d" % time_out)
             traverse_url = self._dic["paged_traverse"].replace("{returnType}",
                                                                returns)
             traverse_url = traverse_url.replace("{?pageSize,leaseTime}", "")
