@@ -92,6 +92,8 @@ class GraphDatabase(object):
             self._extensions = response_json['extensions']
             self._cypher = response_json.get('cypher', None)
             self.VERSION = response_json.get('neo4j_version', None)
+            if self.VERSION:
+                self._auth.update({'version': self.VERSION})
             self.extensions = ExtensionsProxy(self._extensions,
                                               auth=self._auth)
             self.nodes = NodesProxy(self._node, self._reference_node,

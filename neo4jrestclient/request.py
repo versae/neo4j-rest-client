@@ -117,7 +117,7 @@ class StatusException(Exception):
         if result:
             self.result = "\n%s" % result
         else:
-            self.result = None # pedantic, but needed for __str__()
+            self.result = None  # pedantic, but needed for __str__()
 
     def __str__(self):
         return u"Error [%s]: %s. %s.%s" % (self.value,
@@ -153,7 +153,7 @@ class Request(object):
     """
 
     def __init__(self, username=None, password=None, key_file=None,
-                 cert_file=None):
+                 cert_file=None, **kwargs):
         self.username = username
         self.password = password
         self.key_file = key_file

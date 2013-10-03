@@ -82,7 +82,8 @@ class BaseQ(object):
         return hash((self.property, self.lookup, self.match,
                      self.nullable))
 
-    def get_query_objects(self, var=None, prefix=None, params=None):
+    def get_query_objects(self, var=None, prefix=None, params=None,
+                          version=None):
         """
         :return query, params: Query string and a dictionary for lookups
         """
@@ -168,7 +169,8 @@ class Q(BaseQ):
             match = u""
         return lookup, match
 
-    def get_query_objects(self, var=None, prefix=None, params=None):
+    def get_query_objects(self, var=None, prefix=None, params=None,
+                          version=None):
         if var:
             self.var = var
         if not params:
@@ -178,9 +180,11 @@ class Q(BaseQ):
         else:
             params.update(params)
         if self._and is not None:
-            left_and = self._and[0].get_query_objects(params=params)
+            left_and = self._and[0].get_query_objects(params=params,
+                                                      version=version)
             params.update(left_and[1])
-            right_and = self._and[1].get_query_objects(params=params)
+            right_and = self._and[1].get_query_objects(params=params,
+                                                       version=version)
             params.update(right_and[1])
             if self._and[0].is_valid() and self._and[1].is_valid():
                 query = u"( {0} AND {1} )".format(left_and[0], right_and[0])
@@ -191,13 +195,16 @@ class Q(BaseQ):
             else:
                 query = u" "
         elif self._not is not None:
-            op_not = self._not.get_query_objects(params=params)
+            op_not = self._not.get_query_objects(params=params,
+                                                 version=version)
             params.update(op_not[1])
             query = u"NOT ( {0} )".format(op_not[0])
         elif self._or is not None:
-            left_or = self._or[0].get_query_objects(params=params)
+            left_or = self._or[0].get_query_objects(params=params,
+                                                    version=version)
             params.update(left_or[1])
-            right_or = self._or[1].get_query_objects(params=params)
+            right_or = self._or[1].get_query_objects(params=params,
+                                                     version=version)
             params.update(right_or[1])
             if self._or[0].is_valid() and self._or[1].is_valid():
                 query = u"( {0} OR {1} )".format(left_or[0], right_or[0])
@@ -212,21 +219,45 @@ class Q(BaseQ):
             lookup, match = self._get_lookup_and_match()
         if self.property is not None and self.var is not None:
             key = u"{0}p{1}".format(prefix, len(params))
-            property = unicode(self.property).replace(u"`", u"\\`")
-            if self.nullable is True:
-                nullable = u"!"
-            elif self.nullable is False:
-                nullable = u"?"
-            else:
-                nullable = u""
-            params[key] = match
-            try:
-                query_format = u"{0}.`{1}`{2} {3} {{{4}}}"
-                query = query_format.format(self.var, property, nullable,
-                                            lookup, key)
-            except AttributeError:
-                query = u"%s.`%s`%s %s {%s}" % (self.var, property, nullable,
+            prop = unicode(self.property).replace(u"`", u"\\`")
+            NEO4J_V2 = version and version.split(".")[0] >= "2"
+            if NEO4J_V2 and self.nullable is True:
+                try:
+                    query_format = (u"(has({0}.`{1}`) and {2}.`{3}` "
+                                    u"{4} {{{5}}})")
+                    query = query_format.format(self.var, prop,
+                                                self.var, prop,
                                                 lookup, key)
+                except AttributeError:
+                    query = (u"( has(%s.`%s`) and %s.`%s` %s {%s} )"
+                             % (self.var, prop, self.var, prop, lookup, key))
+            if NEO4J_V2 and self.nullable is False:
+                try:
+                    query_format = (u"(not(has({0}.`{1}`)) or {2}.`{3}` "
+                                    u"{4} {{{5}}})")
+                    query = query_format.format(self.var, prop,
+                                                self.var, prop,
+                                                lookup, key)
+                except AttributeError:
+                    query = (u"( not(has(%s.`%s`)) or %s.`%s` %s {%s} )"
+                             % (self.var, prop, self.var, prop, lookup, key))
+            else:
+                if NEO4J_V2:
+                    nullable = u""
+                elif self.nullable is True:
+                    nullable = u"!"
+                elif self.nullable is False:
+                    nullable = u"?"
+                else:
+                    nullable = u""
+                try:
+                    query_format = u"{0}.`{1}`{2} {3} {{{4}}}"
+                    query = query_format.format(self.var, prop, nullable,
+                                                lookup, key)
+                except AttributeError:
+                    query = u"%s.`%s`%s %s {%s}" % (self.var, prop,
+                                                    nullable, lookup, key)
+            params[key] = match
         return query, params
 
 
@@ -280,19 +311,25 @@ class QuerySequence(Sequence):
         # Preparing slicing and ordering
         q = self.q
         params = self.params
+        version = self._auth.get('version', None)
+        NEO4J_V2 = version and version.split(".")[0] >= "2"
         if self._order_by:
             orders = []
             for o, order in enumerate(self._order_by):
                 order_key = "_order_by_%s" % o
                 if order_key not in params:
-                    nullable = ""
-                    if len(order) == 3:
-                        if order[2] is True:
-                            nullable = "!"
-                        elif order[2] is False:
-                            nullable = "?"
-                    orders.append(u"n.`{%s}`%s %s" % (order_key, nullable,
-                                                      order[1]))
+                    if NEO4J_V2:
+                        orders.append(u"n.`{%s}` %s"
+                                      % (order_key, order[1]))
+                    else:
+                        nullable = ""
+                        if len(order) == 3:
+                            if order[2] is True:
+                                nullable = "!"
+                            elif order[2] is False:
+                                nullable = "?"
+                        orders.append(u"n.`{%s}`%s %s" % (order_key, nullable,
+                                                          order[1]))
                     params[order_key] = order[0]
             if orders:
                 q = u"%s order by %s" % (q, ", ".join(orders))
@@ -374,6 +411,7 @@ class FilterSequence(QuerySequence):
 
     def __init__(self, cypher, auth, start=None, lookups=[],
                  order_by=None, types=None, returns=None):
+        self.version = auth.get('version', None)
         start = start or u"node(*)"
         q = u"start n=%s " % start
         where = None
@@ -385,7 +423,8 @@ class FilterSequence(QuerySequence):
                     wheres &= lookup
                 elif isinstance(lookup, dict):
                     wheres &= Q(**lookup)
-            where, params = wheres.get_query_objects(var="n")
+            where, params = wheres.get_query_objects(var="n",
+                                                     version=self.version)
         if where:
             q = u"%s where %s return n " % (q, where)
         else:
