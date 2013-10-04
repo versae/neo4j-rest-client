@@ -18,4 +18,4 @@ env:
   - NEO4J_VERSION="1.9.4"
   - NEO4J_VERSION="2.0.0-M06"
 script:
-  - python neo4jrestclient/tests.py
+  - python -m neo4jrestclient.tests

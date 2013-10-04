@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from datetime import date, datetime, time
 import json
-import sys
 try:
     import cPickle as pickle
 except:
@@ -11,27 +10,27 @@ import weakref
 import warnings
 from lucenequerybuilder import Q
 
-import options
-from query import QuerySequence, FilterSequence, CypherException
-from constants import (BREADTH_FIRST, DEPTH_FIRST,
-                       STOP_AT_END_OF_GRAPH,
-                       NODE_GLOBAL, NODE_PATH, NODE_RECENT,
-                       RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
-                       RELATIONSHIP_RECENT, NONE, INDEX, ITERABLE,
-                       NODE, RELATIONSHIP, PATH, POSITION, FULLPATH, RAW,
-                       INDEX_FULLTEXT, TX_GET, TX_PUT, TX_POST, TX_DELETE,
-                       INDEX_RELATIONSHIP, INDEX_NODE,
-                       RELATIONSHIPS_ALL, RELATIONSHIPS_IN, RELATIONSHIPS_OUT,
-                       RETURN_ALL_NODES, RETURN_ALL_BUT_START_NODE)
-from iterable import Iterable
-from request import (Request, NotFoundError, StatusException,
-                     TransactionException)
-from traversals import TraversalDescription
+from . import options
+from .query import QuerySequence, FilterSequence, CypherException
+from .constants import (BREADTH_FIRST, DEPTH_FIRST,
+                        STOP_AT_END_OF_GRAPH,
+                        NODE_GLOBAL, NODE_PATH, NODE_RECENT,
+                        RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
+                        RELATIONSHIP_RECENT, NONE, INDEX, ITERABLE,
+                        NODE, RELATIONSHIP, PATH, POSITION, FULLPATH, RAW,
+                        INDEX_FULLTEXT, TX_GET, TX_PUT, TX_POST, TX_DELETE,
+                        INDEX_RELATIONSHIP, INDEX_NODE,
+                        RELATIONSHIPS_ALL, RELATIONSHIPS_IN, RELATIONSHIPS_OUT,
+                        RETURN_ALL_NODES, RETURN_ALL_BUT_START_NODE)
+from .iterable import Iterable
+from .labels import NodeLabelsProxy, LabelsProxy
+from .request import (Request, NotFoundError, StatusException,
+                      TransactionException)
+from .traversals import TraversalDescription
+from .utils import smart_quote
 
 __all__ = ["GraphDatabase", "Incoming", "Outgoing", "Undirected",
            "StopAtDepth", "NotFoundError", "StatusException", "Q"]
-
-PYTHON_VERSION = sys.version_info
 
 
 class StopAtDepth(object):
@@ -86,6 +85,9 @@ class GraphDatabase(object):
             response_json = json.loads(content)
             self._relationship_index = response_json['relationship_index']
             self._node = response_json['node']
+            self._labels = response_json.get('labels',
+                                             "{}labels".format(self.url))
+            self._labels_list = None
             self._node_index = response_json['node_index']
             self._reference_node = response_json.get('reference_node', None)
             self._extensions_info = response_json['extensions_info']
@@ -201,6 +203,16 @@ class GraphDatabase(object):
                                  types=types, returns=returns)
         else:
             raise CypherException
+
+    def _get_labels(self):
+        if not self._labels_list and self.VERSION.split(".")[0] >= "2":
+            self._labels_list = LabelsProxy(self._labels,
+                                            auth=self._auth,
+                                            cypher=self._cypher,
+                                            node=Node)
+        return self._labels_list
+
+    labels = property(_get_labels)
 
 
 class TransactionOperationProxy(dict, object):
@@ -684,6 +696,7 @@ class Base(object):
         self._dic = {}
         self._auth = auth or {}
         self.url = None
+        self._labels = None
         # Allow update an object using only a new data dict of properties
         self._update_dict = update_dict
         if url.endswith("/"):
@@ -1206,6 +1219,27 @@ class Node(Base):
                 except (ValueError, AttributeError, KeyError):
                     pass
                 raise StatusException(response.status, msg)
+
+    def _set_labels(self, labels):
+        if isinstance(labels, (tuple, list)):
+            self._labels = NodeLabelsProxy(
+                self._dic['labels'], labels=labels, auth=self._auth,
+                node=Node
+            )
+        else:
+            self._labels = NodeLabelsProxy(
+                self._dic['labels'], labels=[labels], auth=self._auth,
+                node=Node
+            )
+
+    def _get_labels(self):
+        if not self._labels:
+            self._labels = NodeLabelsProxy(
+                self._dic['labels'], auth=self._auth, node=Node
+            )
+        return self._labels
+
+    labels = property(_get_labels, _get_labels)
 
 
 class PaginatedTraversal(object):
@@ -2302,27 +2336,3 @@ def elements_filter(cls, lookups=[], start=None, returns=None):
                               types=types, lookups=lookups, returns=returns)
     else:
         raise CypherException
-
-
-if PYTHON_VERSION < (2, 7):
-    def smart_quote(val):
-        if isinstance(val, (bool, int, long)):
-            return urllib.quote(json.dumps(val), safe="")
-        elif isinstance(val, float):
-            return unicode(val)
-        else:
-            try:
-                safe_key = urllib.quote(val, safe="")
-            except (KeyError, UnicodeEncodeError, UnicodeError):
-                safe_key = urllib.quote(val.encode("utf8"), safe="")
-            return safe_key
-else:
-    def smart_quote(val):
-        if isinstance(val, (bool, int, float, long)):
-            return urllib.quote(json.dumps(val), safe="")
-        else:
-            try:
-                safe_key = urllib.quote(val, safe="")
-            except (KeyError, UnicodeEncodeError, UnicodeError):
-                safe_key = urllib.quote(val.encode("utf8"), safe="")
-            return safe_key
