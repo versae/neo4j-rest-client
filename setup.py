@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import os
 
-from distutils.core import setup
+from setuptools import setup
 
 
 def read(*rnames):
@@ -28,7 +28,7 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Topic :: Internet :: WWW/HTTP',
-        ],
+    ],
     zip_safe=False,
     packages=[
         "neo4jrestclient",
@@ -38,4 +38,5 @@ setup(
         'httplib2',
         'lucene-querybuilder==0.1.6',
     ],
+    test_suite='neo4jrestclient.tests',
 )

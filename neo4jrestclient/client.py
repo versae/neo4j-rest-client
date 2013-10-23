@@ -10,24 +10,28 @@ import weakref
 import warnings
 from lucenequerybuilder import Q
 
-from . import options
-from .query import QuerySequence, FilterSequence, CypherException
-from .constants import (BREADTH_FIRST, DEPTH_FIRST,
-                        STOP_AT_END_OF_GRAPH,
-                        NODE_GLOBAL, NODE_PATH, NODE_RECENT,
-                        RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
-                        RELATIONSHIP_RECENT, NONE, INDEX, ITERABLE,
-                        NODE, RELATIONSHIP, PATH, POSITION, FULLPATH, RAW,
-                        INDEX_FULLTEXT, TX_GET, TX_PUT, TX_POST, TX_DELETE,
-                        INDEX_RELATIONSHIP, INDEX_NODE,
-                        RELATIONSHIPS_ALL, RELATIONSHIPS_IN, RELATIONSHIPS_OUT,
-                        RETURN_ALL_NODES, RETURN_ALL_BUT_START_NODE)
-from .iterable import Iterable
-from .labels import NodeLabelsProxy, LabelsProxy
-from .request import (Request, NotFoundError, StatusException,
-                      TransactionException)
-from .traversals import TraversalDescription
-from .utils import smart_quote
+from neo4jrestclient import options
+from neo4jrestclient.query import (
+    QuerySequence, FilterSequence, CypherException
+)
+from neo4jrestclient.constants import (
+    BREADTH_FIRST, DEPTH_FIRST,
+    STOP_AT_END_OF_GRAPH,
+    NODE_GLOBAL, NODE_PATH, NODE_RECENT,
+    RELATIONSHIP_GLOBAL, RELATIONSHIP_PATH,
+    RELATIONSHIP_RECENT, NONE, INDEX, ITERABLE,
+    NODE, RELATIONSHIP, PATH, POSITION, FULLPATH, RAW,
+    INDEX_FULLTEXT, TX_GET, TX_PUT, TX_POST, TX_DELETE,
+    INDEX_RELATIONSHIP, INDEX_NODE,
+    RELATIONSHIPS_ALL, RELATIONSHIPS_IN, RELATIONSHIPS_OUT,
+    RETURN_ALL_NODES, RETURN_ALL_BUT_START_NODE
+)
+from neo4jrestclient.iterable import Iterable
+from neo4jrestclient.labels import NodeLabelsProxy, LabelsProxy
+from neo4jrestclient.request import (Request, NotFoundError, StatusException,
+                                     TransactionException)
+from neo4jrestclient.traversals import TraversalDescription
+from neo4jrestclient.utils import smart_quote
 
 __all__ = ["GraphDatabase", "Incoming", "Outgoing", "Undirected",
            "StopAtDepth", "NotFoundError", "StatusException", "Q"]
@@ -1709,13 +1713,12 @@ class Index(object):
                 request_url = "index/%s/%s/%s/%s" \
                               % (self._index_for, self.name, key, item.id)
             elif not key and not value:
-                url = self.template.replace("{key}/{value}", item.id)
+                url = self.template.replace("{key}/{value}", str(item.id))
                 request_url = "index/%s/%s/%s" % (self._index_for, self.name,
                                                   item.id)
             else:
-                raise TypeError("delete() takes at least 2 arguments, the "
-                                "key of the index and the %s to remove"
-                                % self._index_for)
+                raise TypeError("delete() takes at least 1 argument, the "
+                                "%s to remove" % self._index_for)
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_DELETE, request_url, obj=self)
