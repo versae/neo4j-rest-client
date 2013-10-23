@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
 # From https://gist.github.com/1865786 by @aventurella
 # http://docs.neo4j.org/chunked/snapshot/rest-api-traverse.html#rest-api-traversal-returning-nodes-below-a-certain-depth
-try:
-    import simplejson as json
-except ImportError:
-    import json
+import json
 
-import constants
-from iterable import Iterable
-from request import Request, NotFoundError, StatusException
+from neo4jrestclient import constants
+from neo4jrestclient.iterable import Iterable
+from neo4jrestclient.request import Request, NotFoundError, StatusException
 
 
 class Order(object):

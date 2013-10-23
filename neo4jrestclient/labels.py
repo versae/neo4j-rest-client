@@ -1,9 +1,9 @@
 import json
 
-from . import options
-from .iterable import Iterable
-from .request import Request, StatusException
-from .utils import smart_quote
+from neo4jrestclient import options
+from neo4jrestclient.iterable import Iterable
+from neo4jrestclient.request import Request, StatusException
+from neo4jrestclient.utils import smart_quote
 
 
 class Label(object):

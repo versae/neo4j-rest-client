@@ -3,8 +3,8 @@
 import json
 from collections import Sequence
 
-from constants import RAW
-from request import Request, StatusException
+from neo4jrestclient.constants import RAW
+from neo4jrestclient.request import Request, StatusException
 
 
 class BaseQ(object):

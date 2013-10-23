@@ -8,8 +8,8 @@ import json
 import time
 from urlparse import urlparse
 
-import options
-from constants import __version__
+from neo4jrestclient import options
+from neo4jrestclient.constants import __version__
 
 if options.DEBUG:
     httplib2.debuglevel = 1
