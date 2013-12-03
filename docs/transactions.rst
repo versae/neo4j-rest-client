@@ -64,7 +64,7 @@ in the transaction can be added to avoid the commit::
   0
 
 The 'commit' method of the transaction object returns 'True' if there's no any
-fail. Otherwose, it returns 'None'::
+fail. Otherwise, it returns 'None'::
 
   >>> tx.commit()
   True
