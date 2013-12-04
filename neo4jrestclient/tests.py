@@ -1429,6 +1429,20 @@ class QueryTestCase(PickleTestCase):
         self.assertTrue(result is not None)
 
     @versions(not_supported=["1.6.3"])
+    def test_query_raw_no_return(self):
+        n1 = self.gdb.nodes.create(name="John")
+        #This sets a property which we will check later
+        q = """start n=node(*) WHERE HAS(n.name) AND n.name='John' SET n.newproperty=True;"""
+        #notice there is NO return value
+        self.gdb.query(q=q)
+        #here, we find all nodes that have this property set
+        q = """start n=node(*) WHERE HAS(n.newproperty) return n;"""
+        result = self.gdb.query(q=q)
+        self.assertTrue(result is not None)
+        #assuming the properties are set according for the first cypher query, this should always be True
+        self.assertTrue(len(result) > 0)
+
+    @versions(not_supported=["1.6.3"])
     def test_query_raw_returns(self):
         n1 = self.gdb.nodes.create(name="John")
         n2 = self.gdb.nodes.create(name="William")
