@@ -5,7 +5,11 @@ try:
     import cPickle as pickle
 except:
     import pickle
-import sys
+try:
+    reload
+except NameError:
+    # Python 3
+    from imp import reload
 import unittest
 import os
 
@@ -14,6 +18,7 @@ from neo4jrestclient import client
 from neo4jrestclient import options
 from neo4jrestclient import query
 from neo4jrestclient import request
+from neo4jrestclient.utils import text_type, PY2
 
 
 NEO4J_URL = os.environ.get('NEO4J_URL', "http://localhost:7474/db/data/")
@@ -39,34 +44,38 @@ def versions(supported=None, not_supported=None):
     return _versions
 
 
-class NodesTestCase(unittest.TestCase):
+class GraphDatabaseTesCase(unittest.TestCase):
+
     def setUp(self):
         self.url = NEO4J_URL
         self.gdb = client.GraphDatabase(self.url)
 
     def tearDown(self):
-        import options as clientCacheDebug
+        from neo4jrestclient import options as clientCacheDebug
         clientCacheDebug.DEBUG = False
         clientCacheDebug.CACHE = False
         if self.gdb:
             self.gdb.flush()
 
+
+class NodesTestCase(GraphDatabaseTesCase):
+
     def test_connection_cache(self):
-        import options as clientCache
+        from neo4jrestclient import options as clientCache
         clientCache.CACHE = True
         gdb = client.GraphDatabase(self.url)
         clientCache.CACHE = False
         self.assertEqual(gdb.url, self.url)
 
     def test_connection_debug(self):
-        import options as clientDebug
+        from neo4jrestclient import options as clientDebug
         clientDebug.DEBUG = True
         gdb = client.GraphDatabase(self.url)
         clientDebug.DEBUG = False
         self.assertEqual(gdb.url, self.url)
 
     def test_connection_cache_debug(self):
-        import options as clientCacheDebug
+        from neo4jrestclient import options as clientCacheDebug
         clientCacheDebug.CACHE = True
         clientCacheDebug.DEBUG = True
         gdb = client.GraphDatabase(self.url)
@@ -105,7 +114,7 @@ class NodesTestCase(unittest.TestCase):
         self.assertEqual(n.get("surname", "Doe"), "Doe")
 
     def test_create_node_date(self):
-        import options as clientSmartDates
+        from neo4jrestclient import options as clientSmartDates
         clientSmartDates.SMART_DATES = True
         dt = datetime.utcnow()
         d = dt.date()
@@ -161,7 +170,7 @@ class NodesTestCase(unittest.TestCase):
         self.assertEqual(n1.get("name"), n2.get("name"))
 
     def test_set_node_property_date(self):
-        import options as clientSmartDates
+        from neo4jrestclient import options as clientSmartDates
         clientSmartDates.SMART_DATES = True
         dt = datetime.utcnow()
         n1 = self.gdb.node(name="John Doe", profession="Hacker")
@@ -219,7 +228,7 @@ class NodesTestCase(unittest.TestCase):
         try:
             self.gdb.nodes.get(identifier)
             self.fail()
-        except request.NotFoundError, request.StatusException:
+        except (request.NotFoundError, request.StatusException):
             pass
 
     def test_node_hash(self):
@@ -229,7 +238,7 @@ class NodesTestCase(unittest.TestCase):
         self.assertEqual(hash(n1), hash(n2))
 
 
-class RelationshipsTestCase(NodesTestCase):
+class RelationshipsTestCase(GraphDatabaseTesCase):
 
     def test_create_relationship(self):
         n1 = self.gdb.node()
@@ -314,7 +323,7 @@ class RelationshipsTestCase(NodesTestCase):
                           rel_id)
 
 
-class IndexesTestCase(RelationshipsTestCase):
+class IndexesTestCase(GraphDatabaseTesCase):
 
     def test_create_index_for_nodes(self):
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
@@ -429,6 +438,9 @@ class IndexesTestCase(RelationshipsTestCase):
                           index["feeling"].__getitem__, "hate")
 
     def test_query_index(self):
+        if not PY2:
+            # Lucene Query Builder is not Python3 compliant yet
+            return
         Q = client.Q
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
         n2 = self.gdb.nodes.create(name="Michael Donald", place="Tijuana")
@@ -506,7 +518,7 @@ class IndexesTestCase(RelationshipsTestCase):
                           key="now", value=now, properties=properties)
 
 
-class TraversalsTestCase(IndexesTestCase):
+class TraversalsTestCase(GraphDatabaseTesCase):
 
     def test_create_traversal(self):
         n1 = self.gdb.nodes.create()
@@ -522,7 +534,7 @@ class TraversalsTestCase(IndexesTestCase):
         """
         Tests the use of Path as returnable type.
         """
-        nodes = [self.gdb.nodes.create() for i in xrange(10)]
+        nodes = [self.gdb.nodes.create() for i in range(10)]
         # Chain them into a linked list
         last = None
         for n in nodes:
@@ -571,7 +583,7 @@ class TraversalsTestCase(IndexesTestCase):
         """
         Tests the use of constants.STOP_AT_END_OF_GRAPH as a stop depth.
         """
-        nodes = [self.gdb.nodes.create() for i in xrange(10)]
+        nodes = [self.gdb.nodes.create() for i in range(10)]
         # Chain them into a linked list
         last = None
         for n in nodes:
@@ -632,7 +644,7 @@ class TraversalsTestCase(IndexesTestCase):
         """
         Tests the use of paginated traversals.
         """
-        nodes = [self.gdb.nodes.create() for i in xrange(10)]
+        nodes = [self.gdb.nodes.create() for i in range(10)]
         # Chain them into a linked list
         last = None
         for n in nodes:
@@ -691,7 +703,7 @@ class TraversalsTestCase(IndexesTestCase):
         # END SNIPPET: basicTraversal
         self.assertEqual(len(list(traverser.nodes)), 1)
         # START SNIPPET: directedTraversal
-        from traversals import RelationshipDirection
+        from neo4jrestclient.traversals import RelationshipDirection
         OUTGOING = RelationshipDirection.OUTGOING
         INCOMING = RelationshipDirection.INCOMING
         #ANY = RelationshipDirection.ANY
@@ -722,7 +734,7 @@ class TraversalsTestCase(IndexesTestCase):
         # END SNIPPET: traversalResults
 
     def test_traverse_programmatic_types(self):
-        from client import Direction
+        from neo4jrestclient.client import Direction
         self.create_data()
         t = self.gdb.traversal()\
             .depthFirst()\
@@ -736,7 +748,7 @@ class TraversalsTestCase(IndexesTestCase):
         db = self.gdb
         start_node = self.source
         # START SNIPPET: uniqueness
-        from traversals import Uniqueness
+        from neo4jrestclient.traversals import Uniqueness
         traverser = db.traversal()\
             .uniqueness(Uniqueness.NODE_PATH)\
             .traverse(start_node)
@@ -791,7 +803,7 @@ class TraversalsTestCase(IndexesTestCase):
             break
 
 
-class ExtensionsTestCase(TraversalsTestCase):
+class ExtensionsTestCase(GraphDatabaseTesCase):
 
     def test_get_graph_extensions(self):
         fail = False
@@ -850,7 +862,7 @@ class ExtensionsTestCase(TraversalsTestCase):
         n1.relationships.create("related", n2)
         n1.relationships.create("related", n3)
         gremlin = self.gdb.extensions.GremlinPlugin.execute_script
-        import options as clientDebug
+        from neo4jrestclient import options as clientDebug
         clientDebug.DEBUG = True
         rels = gremlin(script='g.v(%s).outE' % n1.id,
                        returns=constants.RELATIONSHIP)
@@ -878,7 +890,7 @@ class ExtensionsTestCase(TraversalsTestCase):
         self.assertEqual(n, [1, 2])
 
 
-class TransactionsTestCase(ExtensionsTestCase):
+class TransactionsTestCase(GraphDatabaseTesCase):
 
     def test_transaction_delete(self):
         n = self.gdb.nodes.create()
@@ -1067,7 +1079,7 @@ class TransactionsTestCase(ExtensionsTestCase):
             self.assertEqual(position, node["position"])
 
     def test_transaction_conections(self):
-        import options as clientDebug
+        from neo4jrestclient import options as clientDebug
         clientDebug.DEBUG = True
         id_list = []
         for i in range(5):
@@ -1270,7 +1282,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         self.assertTrue(has_props(n2))
 
 #    def test_transaction_traversal(self):
-#        nodes = [self.gdb.nodes.create() for i in xrange(10)]
+#        nodes = [self.gdb.nodes.create() for i in range(10)]
 #        # Chain them into a linked list
 #        last = None
 #        for n in nodes:
@@ -1295,7 +1307,7 @@ class TransactionsTestCase(ExtensionsTestCase):
         EDGE_DICT = {}
         operations = 0
         with self.gdb.transaction() as tx:
-            for i in xrange(1, 1000):
+            for i in range(1, 1000):
                 operations = len(tx.operations)
                 id1 = i
                 id2 = i + 1
@@ -1313,7 +1325,6 @@ class TransactionsTestCase(ExtensionsTestCase):
                     EDGE_DICT[(id1, id2)] = edge
                 else:
                     edge = EDGE_DICT[(id1, id2)]
-        print i, operations
         self.assertTrue(operations >= i)
 
     def test_transaction_access_node(self):
@@ -1402,7 +1413,7 @@ class TransactionsTestCase(ExtensionsTestCase):
     #     self.assertEqual(use_case(), None)
 
 
-class PickleTestCase(TransactionsTestCase):
+class PickleTestCase(GraphDatabaseTesCase):
 
     def test_node_pickle(self):
         n = self.gdb.nodes.create()
@@ -1417,7 +1428,7 @@ class PickleTestCase(TransactionsTestCase):
         self.assertEqual(r, pickle.loads(p))
 
 
-class QueryTestCase(PickleTestCase):
+class QueryTestCase(GraphDatabaseTesCase):
 
     @versions(not_supported=["1.6.3"])
     def test_query_raw(self):
@@ -1444,11 +1455,11 @@ class QueryTestCase(PickleTestCase):
     def test_query_raw_returns_tuple(self):
         n1 = self.gdb.nodes.create(name="John")
         n2 = self.gdb.nodes.create(name="William")
-        rel_type = u"rel%s" % unicode(datetime.now().strftime('%s%f'))
+        rel_type = u"rel%s" % text_type(datetime.now().strftime('%s%f'))
         r = n1.relationships.create(rel_type, n2, since=1982)
         q = """start n=node(*) match n-[r:%s]-() """ \
             """return n, n.name, r, r.since""" % rel_type
-        results = self.gdb.query(q, returns=(client.Node, unicode,
+        results = self.gdb.query(q, returns=(client.Node, text_type,
                                              client.Relationship))
         for node, name, rel, date in results:
             self.assertTrue(node in (n1, n2))
@@ -1460,7 +1471,7 @@ class QueryTestCase(PickleTestCase):
     def test_query_params_returns_tuple(self):
         n1 = self.gdb.nodes.create(name="John")
         n2 = self.gdb.nodes.create(name="William")
-        rel_type = u"rel%s" % unicode(datetime.now().strftime('%s%f'))
+        rel_type = u"rel%s" % text_type(datetime.now().strftime('%s%f'))
         r = n1.relationships.create(rel_type, n2, since=1982)
         q = """start n=node(*) match n-[r:`{rel}`]-() """ \
             """return n, n.name, r, r.since"""
@@ -1468,7 +1479,7 @@ class QueryTestCase(PickleTestCase):
             "rel": rel_type,
         }
         results = self.gdb.query(q, params=params,
-                                 returns=(client.Node, unicode,
+                                 returns=(client.Node, text_type,
                                           client.Relationship))
         for node, name, rel, date in results:
             self.assertTrue(node in (n1, n2))
@@ -1477,7 +1488,7 @@ class QueryTestCase(PickleTestCase):
             self.assertEqual(date, 1982)
 
 
-class FilterTestCase(QueryTestCase):
+class FilterTestCase(GraphDatabaseTesCase):
 
     @versions(not_supported=["1.6.3"])
     def test_filter_nodes(self):
@@ -1542,7 +1553,7 @@ class FilterTestCase(QueryTestCase):
     @versions(not_supported=["1.6.3"])
     def test_filter_nodes_start_index(self):
         Q = query.Q
-        t = unicode(datetime.now().strftime('%s%f'))
+        t = text_type(datetime.now().strftime('%s%f'))
         index_name = "filter_nodes_start_index_%s" % t
         index = self.gdb.nodes.indexes.create(name=index_name)
         for i in range(5):
@@ -1600,7 +1611,7 @@ class FilterTestCase(QueryTestCase):
     @versions(not_supported=["1.6.3"])
     def test_filter_relationships_start_index(self):
         Q = query.Q
-        t = unicode(datetime.now().strftime('%s%f'))
+        t = text_type(datetime.now().strftime('%s%f'))
         index_name = "filter_relationships_start_index_%s" % t
         index = self.gdb.relationships.indexes.create(name=index_name)
         for i in range(5):
@@ -1615,54 +1626,50 @@ class FilterTestCase(QueryTestCase):
         self.assertTrue(len(old_loves) == 5)
 
 
-class Neo4jPythonClientTestCase(FilterTestCase):
-    pass
-
-
 class FakeCache(object):
     def __init__(self, called):
         self.called = called
+        self.dict = {}
 
     def get(self, key):
         self.called['get'] = True
-        return None
+        return self.dict.get(key, None)
 
     def set(self, key, value):
         self.called['set'] = True
+        self.dict[key] = value
 
     def delete(self, key):
-        pass
+        if key in self.dict:
+            del self.dict[key]
 
 
 class XtraCacheTestCase(unittest.TestCase):
+
     def setUp(self):
         self.cache_called = {}
+        self.cache = options.CACHE
+        self.cache_store = options.CACHE
         options.CACHE = True
         options.CACHE_STORE = FakeCache(self.cache_called)
         # reload modules now cache set
-        del sys.modules['neo4jrestclient.request']
-        del sys.modules['neo4jrestclient.client']
-        import client
-        gdb = client.GraphDatabase(NEO4J_URL)
-        gdb
+        reload(request)
+        reload(client)
+        self.gdb = client.GraphDatabase(NEO4J_URL)
 
     def test_custom_cache_used(self):
-        self.assertTrue(self.cache_called['get'])
-        self.assertTrue(self.cache_called['set'])
+        n = self.gdb.nodes.create()
+        response = request.session.get(n.url)
+        self.assertTrue(hasattr(response, "from_cache"))
 
     def tearDown(self):
         # leave everything as we found it
-        options.CACHE = False
-        options.CACHE_STORE = '.cache'
-        del sys.modules['neo4jrestclient.request']
-        del sys.modules['neo4jrestclient.client']
-        import client
+        options.CACHE = self.cache
+        options.CACHE_STORE = self.cache_store
+        reload(request)
+        reload(client)
         client
 
 
 if __name__ == '__main__':
-    test_loader = unittest.TestLoader()
-    suite = test_loader.loadTestsFromTestCase(Neo4jPythonClientTestCase)
-    run = unittest.TextTestRunner(verbosity=2).run(suite)
-    if run.errors or run.failures:
-        exit(1)
+    unittest.main()

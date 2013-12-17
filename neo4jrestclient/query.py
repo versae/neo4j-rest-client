@@ -5,6 +5,7 @@ from collections import Sequence
 
 from neo4jrestclient.constants import RAW
 from neo4jrestclient.request import Request, StatusException
+from neo4jrestclient.utils import text_type, string_types
 
 
 class BaseQ(object):
@@ -219,7 +220,7 @@ class Q(BaseQ):
             lookup, match = self._get_lookup_and_match()
         if self.property is not None and self.var is not None:
             key = u"{0}p{1}".format(prefix, len(params))
-            prop = unicode(self.property).replace(u"`", u"\\`")
+            prop = text_type(self.property).replace(u"`", u"\\`")
             NEO4J_V2 = version and version.split(".")[0] >= "2"
             if NEO4J_V2 and self.nullable is True:
                 try:
@@ -346,10 +347,10 @@ class QuerySequence(Sequence):
             "params": params,
         }
         response, content = Request(**self._auth).post(self._cypher, data=data)
-        if response.status == 200:
+        if response.status_code == 200:
             response_json = json.loads(content)
             return response_json
-        elif response.status == 400:
+        elif response.status_code == 400:
             err_msg = u"Cypher query exception"
             try:
                 err_msg = "%s: %s" % (err_msg, json.loads(content)["message"])
@@ -357,7 +358,7 @@ class QuerySequence(Sequence):
                 err_msg = "%s: %s" % (err_msg, content)
             raise CypherException(err_msg)
         else:
-            raise StatusException(response.status, "Invalid data sent")
+            raise StatusException(response.status_code, "Invalid data sent")
 
     def cast(self, elements, returns=None):
         neutral = lambda x: x
@@ -382,7 +383,7 @@ class QuerySequence(Sequence):
                 for i, element in enumerate(row):
                     func = returns[i]
                     # We also allow the use of constants like NODE, etc
-                    if isinstance(func, basestring):
+                    if isinstance(func, string_types):
                         func_lower = func.lower()
                         if func_lower in types_keys:
                             func = self._types[func_lower]

@@ -6,7 +6,7 @@ import json
 from neo4jrestclient import constants
 from neo4jrestclient.iterable import Iterable
 from neo4jrestclient.request import Request, NotFoundError, StatusException
-
+from neo4jrestclient.utils import string_types
 
 class Order(object):
     BREADTH_FIRST = constants.BREADTH_FIRST
@@ -67,24 +67,24 @@ class Traverser(object):
             url = self._endpoint.replace("{returnType}", return_type)
             response, content = Request(**self._auth).post(url,
                                                            data=self._data)
-            if response.status == 200:
+            if response.status_code == 200:
                 results_list = json.loads(content)
                 self._cache[return_type] = results_list
                 return results_list
-            elif response.status == 404:
-                raise NotFoundError(response.status, "Node or relationship "
+            elif response.status_code == 404:
+                raise NotFoundError(response.status_code, "Node or relationship "
                                                      "not found")
-            raise StatusException(response.status, "Invalid data sent")
+            raise StatusException(response.status_code, "Invalid data sent")
 
     @property
     def nodes(self):
-        from client import Node
+        from neo4jrestclient.client import Node
         results = self.request(Traverser.NODE)
         return Iterable(Node, results, "self")
 
     @property
     def relationships(self):
-        from client import Relationship
+        from neo4jrestclient.client import Relationship
         results = self.request(Traverser.RELATIONSHIP)
         return Iterable(Relationship, results, "self")
 
@@ -93,7 +93,7 @@ class Traverser(object):
         raise NotImplementedError()
 
     def __iter__(self):
-        from client import Path
+        from neo4jrestclient.client import Path
         results = self.request(Traverser.PATH)
         return Iterable(Path, results, auth=self._auth)
 
@@ -144,7 +144,7 @@ class TraversalDescription(object):
 
     def relationships(self, name, direction=RelationshipDirection.ALL):
         self._data["relationships"] = []
-        if (not isinstance(name, (str, unicode)) and hasattr(name, "type")
+        if (not isinstance(name, string_types) and hasattr(name, "type")
                 and hasattr(name, "direction")):
             direction = name.direction
             name = name.type
@@ -153,7 +153,7 @@ class TraversalDescription(object):
         return self
 
     def relationships_append(self, name, direction=RelationshipDirection.ALL):
-        if (not isinstance(name, (str, unicode)) and hasattr(name, "type")
+        if (not isinstance(name, string_types) and hasattr(name, "type")
                 and hasattr(name, "direction")):
             direction = name.direction
             name = name.type

@@ -64,8 +64,11 @@ class Iterable(list):
         except KeyError:
             return None
 
-    def next(self):
+    def __next__(self):
         if self._index == 0:
             raise StopIteration
         self._index = self._index - 1
         return self.__getitem__(self._index)
+
+    def next(self):
+        return self.__next__()

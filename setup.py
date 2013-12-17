@@ -35,8 +35,9 @@ setup(
     ],
     include_package_data=True,
     install_requires=[
-        'httplib2',
-        'lucene-querybuilder==0.1.6',
+        'requests',
+        'lucene-querybuilder==0.2',
     ],
     test_suite='neo4jrestclient.tests',
+    # use_2to3=True,
 )

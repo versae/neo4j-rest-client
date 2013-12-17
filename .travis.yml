@@ -1,6 +1,7 @@
 language: python
 python:
   - "2.7"
+  - "3.3"
 before_install:
   - export NEO4J_PORT="7474"
   - sudo service neo4j stop || true
@@ -15,6 +16,6 @@ env:
   - NEO4J_VERSION="1.7.2"
   - NEO4J_VERSION="1.8.2"
   - NEO4J_VERSION="1.9.4"
-  - NEO4J_VERSION="2.0.0-M06"
+  - NEO4J_VERSION="2.0.0"
 script:
   - python -m neo4jrestclient.tests

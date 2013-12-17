@@ -5,7 +5,6 @@ try:
     import cPickle as pickle
 except:
     import pickle
-import urllib
 import weakref
 import warnings
 from lucenequerybuilder import Q
@@ -31,7 +30,8 @@ from neo4jrestclient.labels import NodeLabelsProxy, LabelsProxy
 from neo4jrestclient.request import (Request, NotFoundError, StatusException,
                                      TransactionException)
 from neo4jrestclient.traversals import TraversalDescription
-from neo4jrestclient.utils import smart_quote
+from neo4jrestclient.utils import (PY2, text_type, smart_quote, string_types,
+                                   unquote, with_metaclass)
 
 __all__ = ["GraphDatabase", "Incoming", "Outgoing", "Undirected",
            "StopAtDepth", "NotFoundError", "StatusException", "Q"]
@@ -85,7 +85,7 @@ class GraphDatabase(object):
         else:
             self.url = "%s/" % url
         response, content = Request(**self._auth).get(self.url)
-        if response.status == 200:
+        if response.status_code == 200:
             response_json = json.loads(content)
             self._relationship_index = response_json['relationship_index']
             self._node = response_json['node']
@@ -121,7 +121,7 @@ class GraphDatabase(object):
             except KeyError:
                 self._batch = "%sbatch" % self.url
         else:
-            raise NotFoundError(response.status, "Unable get root")
+            raise NotFoundError(response.status_code, "Unable get root")
 
     def _get_reference_node(self):
         warnings.warn("Deprecated, the reference node is not needed anymore",
@@ -148,11 +148,10 @@ class GraphDatabase(object):
     def _get_traversal_class(self):
         cls = self
 
-        class Traversal(object):
-            __metaclass__ = MetaTraversal
+        class Traversal(with_metaclass(MetaTraversal)):
 
             def __init__(self, start_node=None):
-                if start_node and isinstance(start_node, Node):
+                if start_node is not None and isinstance(start_node, Node):
                     self.start_node = start_node
                 else:
                     self.start_node = cls.reference_node
@@ -175,11 +174,14 @@ class GraphDatabase(object):
             def __iter__(self):
                 return self
 
-            def next(self):
+            def __next__(self):
                 if self._index == 0:
                     raise StopIteration
                 self._index = self._index - 1
                 return self._items[self._index]
+
+            def next(self):
+                return self.__next__()
 
         return Traversal
 
@@ -548,8 +550,8 @@ class Transaction(object):
         """
         Call method in order to allow expresions like
 
-        >>> with gdb.transaction(using_globals=False) as tx:
-           ...:     n[key] = tx(value)
+            with gdb.transaction(using_globals=False) as tx:
+                n[key] = tx(value)
         """
         self._value = value
         return self
@@ -590,12 +592,12 @@ class Transaction(object):
     def _batch(self):
         request = Request(**self._class._auth)
         response, content = request.post(self.url, data=self.operations)
-        if response.status == 200:
+        if response.status_code == 200:
             results_list = json.loads(content)
             results_dict = self._results_list_to_dict(results_list)
             return results_dict
         else:
-            raise TransactionException(response.status)
+            raise TransactionException(response.status_code)
 
     def commit(self, *args, **kwargs):
         auth = self._class._auth
@@ -707,13 +709,13 @@ class Base(object):
             url = url[:-1]
         if create:
             response, content = Request(**self._auth).post(url, data=data)
-            if response.status == 201:
+            if response.status_code == 201:
                 self._dic.update(data.copy())
                 self._update_dict_data()
-                self.url = response.get("location",
-                                        response.get("content-location"))
+                self.url = response.headers.get("location",
+                                        response.headers.get("content-location"))
             else:
-                raise NotFoundError(response.status, "Invalid data sent")
+                raise NotFoundError(response.status_code, "Invalid data sent")
         if not self.url:
             self.url = url
         self.update()
@@ -745,10 +747,10 @@ class Base(object):
                             return t
                 else:
                     return dt
-        if isinstance(s, unicode):
+        if isinstance(s, text_type):
             return s
-        if isinstance(s, basestring):
-            return unicode(s.decode("utf-8"))
+        if isinstance(s, string_types):
+            return text_type(s.decode("utf-8"))
         else:
             # We avoid convert non-string values
             return s
@@ -760,7 +762,7 @@ class Base(object):
         else:
             response, content = Request(**self._auth).get(self.url)
             update_dict = json.loads(content).copy()
-            status = response.status
+            status = response.status_code
         if status == 200:
             self._dic.update(update_dict)
             if extensions:
@@ -775,7 +777,7 @@ class Base(object):
             self = None
             del self
         else:
-            raise NotFoundError(response.status, "Unable get object")
+            raise NotFoundError(response.status_code, "Unable get object")
 
     def delete(self, key=None, tx=None):
         if key:
@@ -784,12 +786,12 @@ class Base(object):
         if tx:
             return tx.subscribe(TX_DELETE, self.url, obj=self)
         response, content = Request(**self._auth).delete(self.url)
-        if response.status == 204:
+        if response.status_code == 204:
             del self
-        elif response.status == 404:
-            raise NotFoundError(response.status, "Node or property not found")
+        elif response.status_code == 404:
+            raise NotFoundError(response.status_code, "Node or property not found")
         else:
-            raise StatusException(response.status, "Node could not be "
+            raise StatusException(response.status_code, "Node could not be "
                                                    "deleted (still has "
                                                    "relationships?)")
 
@@ -799,13 +801,13 @@ class Base(object):
         if tx:
             return tx.subscribe(TX_GET, property_url, obj=self)
         response, content = Request(**self._auth).get(property_url)
-        if response.status == 200:
+        if response.status_code == 200:
             self._dic["data"][key] = json.loads(content)
         else:
             if options.SMART_ERRORS:
                 raise KeyError()
             else:
-                raise NotFoundError(response.status,
+                raise NotFoundError(response.status_code,
                                     "Node or propery not found")
         if options.SMART_DATES:
             return Base._safe_string(self._dic["data"][key])
@@ -848,13 +850,13 @@ class Base(object):
                                     obj=self)
             response, content = Request(**self._auth).put(property_url,
                                                           data=value)
-            if response.status == 204:
+            if response.status_code == 204:
                 if options.SMART_DATES:
                     self._dic["data"].update({key: Base._safe_string(value)})
                 else:
                     self._dic["data"].update({key: value})
-            elif response.status == 404:
-                raise NotFoundError(response.status,
+            elif response.status_code == 404:
+                raise NotFoundError(response.status_code,
                                     "Node or property not found")
             else:
                 msg = "Invalid data sent"
@@ -862,7 +864,7 @@ class Base(object):
                     msg += ": " + json.loads(content).get('message')
                 except (ValueError, AttributeError, KeyError):
                     pass
-                raise StatusException(response.status, msg)
+                raise StatusException(response.status_code, msg)
 
     def set(self, key, value, tx=None):
         tx = Transaction.get_transaction(tx)
@@ -876,16 +878,16 @@ class Base(object):
         if tx:
             return tx.subscribe(TX_DELETE, property_url, obj=self)
         response, content = Request(**self._auth).delete(property_url)
-        if response.status == 204:
+        if response.status_code == 204:
             del self._dic["data"][key]
-        elif response.status == 404:
+        elif response.status_code == 404:
             if options.SMART_ERRORS:
                 raise KeyError()
             else:
-                raise NotFoundError(response.status,
+                raise NotFoundError(response.status_code,
                                     "Node or property not found")
         else:
-            raise StatusException(response.status,
+            raise StatusException(response.status_code,
                                   "Node or property not found")
 
     def __len__(self):
@@ -938,27 +940,27 @@ class Base(object):
         properties_url = self._dic["properties"]
         response, content = Request(**self._auth).put(properties_url,
                                                       data=props)
-        if response.status == 204:
+        if response.status_code == 204:
             self._dic["data"] = props.copy()
             self._update_dict_data()
             return props
-        elif response.status == 400:
+        elif response.status_code == 400:
             msg = "Invalid data sent"
             try:
                 msg += ": " + json.loads(content).get('message')
             except (ValueError, AttributeError, KeyError):
                 pass
-            raise StatusException(response.status, msg)
+            raise StatusException(response.status_code, msg)
         else:
-            raise NotFoundError(response.status, "Properties not found")
+            raise NotFoundError(response.status_code, "Properties not found")
 
     def _del_properties(self):
         properties_url = self._dic["properties"]
         response, content = Request(**self._auth).delete(properties_url)
-        if response.status == 204:
+        if response.status_code == 204:
             self._dic["data"] = {}
         else:
-            raise NotFoundError(response.status, "Properties not found")
+            raise NotFoundError(response.status_code, "Properties not found")
     # TODO: Create an own Property class to handle transactions
     properties = property(_get_properties, _set_properties, _del_properties)
 
@@ -988,13 +990,13 @@ class NodesProxy(dict):
     def __getitem__(self, key, tx=None):
         tx = Transaction.get_transaction(tx)
         if tx:
-            if isinstance(key, (str, unicode)) and key.startswith(self._node):
+            if isinstance(key, string_types) and key.startswith(self._node):
                 return tx.subscribe(TX_GET, key, obj=self)
             else:
                 return tx.subscribe(TX_GET, "%s/%s/" % (self._node, key),
                                     obj=self)
         else:
-            if isinstance(key, (str, unicode)) and key.startswith(self._node):
+            if isinstance(key, string_types) and key.startswith(self._node):
                 return Node(key, auth=self._auth)
             else:
                 return Node("%s/%s/" % (self._node, key), auth=self._auth)
@@ -1085,14 +1087,14 @@ class Node(Base):
             request = Request(**self._auth)
             response, content = request.post(create_relationship_url,
                                              data=data)
-            if response.status == 201:
+            if response.status_code == 201:
                 update_dict = json.loads(content)
-                return Relationship(response.get("location",
-                                    response.get("content-location")),
+                return Relationship(response.headers.get("location",
+                                    response.headers.get("content-location")),
                                     auth=self._auth,
                                     update_dict=update_dict)
-            elif response.status == 404:
-                raise NotFoundError(response.status, "Node specified by the "
+            elif response.status_code == 404:
+                raise NotFoundError(response.status_code, "Node specified by the "
                                                      "URI not of \"to\" node"
                                                      "not found")
             else:
@@ -1101,10 +1103,13 @@ class Node(Base):
                     msg += ": " + json.loads(content).get('message')
                 except (ValueError, AttributeError, KeyError):
                     pass
-                raise StatusException(response.status, msg)
+                raise StatusException(response.status_code, msg)
         return relationship
 
-    # HACK: Special methods for handle pickling manually
+    # Special methods for handle pickling manually
+    def __getnewargs__(self):
+        return tuple()
+
     def __getstate__(self):
         data = {}
         for key, value in self.__dict__.items():
@@ -1201,7 +1206,7 @@ class Node(Base):
                                                          returns)
             response, content = Request(**self._auth).post(traverse_url,
                                                            data=data)
-            if response.status == 200:
+            if response.status_code == 200:
                 results_list = json.loads(content)
                 if returns == NODE:
                     return Iterable(Node, results_list, "self",
@@ -1213,8 +1218,8 @@ class Node(Base):
                     return Iterable(Path, results_list, auth=self._auth)
                 elif returns == POSITION:
                     return Iterable(Position, results_list, auth=self._auth)
-            elif response.status == 404:
-                raise NotFoundError(response.status, "Node or relationship "
+            elif response.status_code == 404:
+                raise NotFoundError(response.status_code, "Node or relationship "
                                                      "not found")
             else:
                 msg = "Invalid data sent"
@@ -1222,7 +1227,7 @@ class Node(Base):
                     msg += ": " + json.loads(content).get('message')
                 except (ValueError, AttributeError, KeyError):
                     pass
-                raise StatusException(response.status, msg)
+                raise StatusException(response.status_code, msg)
 
     def _set_labels(self, labels):
         if isinstance(labels, (tuple, list)):
@@ -1259,17 +1264,17 @@ class PaginatedTraversal(object):
         self._results = []
         response, content = Request(**self._auth).post(self.url,
                                                        data=self.data)
-        if response.status == 201:
+        if response.status_code == 201:
             self._results = json.loads(content)
-            self._next_url = response.get("location",
-                                          response.get("content-location"))
+            self._next_url = response.headers.get("location",
+                                          response.headers.get("content-location"))
         else:
             self._next_url = None
 
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         if self._results:
             self._item = False
             if self.returns == NODE:
@@ -1287,15 +1292,18 @@ class PaginatedTraversal(object):
             self._results = []
             if self._next_url:
                 response, content = Request(**self._auth).get(self._next_url)
-                if response.status == 200:
+                if response.status_code == 200:
                     self._results = json.loads(content)
-                    content_location = response.get("content-location")
-                    self._next_url = response.get("location", content_location)
+                    content_location = response.headers.get("content-location")
+                    self._next_url = response.headers.get("location", content_location)
                 else:
                     self._next_url = None
             return results
         else:
             raise StopIteration
+
+    def next(self):
+        return self.__next__()
 
 
 class IndexesProxy(dict):
@@ -1320,12 +1328,12 @@ class IndexesProxy(dict):
         return self.__unicode__()
 
     def __unicode__(self):
-        return unicode(self._dict)
+        return text_type(self._dict)
 
     def _get_dict(self):
         indexes_dict = {}
         response, content = Request(**self._auth).get(self.url)
-        if response.status == 200:
+        if response.status_code == 200:
             indexes_dict = json.loads(content)
             for index_name, index_properties in indexes_dict.items():
                 index_props = {}
@@ -1336,12 +1344,12 @@ class IndexesProxy(dict):
                                                  cypher=self._cypher,
                                                  **index_props)
             return indexes_dict
-        elif response.status == 404:
-            raise NotFoundError(response.status, "Indexes not found")
-        elif response.status == 204:
+        elif response.status_code == 404:
+            raise NotFoundError(response.status_code, "Indexes not found")
+        elif response.status_code == 204:
             return indexes_dict
         else:
-            raise StatusException(response.status,
+            raise StatusException(response.status_code,
                                   "Error requesting indexes with GET %s"
                                   % self.url)
 
@@ -1370,7 +1378,7 @@ class IndexesProxy(dict):
             if name not in self._dict:
                 response, content = Request(**self._auth).post(self.url,
                                                                data=data)
-                if response.status == 201:
+                if response.status_code == 201:
                     loaded_dict = json.loads(content)
                     result_dict = {}
                     for key, val in loaded_dict.items():
@@ -1385,7 +1393,7 @@ class IndexesProxy(dict):
                         msg += ": " + json.loads(content).get('message')
                     except (ValueError, AttributeError, KeyError):
                         pass
-                    raise StatusException(response.status, msg)
+                    raise StatusException(response.status_code, msg)
             return self._dict[name]
 
     def get(self, attr, *args, **kwargs):
@@ -1471,8 +1479,11 @@ class IndexKey(object):
         else:
             url_ref = item
         request_url_and_key = self.url.rsplit('/', 1)  # assumes a key
-        # It's URL encoded and we need Unicode
-        key = urllib.unquote(str(request_url_and_key[1])).decode("utf8")
+        if PY2:
+            # It's URL encoded and we need Unicode
+            key = unquote(text_type(request_url_and_key[1]).encode("utf8") )
+        else:
+            key = unquote(text_type(request_url_and_key[1]))
         data = {"key": key,
                 "value": value,  # smart_quote is not needed anymore
                 "uri": url_ref}
@@ -1485,7 +1496,7 @@ class IndexKey(object):
             request = Request(**self._auth)
             response, content = request.post(request_url_and_key[0],
                                              data=data)
-            if response.status == 201:
+            if response.status_code == 201:
                 # Returns object that was indexed
                 entity = json.loads(content)
                 if self._index_for == NODE:
@@ -1496,7 +1507,7 @@ class IndexKey(object):
                                         data=entity['data'],
                                         auth=self._auth)
             else:
-                raise StatusException(response.status,
+                raise StatusException(response.status_code,
                                       "Error requesting index with POST "
                                       "%s, data %s"
                                       % (request_url_and_key[0], url_ref))
@@ -1527,17 +1538,17 @@ class Index(object):
                                 of=node_or_rel)
         else:
             response, content = Request(**auth).get(url)
-            if response.status == 200:
+            if response.status_code == 200:
                 data_list = json.loads(content)
                 if node_or_rel == NODE:
                     return Iterable(Node, data_list, "self", auth=auth)
                 else:
                     return Iterable(Relationship, data_list, "self", auth=auth)
-            elif response.status == 404:
-                raise NotFoundError(response.status,
+            elif response.status_code == 404:
+                raise NotFoundError(response.status_code,
                                     "Node or relationship not found")
             else:
-                raise StatusException(response.status,
+                raise StatusException(response.status_code,
                                       "Error requesting index with GET %s"
                                       % url)
 
@@ -1598,16 +1609,14 @@ class Index(object):
             tx = tx or key[1]
             key = key[0]
         tx = Transaction.get_transaction(tx)
-        _key = smart_quote(key)
+        index_key = IndexKey(self._index_for,
+                             "%s/%s" % (self.url, smart_quote(key)),
+                             name=self.name, auth=self._auth,
+                             cypher=self._cypher, key=key, tx=tx)
         if value:
-            value = smart_quote(value)
-            return IndexKey(self._index_for, "%s/%s" % (self.url, _key),
-                            name=self.name, auth=self._auth,
-                            cypher=self._cypher, key=key, tx=tx)[value]
+            return index_key[smart_quote(value)]
         else:
-            return IndexKey(self._index_for, "%s/%s" % (self.url, _key),
-                            name=self.name, auth=self._auth,
-                            cypher=self._cypher, key=key, tx=tx)
+            return index_key
 
     def get_or_create(self, key, value, item=None, properties=None,
                       node_from=None, relationship_name=None, node_to=None,
@@ -1669,7 +1678,7 @@ class Index(object):
             index_for = self._index_for.capitalize()
             request = Request(**self._auth)
             response, content = request.post(url, data=data)
-            if response.status in [200, 201]:
+            if response.status_code in [200, 201]:
                 # Returns object that was indexed
                 entity = json.loads(content)
                 if self._index_for == NODE:
@@ -1679,17 +1688,17 @@ class Index(object):
                     return Relationship(entity['self'],
                                         data=entity['data'],
                                         auth=self._auth)
-            elif response.status == 409:  # Create or fail, failing
+            elif response.status_code == 409:  # Create or fail, failing
                 if options.SMART_ERRORS:
                     raise ValueError("duplicated item in index '%s'"
                                      % index_for)
                 else:
-                    raise StatusException(response.status, "Duplicated item")
+                    raise StatusException(response.status_code, "Duplicated item")
             else:
                 if options.SMART_ERRORS:
                     raise KeyError(index_for)
                 else:
-                    raise StatusException(response.status, "Duplicated item")
+                    raise StatusException(response.status_code, "Duplicated item")
 
     def delete(self, key=None, value=None, item=None, tx=None):
         if not key and not value and not item:
@@ -1724,15 +1733,15 @@ class Index(object):
             return tx.subscribe(TX_DELETE, request_url, obj=self)
         else:
             response, content = Request(**self._auth).delete(url)
-            if response.status == 404:
+            if response.status_code == 404:
                 if options.SMART_ERRORS:
                     raise KeyError(self._index_for.capitalize())
                 else:
                     index_for = self._index_for.capitalize()
-                    raise NotFoundError(response.status,
+                    raise NotFoundError(response.status_code,
                                         "%s not found" % index_for)
-            elif response.status != 204:
-                raise StatusException(response.status)
+            elif response.status_code != 204:
+                raise StatusException(response.status_code)
 
     def query(self, *args):
         """
@@ -1749,17 +1758,17 @@ class Index(object):
                             'and a query) (%d given)' % (len(args) + 1))
         elif len(args) == 1:
             query, = args
-            return self.get('text').query(unicode(query))
+            return self.get('text').query(text_type(query))
         else:
             key, query = args
             index_key = self.get(key)
-            if isinstance(query, basestring):
+            if isinstance(query, string_types):
                 return index_key.query(query)
             else:
                 if query.fielded:
                     raise ValueError('Queries with an included key should '
                                      'not include a field.')
-                return index_key.query(unicode(query))
+                return index_key.query(text_type(query))
 
     def filter(self, lookups=[], key=None, value=None):
         return Index._filter(self, lookups, key, value)
@@ -1893,7 +1902,7 @@ class Relationships(object):
                 if tx:
                     return tx.subscribe(TX_GET, url, obj=self)
                 response, content = Request(**self._auth).get(url)
-                if response.status == 200:
+                if response.status_code == 200:
                     relationship_list = json.loads(content)
                     relationships = Iterable(Relationship, relationship_list,
                                              "self", auth=self._auth)
@@ -1901,17 +1910,17 @@ class Relationships(object):
                     #                  for r in relationship_list]
                     self._dict[relationship_type] = relationships
                     return self._dict[relationship_type]
-                elif response.status == 404:
+                elif response.status_code == 404:
                     if options.SMART_ERRORS:
                         return []
                     else:
-                        raise NotFoundError(response.status,
+                        raise NotFoundError(response.status_code,
                                             "Node or relationship not found")
                 else:
                     if options.SMART_ERRORS:
                         raise KeyError("Node not found")
                     else:
-                        raise StatusException(response.status,
+                        raise StatusException(response.status_code,
                                               "Node not found")
             raise NameError("name %s is not defined" % relationship_type)
 
@@ -2109,7 +2118,7 @@ class ExtensionModule(dict):
 
     def __unicode__(self):
         return u"<Neo4j %s: %s>" % (self.__class__.__name__,
-                                    unicode(self.klass_name.keys()))
+                                    text_type(self.klass_name.keys()))
 
     def __getitem__(self, attr):
         return self.__getattr__(attr)
@@ -2154,7 +2163,7 @@ class ExtensionsProxy(dict):
     def __unicode__(self):
         if not self._dict:
             self._dict = self._get_dict()
-        return unicode(self._dict)
+        return text_type(self._dict)
 
     def _get_dict(self):
         return dict([(key, self.__getattr__(key))
@@ -2199,14 +2208,14 @@ class Extension(object):
             url = url[:-1]
         self.url = url
         response, content = Request(**self._auth).get(self.url)
-        if response.status == 200:
+        if response.status_code == 200:
             self._dic.update(json.loads(content).copy())
             self.description = self._dic['description']
             self.name = self._dic['name']
             self.extends = self._dic['extends']
             self.parameters = self._dic['parameters']
         else:
-            raise NotFoundError(response.status, "Unable get extension")
+            raise NotFoundError(response.status_code, "Unable get extension")
 
     def __call__(self, *args, **kwargs):
         # The returns param is a temporary solution while
@@ -2216,7 +2225,7 @@ class Extension(object):
         parameters = self._parse_parameters(args, kwargs)
         response, content = Request(**self._auth).post(self.url,
                                                        data=parameters)
-        if response.status == 200:
+        if response.status_code == 200:
             result = json.loads(content)
             # Another option is to inspect the results
             if not returns:
@@ -2250,15 +2259,15 @@ class Extension(object):
                 return result
             else:
                 return []
-        elif response.status == 404:
-            raise NotFoundError(response.status, "Extension not found")
+        elif response.status_code == 404:
+            raise NotFoundError(response.status_code, "Extension not found")
         else:
             msg = "Invalid data sent"
             try:
                 msg += ": " + json.loads(content)['message']
             except (ValueError, AttributeError, KeyError, TypeError):
                 pass
-            raise StatusException(response.status, msg)
+            raise StatusException(response.status_code, msg)
 
     def __repr__(self):
         return self.__unicode__()
@@ -2316,9 +2325,9 @@ def elements_filter(cls, lookups=[], start=None, returns=None):
                 start = [start]
             for start_element in start:
                 try:
-                    starts.append(unicode(start_element.id))
+                    starts.append(text_type(start_element.id))
                 except AttributeError:
-                    starts.append(unicode(start_element))
+                    starts.append(text_type(start_element))
         else:
             starts = u"*"
         if returns is Node:
