@@ -11,6 +11,11 @@ def read(*rnames):
 # Dynamically get the constants.
 constants = __import__('neo4jrestclient.constants').constants
 
+tests_require = [
+    'CacheControl==0.8.3',
+    'lockfile==0.9.1'
+]
+
 setup(
     name='neo4jrestclient',
     version=constants.__version__,
@@ -20,7 +25,7 @@ setup(
     description=constants.__description__,
     long_description=read('README.txt') + "\n\n" + read('CHANGES.txt'),
     license=constants.__license__,
-    keywords='neo4j graph graphdb graphdatabase database rest client',
+    keywords='neo4j graph graphdb graphdatabase database rest client driver',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
@@ -37,8 +42,10 @@ setup(
     ],
     include_package_data=True,
     install_requires=[
-        'requests',
+        'requests==2.1.0',
         'lucene-querybuilder==0.2',
     ],
+    tests_require=tests_require,
     test_suite='neo4jrestclient.tests',
+    extras_require={'test': tests_require},
 )
