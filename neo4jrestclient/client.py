@@ -31,7 +31,7 @@ from neo4jrestclient.request import (Request, NotFoundError, StatusException,
                                      TransactionException)
 from neo4jrestclient.traversals import TraversalDescription
 from neo4jrestclient.utils import (PY2, text_type, smart_quote, string_types,
-                                   unquote, with_metaclass)
+                                   unquote)
 
 __all__ = ["GraphDatabase", "Incoming", "Outgoing", "Undirected",
            "StopAtDepth", "NotFoundError", "StatusException", "Q"]
@@ -47,22 +47,6 @@ class StopAtDepth(object):
 
     def __get__(self):
         return self.depth
-
-
-class MetaTraversal(type):
-    """
-    Metaclass for adding default attributes to Traversal class.
-    """
-
-    def __new__(cls, name, bases, dic):
-        for attr in ["types", "order", "stop", "returnable", "uniqueness",
-                     "paginated", "page_size", "time_out", "returns"]:
-            dic[attr] = dic.get(attr, None)
-        dic["is_returnable"] = dic.get("is_returnable",
-                                       dic.get("isReturnable", None))
-        dic["is_stop_node"] = dic.get("is_stop_node",
-                                      dic.get("isStopNode", None))
-        return type.__new__(cls, name, bases, dic)
 
 
 class GraphDatabase(object):
@@ -148,15 +132,28 @@ class GraphDatabase(object):
     def _get_traversal_class(self):
         cls = self
 
-        class Traversal(with_metaclass(MetaTraversal)):
+        class Traversal(object):
+            types = None
+            order = None
+            stop = None
+            returnable = None
+            uniqueness = None
+            paginated = None
+            page_size = None
+            time_out = None
+            returns = None
+            is_returnable = None
+            isReturnable = None
+            is_stop_node = None
+            isStopNode = None
 
             def __init__(self, start_node=None):
                 if start_node is not None and isinstance(start_node, Node):
                     self.start_node = start_node
                 else:
                     self.start_node = cls.reference_node
-                is_returnable = self.is_returnable
-                is_stop_node = self.is_stop_node
+                is_returnable = self.is_returnable or self.isReturnable
+                is_stop_node = self.is_stop_node or self.isStopNode
                 results = self.start_node.traverse(types=self.types,
                                                    order=self.order,
                                                    stop=self.stop,
@@ -229,7 +226,7 @@ class TransactionOperationProxy(dict, object):
 
     def __init__(self, obj=None, job=None, typ=None, **kwargs):
         self._proxy = None
-        if obj:
+        if obj is not None:
             self._object_ref = weakref.ref(obj)
         else:
             self._object_ref = None
@@ -250,7 +247,7 @@ class TransactionOperationProxy(dict, object):
     def __getattribute__(self, attr, *args, **kwargs):
         _proxy = object.__getattribute__(self, "_proxy")
         _type = object.__getattribute__(self, "_extras")["type"]
-        if _proxy:
+        if _proxy is not None:
             return getattr(_proxy, attr)
         elif _type and attr in ("relationships", "start", "end", "type", "id"):
             if (_type == NODE and attr == "relationships"
@@ -282,7 +279,7 @@ class TransactionOperationProxy(dict, object):
 
     def __setattribute__(self, attr, val):
         _proxy = object.__getattribute__(self, "_proxy")
-        if _proxy:
+        if _proxy is not None:
             setattr(_proxy, attr, val)
         else:
             object.__setattr__(self, attr, val)
@@ -333,7 +330,7 @@ class TransactionOperationProxy(dict, object):
     def __getitem__(self, key):
         _type = object.__getattribute__(self, "_extras")["type"]
         _proxy = object.__getattribute__(self, "_proxy")
-        if _proxy:
+        if _proxy is not None:
             if isinstance(key, slice):
                 eltos = _proxy._list[key]
                 if _proxy._attribute:
@@ -358,7 +355,7 @@ class TransactionOperationProxy(dict, object):
     def __setitem__(self, key, val):
         _type = object.__getattribute__(self, "_extras")["type"]
         _proxy = object.__getattribute__(self, "_proxy")
-        if _proxy:
+        if _proxy is not None:
             return _proxy.__setitem__(key, val)
         else:
             if _type == RELATIONSHIP:
@@ -787,6 +784,9 @@ class Base(object):
             return tx.subscribe(TX_DELETE, self.url, obj=self)
         response, content = Request(**self._auth).delete(self.url)
         if response.status_code == 204:
+            self.url = None
+            self._dic = None
+            self = None
             del self
         elif response.status_code == 404:
             raise NotFoundError(response.status_code, "Node or property not found")
@@ -891,10 +891,17 @@ class Base(object):
                                   "Node or property not found")
 
     def __len__(self):
-        return len(self._dic["data"])
+        # This functions allows to eval nodes in "if" statements
+        if "data" and self._dic:
+            return len(self._dic["data"])
+        else:
+            return 0
 
     def __iter__(self):
         return self._dic["data"].__iter__()
+
+    def __lt__(self, other):
+        return (self.url < other.url)
 
     def __eq__(self, obj):
         if not self.url and not self._dic:
@@ -1973,7 +1980,10 @@ class Relationship(Base):
     end = property(_get_end)
 
     def _get_type(self):
-        return self._dic['type'].encode("utf8")
+        if PY2:
+            return self._dic['type'].encode("utf8")
+        else:
+            return self._dic['type']
     type = property(_get_type)
 
     def _get_id(self):

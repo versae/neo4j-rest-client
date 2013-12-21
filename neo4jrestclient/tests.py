@@ -538,7 +538,7 @@ class TraversalsTestCase(GraphDatabaseTesCase):
         # Chain them into a linked list
         last = None
         for n in nodes:
-            if last:
+            if last is not None:
                 last.relationships.create("Knows", n)
             last = n
         # Toss in a different relationship type to ensure the
@@ -587,7 +587,7 @@ class TraversalsTestCase(GraphDatabaseTesCase):
         # Chain them into a linked list
         last = None
         for n in nodes:
-            if last:
+            if last is not None:
                 last.relationships.create("Knows", n)
             last = n
         # Toss in a different relationship type to ensure the
@@ -648,7 +648,7 @@ class TraversalsTestCase(GraphDatabaseTesCase):
         # Chain them into a linked list
         last = None
         for n in nodes:
-            if last:
+            if last is not None:
                 last.relationships.create("Knows", n)
             last = n
         # Toss in a different relationship type to ensure the

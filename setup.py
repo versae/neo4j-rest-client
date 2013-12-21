@@ -27,6 +27,8 @@ setup(
         'License :: OSI Approved :: GNU General Public License (GPL)',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
         'Topic :: Internet :: WWW/HTTP',
     ],
     zip_safe=False,
@@ -39,5 +41,4 @@ setup(
         'lucene-querybuilder==0.2',
     ],
     test_suite='neo4jrestclient.tests',
-    # use_2to3=True,
 )

@@ -14,8 +14,8 @@ install: pip install --use-mirrors -r requirements.txt
 env:
   - NEO4J_VERSION="1.6.3"
   - NEO4J_VERSION="1.7.2"
-  - NEO4J_VERSION="1.8.2"
-  - NEO4J_VERSION="1.9.4"
+  - NEO4J_VERSION="1.8.3"
+  - NEO4J_VERSION="1.9.5"
   - NEO4J_VERSION="2.0.0"
 script:
-  - python -m neo4jrestclient.tests
+  - python setup.py test
