@@ -6,10 +6,9 @@ try:
 except:
     import pickle
 try:
-    reload
-except NameError:
-    # Python 3
     from imp import reload
+except ImportError:
+    reload
 import unittest
 import os
 
@@ -437,10 +436,9 @@ class IndexesTestCase(GraphDatabaseTesCase):
         self.assertRaises(request.NotFoundError,
                           index["feeling"].__getitem__, "hate")
 
+    @unittest.skipIf(not PY2,
+                     "Lucene Query Builder is not Python3 compliant yet")
     def test_query_index(self):
-        if not PY2:
-            # Lucene Query Builder is not Python3 compliant yet
-            return
         Q = client.Q
         n1 = self.gdb.nodes.create(name="John Doe", place="Texas")
         n2 = self.gdb.nodes.create(name="Michael Donald", place="Tijuana")
@@ -1644,6 +1642,8 @@ class FakeCache(object):
             del self.dict[key]
 
 
+@unittest.skipIf(not PY2,
+                 "CacheControl FileCache is not Python3 compliant yet")
 class XtraCacheTestCase(unittest.TestCase):
 
     def setUp(self):
