@@ -1,4 +1,9 @@
-|status|_
+.. image:: https://travis-ci.org/versae/neo4j-rest-client.png?branch=master
+  :target: https://travis-ci.org/versae/neo4j-rest-client
+
+.. image:: https://coveralls.io/repos/versae/neo4j-rest-client/badge.png?branch=master
+  :target: https://coveralls.io/r/versae/neo4j-rest-client?branch=master
+
 
 Neo4j Python REST Client
 ========================
@@ -89,5 +94,3 @@ For the extended and latest version of the documentation, please, visit the
 .. _Documentation: http://readthedocs.org/docs/neo4j-rest-client/en/latest/
 .. _Installation: https://neo4j-rest-client.readthedocs.org/en/latest/info.html#installation
 .. _`Getting started`: https://neo4j-rest-client.readthedocs.org/en/latest/info.html#getting-started
-.. |status| image:: https://travis-ci.org/versae/neo4j-rest-client.png?branch=master
-.. _status: https://travis-ci.org/versae/neo4j-rest-client
