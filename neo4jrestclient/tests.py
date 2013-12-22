@@ -676,7 +676,8 @@ class TraversalsTestCase(GraphDatabaseTesCase):
         self.assertEqual(traversal_length, 0)
 
     # Taken from the official tests by Neo4j python-embedded
-    # https://github.com/neo4j/python-embedded/blob/master/src/test/python/traversal.py
+    # https://github.com/neo4j/python-embedded
+    #        /blob/master/src/test/python/traversal.py
     def create_data(self):
         with self.gdb.transaction():
             self.source = self.gdb.node(message='hello')
@@ -1135,7 +1136,8 @@ class TransactionsTestCase(GraphDatabaseTesCase):
         self.assertEqual(rel.properties, {"when": "January"})
 
     # The next tests for transaction were taken from @mhluongo fork
-    # https://github.com/mhluongo/neo4j-rest-client/blob/master/neo4jrestclient/tests.py
+    # https://github.com/mhluongo/neo4j-rest-client
+    #        /blob/master/neo4jrestclient/tests.py
     def test_transaction_index_creation(self):
         """
         Tests whether indexes are properly created during a transaction.

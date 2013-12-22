@@ -710,8 +710,10 @@ class Base(object):
             if response.status_code == 201:
                 self._dic.update(data.copy())
                 self._update_dict_data()
-                self.url = response.headers.get("location",
-                                        response.headers.get("content-location"))
+                self.url = response.headers.get(
+                    "location",
+                    response.headers.get("content-location")
+                )
             else:
                 raise NotFoundError(response.status_code, "Invalid data sent")
         if not self.url:
@@ -790,11 +792,12 @@ class Base(object):
             self = None
             del self
         elif response.status_code == 404:
-            raise NotFoundError(response.status_code, "Node or property not found")
+            raise NotFoundError(response.status_code,
+                                "Node or property not found")
         else:
-            raise StatusException(response.status_code, "Node could not be "
-                                                   "deleted (still has "
-                                                   "relationships?)")
+            raise StatusException(response.status_code,
+                                  "Node could not be deleted (still has "
+                                  "relationships?)")
 
     def __getitem__(self, key, tx=None):
         property_url = self._dic["property"].replace("{key}", smart_quote(key))
@@ -1102,9 +1105,9 @@ class Node(Base):
                                     auth=self._auth,
                                     update_dict=update_dict)
             elif response.status_code == 404:
-                raise NotFoundError(response.status_code, "Node specified by the "
-                                                     "URI not of \"to\" node"
-                                                     "not found")
+                raise NotFoundError(
+                    response.status_code,
+                    "Node specified by the URI not of \"to\" node not found")
             else:
                 msg = "Invalid data sent"
                 try:
@@ -1227,8 +1230,10 @@ class Node(Base):
                 elif returns == POSITION:
                     return Iterable(Position, results_list, auth=self._auth)
             elif response.status_code == 404:
-                raise NotFoundError(response.status_code, "Node or relationship "
-                                                     "not found")
+                raise NotFoundError(
+                    response.status_code,
+                    "Node or relationship not found"
+                )
             else:
                 msg = "Invalid data sent"
                 try:
@@ -1274,8 +1279,10 @@ class PaginatedTraversal(object):
                                                        data=self.data)
         if response.status_code == 201:
             self._results = json.loads(content)
-            self._next_url = response.headers.get("location",
-                                          response.headers.get("content-location"))
+            self._next_url = response.headers.get(
+                "location",
+                response.headers.get("content-location")
+            )
         else:
             self._next_url = None
 
@@ -1303,7 +1310,8 @@ class PaginatedTraversal(object):
                 if response.status_code == 200:
                     self._results = json.loads(content)
                     content_location = response.headers.get("content-location")
-                    self._next_url = response.headers.get("location", content_location)
+                    self._next_url = response.headers.get("location",
+                                                          content_location)
                 else:
                     self._next_url = None
             return results
@@ -1702,12 +1710,14 @@ class Index(object):
                     raise ValueError("duplicated item in index '%s'"
                                      % index_for)
                 else:
-                    raise StatusException(response.status_code, "Duplicated item")
+                    raise StatusException(response.status_code,
+                                          "Duplicated item")
             else:
                 if options.SMART_ERRORS:
                     raise KeyError(index_for)
                 else:
-                    raise StatusException(response.status_code, "Duplicated item")
+                    raise StatusException(response.status_code,
+                                          "Duplicated item")
 
     def delete(self, key=None, value=None, item=None, tx=None):
         if not key and not value and not item:

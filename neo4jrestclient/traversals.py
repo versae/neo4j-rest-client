@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 # From https://gist.github.com/1865786 by @aventurella
-# http://docs.neo4j.org/chunked/snapshot/rest-api-traverse.html#rest-api-traversal-returning-nodes-below-a-certain-depth
+# http://docs.neo4j.org/chunked/snapshot/rest-api-traverse.html
+#       #rest-api-traversal-returning-nodes-below-a-certain-depth
 import json
 
 from neo4jrestclient import constants
 from neo4jrestclient.iterable import Iterable
 from neo4jrestclient.request import Request, NotFoundError, StatusException
 from neo4jrestclient.utils import string_types
+
 
 class Order(object):
     BREADTH_FIRST = constants.BREADTH_FIRST
@@ -72,8 +74,8 @@ class Traverser(object):
                 self._cache[return_type] = results_list
                 return results_list
             elif response.status_code == 404:
-                raise NotFoundError(response.status_code, "Node or relationship "
-                                                     "not found")
+                raise NotFoundError(response.status_code,
+                                    "Node or relationship not found")
             raise StatusException(response.status_code, "Invalid data sent")
 
     @property
@@ -99,7 +101,8 @@ class Traverser(object):
 
 
 class TraversalDescription(object):
-    """https://github.com/neo4j/community/blob/master/kernel/src/main/java/org/neo4j/graphdb/traversal/TraversalDescription.java"""
+    """https://github.com/neo4j/community/blob/master/kernel/src/main
+              /java/org/neo4j/graphdb/traversal/TraversalDescription.java"""
 
     def __init__(self, auth=None):
         self._auth = auth or {}

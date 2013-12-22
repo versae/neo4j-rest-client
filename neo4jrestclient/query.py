@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Inspired by: https://github.com/CulturePlex/Sylva/tree/master/sylva/engines/gdb/lookups
+# Inspired by: https://github.com/CulturePlex/Sylva
+#                     /tree/master/sylva/engines/gdb/lookups
 import json
 from collections import Sequence
 
@@ -9,7 +10,8 @@ from neo4jrestclient.utils import text_type, string_types
 
 
 class BaseQ(object):
-    # Based on: https://github.com/scholrly/lucene-querybuilder/blob/master/lucenequerybuilder/query.py
+    # Based on: https://github.com/scholrly/lucene-querybuilder
+    #                  /blob/master/lucenequerybuilder/query.py
     """
     Q is a query builder for the Neo4j Cypher language backend
 
