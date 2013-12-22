@@ -2,6 +2,7 @@ language: python
 python:
   - "2.7"
   - "3.3"
+  - "pypy"
 before_install:
   - export NEO4J_PORT="7474"
   - sudo service neo4j stop || true
