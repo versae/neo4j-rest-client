@@ -12,8 +12,8 @@ def read(*rnames):
 constants = __import__('neo4jrestclient.constants').constants
 
 tests_require = [
+    'lockfile==0.9.1',
     'CacheControl==0.8.3',
-    'lockfile==0.9.1'
 ]
 
 setup(
@@ -23,7 +23,7 @@ setup(
     author_email=constants.__email__,
     url=constants.__url__,
     description=constants.__description__,
-    long_description=read('README.txt') + "\n\n" + read('CHANGES.txt'),
+    long_description=read('README.rst') + "\n\n" + read('CHANGES.txt'),
     license=constants.__license__,
     keywords='neo4j graph graphdb graphdatabase database rest client driver',
     classifiers=[
@@ -47,5 +47,5 @@ setup(
     ],
     tests_require=tests_require,
     test_suite='neo4jrestclient.tests',
-    extras_require={'test': tests_require},
+    extras_require={},
 )
