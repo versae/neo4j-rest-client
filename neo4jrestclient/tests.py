@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
-from functools import wraps
 try:
     import cPickle as pickle
 except:
@@ -22,25 +21,6 @@ from neo4jrestclient.utils import text_type, PY2
 
 NEO4J_URL = os.environ.get('NEO4J_URL', "http://localhost:7474/db/data/")
 NEO4J_VERSION = os.environ.get('NEO4J_VERSION', None)
-
-
-def versions(supported=None, not_supported=None):
-    supported = supported or []
-    not_supported = not_supported or []
-
-    def _versions(fn):
-
-        @wraps(fn)
-        def wrapper(*args, **kwargs):
-            if NEO4J_VERSION:
-                if ((supported and NEO4J_VERSION in supported)
-                        or (not_supported
-                            and NEO4J_VERSION not in not_supported)):
-                    fn(*args, **kwargs)
-            else:
-                fn(*args, **kwargs)
-        return wrapper
-    return _versions
 
 
 class GraphDatabaseTesCase(unittest.TestCase):
@@ -461,7 +441,8 @@ class IndexesTestCase(GraphDatabaseTesCase):
         results = index.query(-Q('surnames', 'donald') | +Q('place', 'Texas'))
         self.assertTrue(n2 not in results and n1 in results)
 
-    @versions(not_supported=["1.6.3", "1.7.2", "1.8.2"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_index_get_or_create_created(self):
         index = self.gdb.nodes.indexes.create(name="doe")
         properties = {
@@ -472,7 +453,8 @@ class IndexesTestCase(GraphDatabaseTesCase):
                                  properties=properties)
         self.assertTrue(n1 in index["bands"]["Motörhead"])
 
-    @versions(not_supported=["1.6.3", "1.7.2", "1.8.2"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_index_get_or_create_existing(self):
         index = self.gdb.nodes.indexes.create(name="doe")
         now = datetime.now().strftime('%s%f')
@@ -489,7 +471,8 @@ class IndexesTestCase(GraphDatabaseTesCase):
         self.assertTrue(n1 in index["now"][now])
         self.assertTrue(n2 in index["now"][now])
 
-    @versions(not_supported=["1.6.3", "1.7.2", "1.8.2"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_index_create_or_fail_created(self):
         index = self.gdb.nodes.indexes.create(name="doe")
         properties = {
@@ -500,7 +483,8 @@ class IndexesTestCase(GraphDatabaseTesCase):
                                   properties=properties)
         self.assertTrue(n1 in index["bands"]["Motörhead"])
 
-    @versions(not_supported=["1.6.3", "1.7.2", "1.8.2"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_index_create_or_fail_existing(self):
         index = self.gdb.nodes.indexes.create(name="doe")
         now = datetime.now().strftime('%s%f')
@@ -821,7 +805,8 @@ class ExtensionsTestCase(GraphDatabaseTesCase):
             fail = True
         self.assertTrue(not fail)
 
-    @versions(supported=["1.6.3", "1.7.2", "1.8.2", "1.9.4"])
+    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_gremlin_extension_reference_node(self):
         # Assuming the GremlinPlugin installed
         ext = self.gdb.extensions.GremlinPlugin
@@ -829,7 +814,8 @@ class ExtensionsTestCase(GraphDatabaseTesCase):
         gremlin_n = ext.execute_script(script='g.v(%s)' % n.id)
         self.assertEqual(gremlin_n, n)
 
-    @versions(supported=["1.6.3", "1.7.2", "1.8.2", "1.9.4"])
+    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_gremlin_extension_reference_node_returns(self):
         # Assuming the GremlinPlugin installed
         ext = self.gdb.extensions.GremlinPlugin
@@ -838,7 +824,8 @@ class ExtensionsTestCase(GraphDatabaseTesCase):
                                        returns=constants.NODE)
         self.assertEqual(gremlin_n, n)
 
-    @versions(supported=["1.6.3", "1.7.2", "1.8.2", "1.9.4"])
+    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_gremlin_extension_relationships(self):
         # Assuming the GremlinPlugin installed
         n1 = self.gdb.nodes.create()
@@ -852,7 +839,8 @@ class ExtensionsTestCase(GraphDatabaseTesCase):
         for rel in rels:
             self.assertTrue(isinstance(rel, client.Relationship))
 
-    @versions(supported=["1.6.3", "1.7.2", "1.8.2", "1.9.4"])
+    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_gremlin_extension_relationships_returns(self):
         # Assuming the GremlinPlugin installed
         n1 = self.gdb.nodes.create()
@@ -870,7 +858,8 @@ class ExtensionsTestCase(GraphDatabaseTesCase):
             self.assertTrue(isinstance(rel, client.Relationship))
         clientDebug.DEBUG = False
 
-    @versions(supported=["1.6.3", "1.7.2", "1.8.2", "1.9.4"])
+    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_gremlin_extension_reference_raw_returns(self):
         # Assuming the GremlinPlugin installed
         ext = self.gdb.extensions.GremlinPlugin
@@ -880,7 +869,8 @@ class ExtensionsTestCase(GraphDatabaseTesCase):
         self.assertEqual(gremlin_n["data"], n.properties)
         self.assertTrue(isinstance(gremlin_n, dict))
 
-    @versions(supported=["1.6.3", "1.7.2", "1.8.2", "1.9.4"])
+    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_gremlin_results_raw(self):
         # Assuming the GremlinPlugin installed
         ext = self.gdb.extensions.GremlinPlugin
@@ -1430,7 +1420,8 @@ class PickleTestCase(GraphDatabaseTesCase):
 
 class QueryTestCase(GraphDatabaseTesCase):
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_raw(self):
         n1 = self.gdb.nodes.create(name="John")
         n2 = self.gdb.nodes.create(name="William")
@@ -1439,7 +1430,8 @@ class QueryTestCase(GraphDatabaseTesCase):
         result = self.gdb.query(q=q)
         self.assertTrue(result is not None)
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_raw_returns(self):
         n1 = self.gdb.nodes.create(name="John")
         n2 = self.gdb.nodes.create(name="William")
@@ -1451,7 +1443,8 @@ class QueryTestCase(GraphDatabaseTesCase):
         self.assertTrue(isinstance(m1, client.Node))
         self.assertTrue(isinstance(m2, client.Node))
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_raw_returns_tuple(self):
         n1 = self.gdb.nodes.create(name="John")
         n2 = self.gdb.nodes.create(name="William")
@@ -1467,7 +1460,8 @@ class QueryTestCase(GraphDatabaseTesCase):
             self.assertEqual(rel, r)
             self.assertEqual(date, 1982)
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_params_returns_tuple(self):
         n1 = self.gdb.nodes.create(name="John")
         n2 = self.gdb.nodes.create(name="William")
@@ -1490,7 +1484,8 @@ class QueryTestCase(GraphDatabaseTesCase):
 
 class FilterTestCase(GraphDatabaseTesCase):
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_filter_nodes(self):
         Q = query.Q
         for i in range(5):
@@ -1499,7 +1494,8 @@ class FilterTestCase(GraphDatabaseTesCase):
         williams = self.gdb.nodes.filter(lookup)
         self.assertTrue(len(williams) >= 5)
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_filter_nodes_complex_lookups(self):
         Q = query.Q
         for i in range(5):
@@ -1512,7 +1508,8 @@ class FilterTestCase(GraphDatabaseTesCase):
         williams = self.gdb.nodes.filter(lookups)
         self.assertTrue(len(williams) >= 4)
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_filter_nodes_slicing(self):
         Q = query.Q
         for i in range(5):
@@ -1521,7 +1518,8 @@ class FilterTestCase(GraphDatabaseTesCase):
         williams = self.gdb.nodes.filter(lookup)[:4]
         self.assertTrue(len(williams) == 4)
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_filter_nodes_ordering(self):
         Q = query.Q
         for i in range(5):
@@ -1531,7 +1529,8 @@ class FilterTestCase(GraphDatabaseTesCase):
                                                           constants.DESC)
         self.assertTrue(williams[-1]["code"] > williams[0]["code"])
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_filter_nodes_nullable(self):
         Q = query.Q
         for i in range(5):
@@ -1540,7 +1539,8 @@ class FilterTestCase(GraphDatabaseTesCase):
         williams = self.gdb.nodes.filter(lookup)[:10]
         self.assertTrue(len(williams) > 5)
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_filter_nodes_start(self):
         Q = query.Q
         nodes = []
@@ -1550,7 +1550,8 @@ class FilterTestCase(GraphDatabaseTesCase):
         williams = self.gdb.nodes.filter(lookup, start=nodes)
         self.assertTrue(len(williams) == 5)
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_filter_nodes_start_index(self):
         Q = query.Q
         t = text_type(datetime.now().strftime('%s%f'))
@@ -1565,7 +1566,8 @@ class FilterTestCase(GraphDatabaseTesCase):
         williams = self.gdb.nodes.filter(lookup, start=index["name"])
         self.assertTrue(len(williams) == 5)
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_filter_index_for_nodes(self):
         Q = query.Q
         n1 = self.gdb.nodes.create(name="Lemmy", band="Motörhead")
@@ -1579,7 +1581,8 @@ class FilterTestCase(GraphDatabaseTesCase):
         self.assertTrue(n1 in index["bandś"].filter(lookup))
         self.assertTrue(n1 in index["bandś"].filter(lookup, value="Motörhead"))
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_filter_index_for_relationships(self):
         Q = query.Q
         n1 = self.gdb.nodes.create(name="Jóhn Doe", place="Texaś")
@@ -1595,7 +1598,8 @@ class FilterTestCase(GraphDatabaseTesCase):
         self.assertTrue(r1 in index["feelińg"].filter(lookup))
         self.assertTrue(r1 in index["feelińg"].filter(lookup, value="háte"))
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_filter_relationships_start(self):
         Q = query.Q
         rels = []
@@ -1608,7 +1612,8 @@ class FilterTestCase(GraphDatabaseTesCase):
         old_loves = self.gdb.relationships.filter(lookup, start=rels)
         self.assertTrue(len(old_loves) >= 5)
 
-    @versions(not_supported=["1.6.3"])
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_filter_relationships_start_index(self):
         Q = query.Q
         t = text_type(datetime.now().strftime('%s%f'))
