@@ -1489,9 +1489,10 @@ class IndexKey(object):
         request_url_and_key = self.url.rsplit('/', 1)  # assumes a key
         if PY2:
             # It's URL encoded and we need Unicode
-            key = unquote(text_type(request_url_and_key[1]).encode("utf8") )
+            key = unquote(text_type(request_url_and_key[1]).encode("utf8"))
         else:
             key = unquote(text_type(request_url_and_key[1]))
+            key = codecs.decode(codecs.encode(key), "utf8")
         data = {"key": key,
                 "value": value,  # smart_quote is not needed anymore
                 "uri": url_ref}
@@ -1984,7 +1985,7 @@ class Relationship(Base):
         if PY2:
             return self._dic['type'].encode("utf8")
         else:
-            return self._dic['type']
+            return codecs.decode(codecs.encode(self._dic['type']), "utf8")
     type = property(_get_type)
 
     def _get_id(self):
