@@ -2,8 +2,6 @@
 # From https://gist.github.com/1865786 by @aventurella
 # http://docs.neo4j.org/chunked/snapshot/rest-api-traverse.html
 #       #rest-api-traversal-returning-nodes-below-a-certain-depth
-import json
-
 from neo4jrestclient import constants
 from neo4jrestclient.iterable import Iterable
 from neo4jrestclient.request import Request, NotFoundError, StatusException
@@ -67,10 +65,9 @@ class Traverser(object):
             return self._cache[return_type]
         except KeyError:
             url = self._endpoint.replace("{returnType}", return_type)
-            response, content = Request(**self._auth).post(url,
-                                                           data=self._data)
+            response = Request(**self._auth).post(url, data=self._data)
             if response.status_code == 200:
-                results_list = json.loads(content)
+                results_list = response.json()
                 self._cache[return_type] = results_list
                 return results_list
             elif response.status_code == 404:

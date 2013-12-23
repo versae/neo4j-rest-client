@@ -1,5 +1,4 @@
-import json
-
+# -*- coding: utf-8 -*-
 from neo4jrestclient import options
 from neo4jrestclient.iterable import Iterable
 from neo4jrestclient.request import Request, StatusException
@@ -41,16 +40,16 @@ class LabelsProxy(object):
         self._cypher = cypher
         self._node_cls = node
         if not labels:
-            response, content = Request(**self._auth).get(self._url)
+            response = Request(**self._auth).get(self._url)
             if response.status == 200:
-                results_list = json.loads(content)
+                results_list = response.loads()
                 self._labels = [Label(label, auth=self._auth,
                                       cypher=self._cypher)
                                 for label in results_list]
             else:
                 msg = "Unable to read label(s)"
                 try:
-                    msg += ": " + json.loads(content).get('message')
+                    msg += ": " + response.loads().get('message')
                 except (ValueError, AttributeError, KeyError):
                     pass
                 raise StatusException(response.status, msg)
@@ -68,9 +67,9 @@ class LabelsProxy(object):
         url = self._url.replace(u"labels",
                                 u"label/{}/nodes{}".format(smart_quote(key),
                                                            data))
-        response, content = Request(**self._auth).get(url)
+        response = Request(**self._auth).get(url)
         if response.status == 200:
-            results_list = json.loads(content)
+            results_list = response.loads()
             if not results_list:
                 return []
             elif isinstance(results_list, (tuple, list)):
@@ -79,7 +78,7 @@ class LabelsProxy(object):
         else:
             msg = "Unable to read label(s)"
             try:
-                msg += ": " + json.loads(content).get('message')
+                msg += ": " + response.loads().get('message')
             except (ValueError, AttributeError, KeyError):
                 pass
             raise StatusException(response.status, msg)
@@ -145,15 +144,15 @@ class NodeLabelsProxy(list):
             return key in self._labels
 
     def _update_labels(self):
-        response, content = Request(**self._auth).get(self._url)
+        response = Request(**self._auth).get(self._url)
         if response.status == 200:
-            results_list = json.loads(content)
+            results_list = response.loads()
             return [Label(label, auth=self._auth, cypher=self._cypher)
                     for label in results_list]
         else:
             msg = "Unable to get labels"
             try:
-                msg += ": " + json.loads(content).get('message')
+                msg += ": " + response.loads().get('message')
             except (ValueError, AttributeError, KeyError):
                 pass
             raise StatusException(response.status, msg)
@@ -165,7 +164,7 @@ class NodeLabelsProxy(list):
             is_list = True
         else:
             labels = smart_quote(labels)
-        response, content = Request(**self._auth).post(self._url, data=labels)
+        response = Request(**self._auth).post(self._url, data=labels)
         if response.status == 204:
             if is_list:
                 for label in labels:
@@ -178,14 +177,14 @@ class NodeLabelsProxy(list):
         else:
             msg = "Unable to add label"
             try:
-                msg += ": " + json.loads(content).get('message')
+                msg += ": " + response.loads().get('message')
             except (ValueError, AttributeError, KeyError):
                 pass
             raise StatusException(response.status, msg)
 
     def remove(self, label):
         url = "{}/{}".format(self._url, smart_quote(label))
-        response, content = Request(**self._auth).delete(url)
+        response = Request(**self._auth).delete(url)
         if response.status == 204:
             if Label(label) in self._labels:
                 self._labels.remove(label)
@@ -194,7 +193,7 @@ class NodeLabelsProxy(list):
         else:
             msg = "Unable to remove label"
             try:
-                msg += ": " + json.loads(content).get('message')
+                msg += ": " + response.loads().get('message')
             except (ValueError, AttributeError, KeyError):
                 pass
             raise StatusException(response.status, msg)

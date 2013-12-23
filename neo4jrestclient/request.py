@@ -344,6 +344,6 @@ class Request(object):
                                                 auth=auth)
             if response.status_code == 401:
                 raise StatusException(401, "Authorization Required")
-            return response, response.text
+            return response
         except AttributeError:
             raise Exception("Unknown error. Is the server running?")

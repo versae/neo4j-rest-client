@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Inspired by: https://github.com/CulturePlex/Sylva
 #                     /tree/master/sylva/engines/gdb/lookups
-import json
 from collections import Sequence
 
 from neo4jrestclient.constants import RAW
@@ -348,16 +347,16 @@ class QuerySequence(Sequence):
             "query": q,
             "params": params,
         }
-        response, content = Request(**self._auth).post(self._cypher, data=data)
+        response = Request(**self._auth).post(self._cypher, data=data)
         if response.status_code == 200:
-            response_json = json.loads(content)
+            response_json = response.json()
             return response_json
         elif response.status_code == 400:
             err_msg = u"Cypher query exception"
             try:
-                err_msg = "%s: %s" % (err_msg, json.loads(content)["message"])
+                err_msg = "%s: %s" % (err_msg, response.json()["message"])
             except:
-                err_msg = "%s: %s" % (err_msg, content)
+                err_msg = "%s: %s" % (err_msg, response.text)
             raise CypherException(err_msg)
         else:
             raise StatusException(response.status_code, "Invalid data sent")

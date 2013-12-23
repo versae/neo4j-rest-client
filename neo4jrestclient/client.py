@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-import codecs
 from datetime import date, datetime, time
-import json
 try:
     import cPickle as pickle
 except:
@@ -69,9 +67,9 @@ class GraphDatabase(object):
             self.url = url
         else:
             self.url = "%s/" % url
-        response, content = Request(**self._auth).get(self.url)
+        response = Request(**self._auth).get(self.url)
         if response.status_code == 200:
-            response_json = json.loads(content)
+            response_json = response.json()
             self._relationship_index = response_json['relationship_index']
             self._node = response_json['node']
             self._labels = response_json.get('labels',
@@ -589,9 +587,9 @@ class Transaction(object):
 
     def _batch(self):
         request = Request(**self._class._auth)
-        response, content = request.post(self.url, data=self.operations)
+        response = request.post(self.url, data=self.operations)
         if response.status_code == 200:
-            results_list = json.loads(content)
+            results_list = response.json()
             results_dict = self._results_list_to_dict(results_list)
             return results_dict
         else:
@@ -706,7 +704,7 @@ class Base(object):
         if url.endswith("/"):
             url = url[:-1]
         if create:
-            response, content = Request(**self._auth).post(url, data=data)
+            response = Request(**self._auth).post(url, data=data)
             if response.status_code == 201:
                 self._dic.update(data.copy())
                 self._update_dict_data()
@@ -760,8 +758,8 @@ class Base(object):
             update_dict = self._update_dict
             status = 200
         else:
-            response, content = Request(**self._auth).get(self.url)
-            update_dict = json.loads(content).copy()
+            response = Request(**self._auth).get(self.url)
+            update_dict = response.json().copy()
             status = response.status_code
         if status == 200:
             self._dic.update(update_dict)
@@ -785,7 +783,7 @@ class Base(object):
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_DELETE, self.url, obj=self)
-        response, content = Request(**self._auth).delete(self.url)
+        response = Request(**self._auth).delete(self.url)
         if response.status_code == 204:
             self.url = None
             self._dic = None
@@ -804,9 +802,9 @@ class Base(object):
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_GET, property_url, obj=self)
-        response, content = Request(**self._auth).get(property_url)
+        response = Request(**self._auth).get(property_url)
         if response.status_code == 200:
-            self._dic["data"][key] = json.loads(content)
+            self._dic["data"][key] = response.json()
         else:
             if options.SMART_ERRORS:
                 raise KeyError()
@@ -852,8 +850,7 @@ class Base(object):
                 transaction_url = self._dic["property"].replace("{key}", "")
                 return tx.subscribe(TX_PUT, transaction_url, {key: value},
                                     obj=self)
-            response, content = Request(**self._auth).put(property_url,
-                                                          data=value)
+            response = Request(**self._auth).put(property_url, data=value)
             if response.status_code == 204:
                 if options.SMART_DATES:
                     self._dic["data"].update({key: Base._safe_string(value)})
@@ -865,7 +862,7 @@ class Base(object):
             else:
                 msg = "Invalid data sent"
                 try:
-                    msg += ": " + json.loads(content).get('message')
+                    msg += ": " + response.json().get('message')
                 except (ValueError, AttributeError, KeyError):
                     pass
                 raise StatusException(response.status_code, msg)
@@ -881,7 +878,7 @@ class Base(object):
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_DELETE, property_url, obj=self)
-        response, content = Request(**self._auth).delete(property_url)
+        response = Request(**self._auth).delete(property_url)
         if response.status_code == 204:
             del self._dic["data"][key]
         elif response.status_code == 404:
@@ -949,8 +946,7 @@ class Base(object):
         if not props:
             return None
         properties_url = self._dic["properties"]
-        response, content = Request(**self._auth).put(properties_url,
-                                                      data=props)
+        response = Request(**self._auth).put(properties_url, data=props)
         if response.status_code == 204:
             self._dic["data"] = props.copy()
             self._update_dict_data()
@@ -958,7 +954,7 @@ class Base(object):
         elif response.status_code == 400:
             msg = "Invalid data sent"
             try:
-                msg += ": " + json.loads(content).get('message')
+                msg += ": " + response.json().get('message')
             except (ValueError, AttributeError, KeyError):
                 pass
             raise StatusException(response.status_code, msg)
@@ -967,7 +963,7 @@ class Base(object):
 
     def _del_properties(self):
         properties_url = self._dic["properties"]
-        response, content = Request(**self._auth).delete(properties_url)
+        response = Request(**self._auth).delete(properties_url)
         if response.status_code == 204:
             self._dic["data"] = {}
         else:
@@ -1096,10 +1092,9 @@ class Node(Base):
                 return tx.subscribe(TX_POST, create_relationship_url,
                                     data=data, obj=self, returns=RELATIONSHIP)
             request = Request(**self._auth)
-            response, content = request.post(create_relationship_url,
-                                             data=data)
+            response = request.post(create_relationship_url, data=data)
             if response.status_code == 201:
-                update_dict = json.loads(content)
+                update_dict = response.json()
                 return Relationship(response.headers.get("location",
                                     response.headers.get("content-location")),
                                     auth=self._auth,
@@ -1111,7 +1106,7 @@ class Node(Base):
             else:
                 msg = "Invalid data sent"
                 try:
-                    msg += ": " + json.loads(content).get('message')
+                    msg += ": " + response.json().get('message')
                 except (ValueError, AttributeError, KeyError):
                     pass
                 raise StatusException(response.status_code, msg)
@@ -1215,10 +1210,9 @@ class Node(Base):
         else:
             traverse_url = self._dic["traverse"].replace("{returnType}",
                                                          returns)
-            response, content = Request(**self._auth).post(traverse_url,
-                                                           data=data)
+            response = Request(**self._auth).post(traverse_url, data=data)
             if response.status_code == 200:
-                results_list = json.loads(content)
+                results_list = response.json()
                 if returns == NODE:
                     return Iterable(Node, results_list, "self",
                                     auth=self._auth)
@@ -1237,7 +1231,7 @@ class Node(Base):
             else:
                 msg = "Invalid data sent"
                 try:
-                    msg += ": " + json.loads(content).get('message')
+                    msg += ": " + response.json().get('message')
                 except (ValueError, AttributeError, KeyError):
                     pass
                 raise StatusException(response.status_code, msg)
@@ -1275,10 +1269,9 @@ class PaginatedTraversal(object):
         self.returns = returns
         self.data = data
         self._results = []
-        response, content = Request(**self._auth).post(self.url,
-                                                       data=self.data)
+        response = Request(**self._auth).post(self.url, data=self.data)
         if response.status_code == 201:
-            self._results = json.loads(content)
+            self._results = response.json()
             self._next_url = response.headers.get(
                 "location",
                 response.headers.get("content-location")
@@ -1306,9 +1299,9 @@ class PaginatedTraversal(object):
                                    auth=self._auth)
             self._results = []
             if self._next_url:
-                response, content = Request(**self._auth).get(self._next_url)
+                response = Request(**self._auth).get(self._next_url)
                 if response.status_code == 200:
-                    self._results = json.loads(content)
+                    self._results = response.json()
                     content_location = response.headers.get("content-location")
                     self._next_url = response.headers.get("location",
                                                           content_location)
@@ -1348,9 +1341,9 @@ class IndexesProxy(dict):
 
     def _get_dict(self):
         indexes_dict = {}
-        response, content = Request(**self._auth).get(self.url)
+        response = Request(**self._auth).get(self.url)
         if response.status_code == 200:
-            indexes_dict = json.loads(content)
+            indexes_dict = response.json()
             for index_name, index_properties in indexes_dict.items():
                 index_props = {}
                 for key, val in index_properties.items():
@@ -1392,10 +1385,9 @@ class IndexesProxy(dict):
             return op
         else:
             if name not in self._dict:
-                response, content = Request(**self._auth).post(self.url,
-                                                               data=data)
+                response = Request(**self._auth).post(self.url, data=data)
                 if response.status_code == 201:
-                    loaded_dict = json.loads(content)
+                    loaded_dict = response.json()
                     result_dict = {}
                     for key, val in loaded_dict.items():
                         result_dict[str(key)] = val
@@ -1406,7 +1398,7 @@ class IndexesProxy(dict):
                 else:
                     msg = "Invalid data sent"
                     try:
-                        msg += ": " + json.loads(content).get('message')
+                        msg += ": " + response.json().get('message')
                     except (ValueError, AttributeError, KeyError):
                         pass
                     raise StatusException(response.status_code, msg)
@@ -1500,7 +1492,6 @@ class IndexKey(object):
             key = unquote(text_type(request_url_and_key[1]).encode("utf8"))
         else:
             key = unquote(text_type(request_url_and_key[1]))
-            key = codecs.decode(codecs.encode(key), "utf8")
         data = {"key": key,
                 "value": value,  # smart_quote is not needed anymore
                 "uri": url_ref}
@@ -1511,11 +1502,10 @@ class IndexKey(object):
             return op
         else:
             request = Request(**self._auth)
-            response, content = request.post(request_url_and_key[0],
-                                             data=data)
+            response = request.post(request_url_and_key[0], data=data)
             if response.status_code == 201:
                 # Returns object that was indexed
-                entity = json.loads(content)
+                entity = response.json()
                 if self._index_for == NODE:
                     return Node(entity['self'], data=entity['data'],
                                 auth=self._auth, update_dict=entity)
@@ -1554,9 +1544,9 @@ class Index(object):
             return tx.subscribe(TX_GET, url, obj=None, returns=ITERABLE,
                                 of=node_or_rel)
         else:
-            response, content = Request(**auth).get(url)
+            response = Request(**auth).get(url)
             if response.status_code == 200:
-                data_list = json.loads(content)
+                data_list = response.json()
                 if node_or_rel == NODE:
                     return Iterable(Node, data_list, "self", auth=auth)
                 else:
@@ -1694,10 +1684,10 @@ class Index(object):
         else:
             index_for = self._index_for.capitalize()
             request = Request(**self._auth)
-            response, content = request.post(url, data=data)
+            response = request.post(url, data=data)
             if response.status_code in [200, 201]:
                 # Returns object that was indexed
-                entity = json.loads(content)
+                entity = response.json()
                 if self._index_for == NODE:
                     return Node(entity['self'], data=entity['data'],
                                 auth=self._auth, update_dict=entity)
@@ -1751,7 +1741,7 @@ class Index(object):
         if tx:
             return tx.subscribe(TX_DELETE, request_url, obj=self)
         else:
-            response, content = Request(**self._auth).delete(url)
+            response = Request(**self._auth).delete(url)
             if response.status_code == 404:
                 if options.SMART_ERRORS:
                     raise KeyError(self._index_for.capitalize())
@@ -1920,9 +1910,9 @@ class Relationships(object):
                     url = self._node._dic[key]
                 if tx:
                     return tx.subscribe(TX_GET, url, obj=self)
-                response, content = Request(**self._auth).get(url)
+                response = Request(**self._auth).get(url)
                 if response.status_code == 200:
-                    relationship_list = json.loads(content)
+                    relationship_list = response.json()
                     relationships = Iterable(Relationship, relationship_list,
                                              "self", auth=self._auth)
                     # relationships = [Relationship(r["self"])
@@ -1995,7 +1985,7 @@ class Relationship(Base):
         if PY2:
             return self._dic['type'].encode("utf8")
         else:
-            return codecs.decode(codecs.encode(self._dic['type']), "utf8")
+            return self._dic['type']
     type = property(_get_type)
 
     def _get_id(self):
@@ -2229,9 +2219,9 @@ class Extension(object):
         if url.endswith("/"):
             url = url[:-1]
         self.url = url
-        response, content = Request(**self._auth).get(self.url)
+        response = Request(**self._auth).get(self.url)
         if response.status_code == 200:
-            self._dic.update(json.loads(content).copy())
+            self._dic.update(response.json().copy())
             self.description = self._dic['description']
             self.name = self._dic['name']
             self.extends = self._dic['extends']
@@ -2245,10 +2235,9 @@ class Extension(object):
         # the extensions is implemented in Neo4j
         returns = kwargs.pop("returns", None)
         parameters = self._parse_parameters(args, kwargs)
-        response, content = Request(**self._auth).post(self.url,
-                                                       data=parameters)
+        response = Request(**self._auth).post(self.url, data=parameters)
         if response.status_code == 200:
-            result = json.loads(content)
+            result = response.json()
             # Another option is to inspect the results
             if not returns:
                 if isinstance(result, (tuple, list)) and len(result) > 0:
@@ -2286,7 +2275,7 @@ class Extension(object):
         else:
             msg = "Invalid data sent"
             try:
-                msg += ": " + json.loads(content)['message']
+                msg += ": " + response.json()['message']
             except (ValueError, AttributeError, KeyError, TypeError):
                 pass
             raise StatusException(response.status_code, msg)
