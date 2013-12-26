@@ -324,9 +324,9 @@ class Request(object):
             else:
                 cert = self.cert_file
         headers = headers or {}
-        headers['Accept'] = 'application/json'
+        headers['Accept'] = 'application/json; charset=UTF-8'
         headers['Accept-Encoding'] = '*'
-        headers['Accept-Charset'] = 'ISO-8859-1,utf-8;q=0.7,*;q=0.7'
+        headers['Accept-Charset'] = 'UTF-8,ISO-8859-1;q=0.7,*;q=0.7'
         headers['Connection'] = 'keep-alive'
         if not options.CACHE:
             headers['Cache-Control'] = 'no-cache'

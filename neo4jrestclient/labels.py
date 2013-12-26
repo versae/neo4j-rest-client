@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
+import json
+
 from neo4jrestclient import options
 from neo4jrestclient.iterable import Iterable
 from neo4jrestclient.request import Request, StatusException
-from neo4jrestclient.utils import smart_quote
+from neo4jrestclient.utils import smart_quote, text_type
 
 
 class Label(object):
@@ -16,7 +18,10 @@ class Label(object):
         try:
             return obj._label == self._label
         except AttributeError:
-            return obj == self._label
+            return text_type(obj) == self._label
+
+    def __hash__(self):
+        return self._label.__hash__()
 
     def __repr__(self):
         return self.__unicode__()
@@ -25,7 +30,7 @@ class Label(object):
         return self.__unicode__()
 
     def __unicode__(self):
-        return unicode.__repr__(unicode(self._label))
+        return '"{}"'.format(text_type(self._label))
 
 
 class LabelsProxy(object):
@@ -41,18 +46,18 @@ class LabelsProxy(object):
         self._node_cls = node
         if not labels:
             response = Request(**self._auth).get(self._url)
-            if response.status == 200:
-                results_list = response.loads()
+            if response.status_code == 200:
+                results_list = response.json()
                 self._labels = [Label(label, auth=self._auth,
                                       cypher=self._cypher)
                                 for label in results_list]
             else:
                 msg = "Unable to read label(s)"
                 try:
-                    msg += ": " + response.loads().get('message')
+                    msg += ": " + response.json().get('message')
                 except (ValueError, AttributeError, KeyError):
                     pass
-                raise StatusException(response.status, msg)
+                raise StatusException(response.status_code, msg)
         else:
             self._labels = labels
 
@@ -60,16 +65,16 @@ class LabelsProxy(object):
         data = u""
         if kwargs:
             data = []
-            for k, v in kwargs.iteritems():
+            for k, v in kwargs.items():
                 data.append("{}={}".format(smart_quote(k),
-                                           smart_quote(v)))
+                                           smart_quote(json.dumps(v))))
             data = u"?{}".format(u"&".join(data))
         url = self._url.replace(u"labels",
                                 u"label/{}/nodes{}".format(smart_quote(key),
                                                            data))
         response = Request(**self._auth).get(url)
-        if response.status == 200:
-            results_list = response.loads()
+        if response.status_code == 200:
+            results_list = response.json()
             if not results_list:
                 return []
             elif isinstance(results_list, (tuple, list)):
@@ -78,10 +83,10 @@ class LabelsProxy(object):
         else:
             msg = "Unable to read label(s)"
             try:
-                msg += ": " + response.loads().get('message')
+                msg += ": " + response.json().get('message')
             except (ValueError, AttributeError, KeyError):
                 pass
-            raise StatusException(response.status, msg)
+            raise StatusException(response.status_code, msg)
 
     def get(self, label, tx=None, **kwargs):
         return self.__getitem__(label, tx=tx, **kwargs)
@@ -105,7 +110,7 @@ class LabelsProxy(object):
         return self.__unicode__()
 
     def __unicode__(self):
-        return unicode(self._labels)
+        return text_type(self._labels)
 
 
 class NodeLabelsProxy(list):
@@ -120,19 +125,16 @@ class NodeLabelsProxy(list):
         self._cypher = cypher
         self._node_cls = node
         if self._labels:
-            labels = []
+            labels = set()
             for label in self._labels:
                 if isinstance(label, Label):
-                    labels.append(label)
+                    labels.add(label)
                 else:
-                    labels.append(Label(label, auth=self._auth,
-                                        cypher=self._cypher))
+                    labels.add(Label(label, auth=self._auth,
+                                     cypher=self._cypher))
             self._labels = labels
         if not self._labels:
             self._labels = self._update_labels()
-
-    def __getitem__(self, key):
-        return self._labels[key - 1]
 
     def __len__(self):
         return len(self._labels)
@@ -143,49 +145,47 @@ class NodeLabelsProxy(list):
         except AttributeError:
             return key in self._labels
 
+    def __eq__(self, obj):
+        try:
+            return obj._labels == self._labels
+        except AttributeError:
+            return set(obj) == self._labels
+
     def _update_labels(self):
         response = Request(**self._auth).get(self._url)
-        if response.status == 200:
-            results_list = response.loads()
-            return [Label(label, auth=self._auth, cypher=self._cypher)
-                    for label in results_list]
+        if response.status_code == 200:
+            results_list = response.json()
+            return set([Label(label, auth=self._auth, cypher=self._cypher)
+                        for label in results_list])
         else:
             msg = "Unable to get labels"
             try:
-                msg += ": " + response.loads().get('message')
+                msg += ": " + response.json().get('message')
             except (ValueError, AttributeError, KeyError):
                 pass
-            raise StatusException(response.status, msg)
+            raise StatusException(response.status_code, msg)
 
-    def append(self, labels):
-        is_list = False
-        if isinstance(labels, (tuple, list)):
-            labels = [smart_quote(l) for l in labels]
-            is_list = True
-        else:
-            labels = smart_quote(labels)
+    def add(self, labels):
+        if not isinstance(labels, (tuple, list)):
+            labels = [labels]
         response = Request(**self._auth).post(self._url, data=labels)
-        if response.status == 204:
-            if is_list:
-                for label in labels:
-                    if Label(label) not in self._labels:
-                        self._labels.append(Label(labels, auth=self._auth,
-                                                  cypher=self._cypher))
-            elif Label(labels) not in self._labels:
-                self._labels.append(Label(labels, auth=self._auth,
-                                          cypher=self._cypher))
+        if response.status_code == 204:
+            for label in labels:
+                _label = Label(label, auth=self._auth, cypher=self._cypher)
+                if _label not in self._labels:
+                    self._labels.add(_label)
         else:
             msg = "Unable to add label"
             try:
-                msg += ": " + response.loads().get('message')
+                msg += ": " + response.json().get('message')
             except (ValueError, AttributeError, KeyError):
                 pass
-            raise StatusException(response.status, msg)
+            raise StatusException(response.status_code, msg)
 
     def remove(self, label):
         url = "{}/{}".format(self._url, smart_quote(label))
         response = Request(**self._auth).delete(url)
-        if response.status == 204:
+        if response.status_code == 204:
             if Label(label) in self._labels:
                 self._labels.remove(label)
         elif options.SMART_ERRORS:
@@ -193,10 +193,10 @@ class NodeLabelsProxy(list):
         else:
             msg = "Unable to remove label"
             try:
-                msg += ": " + response.loads().get('message')
+                msg += ": " + response.json().get('message')
             except (ValueError, AttributeError, KeyError):
                 pass
-            raise StatusException(response.status, msg)
+            raise StatusException(response.status_code, msg)
 
     def __repr__(self):
         return self.__unicode__()
@@ -205,4 +205,4 @@ class NodeLabelsProxy(list):
         return self.__unicode__()
 
     def __unicode__(self):
-        return unicode(self._labels)
+        return text_type(self._labels)

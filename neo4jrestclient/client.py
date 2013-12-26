@@ -1255,7 +1255,7 @@ class Node(Base):
             )
         return self._labels
 
-    labels = property(_get_labels, _get_labels)
+    labels = property(_get_labels, _set_labels)
 
 
 class PaginatedTraversal(object):
