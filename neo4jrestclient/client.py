@@ -84,7 +84,8 @@ class GraphDatabase(object):
             if self.VERSION:
                 self._auth.update({'version': self.VERSION})
             self.extensions = ExtensionsProxy(self._extensions,
-                                              auth=self._auth)
+                                              auth=self._auth,
+                                              cypher=self._cypher)
             self.nodes = NodesProxy(self._node, self._reference_node,
                                     self._node_index,
                                     auth=self._auth, cypher=self._cypher)
@@ -126,7 +127,7 @@ class GraphDatabase(object):
         return start_node.traverse(*args, **kwargs)
 
     def traversal(self):
-        return TraversalDescription(auth=self._auth)
+        return TraversalDescription(auth=self._auth, cypher=self._cypher)
 
     def _get_traversal_class(self):
         cls = self
@@ -694,9 +695,11 @@ class Base(object):
     Base class.
     """
 
-    def __init__(self, url, create=False, data={}, update_dict={}, auth=None):
+    def __init__(self, url, create=False, data={}, update_dict={}, auth=None,
+                 cypher=None):
         self._dic = {}
         self._auth = auth or {}
+        self._cypher = cypher
         self.url = None
         self._labels = None
         # Allow update an object using only a new data dict of properties
@@ -748,7 +751,10 @@ class Base(object):
         if isinstance(s, text_type):
             return s
         if isinstance(s, string_types):
-            return text_type(s.decode("utf-8"))
+            if PY2:
+                return text_type(s.decode("utf-8"))
+            else:
+                return text_type(s)
         else:
             # We avoid convert non-string values
             return s
@@ -1004,9 +1010,10 @@ class NodesProxy(dict):
                                     obj=self)
         else:
             if isinstance(key, string_types) and key.startswith(self._node):
-                return Node(key, auth=self._auth)
+                return Node(key, auth=self._auth, cypher=self._cypher)
             else:
-                return Node("%s/%s/" % (self._node, key), auth=self._auth)
+                return Node("%s/%s/" % (self._node, key), auth=self._auth,
+                            cypher=self._cypher)
 
     def get(self, key, *args, **kwargs):
         tx = Transaction.get_transaction(kwargs.get("tx", None))
@@ -1030,7 +1037,8 @@ class NodesProxy(dict):
                               returns=NODE)
             return op
         else:
-            return Node(self._node, create=True, data=kwargs, auth=self._auth)
+            return Node(self._node, create=True, data=kwargs, auth=self._auth,
+                        cypher=self._cypher)
 
     def delete(self, key, tx=None):
         tx = Transaction.get_transaction(tx)
@@ -1206,7 +1214,7 @@ class Node(Base):
                 traverse_url = "%s?%s" % (traverse_url,
                                           "&".join(traverse_params))
             return PaginatedTraversal(traverse_url, returns, data=data,
-                                      auth=self._auth)
+                                      auth=self._auth, cypher=self._cypher)
         else:
             traverse_url = self._dic["traverse"].replace("{returnType}",
                                                          returns)
@@ -1215,7 +1223,7 @@ class Node(Base):
                 results_list = response.json()
                 if returns == NODE:
                     return Iterable(Node, results_list, "self",
-                                    auth=self._auth)
+                                    auth=self._auth, cypher=self._cypher)
                 elif returns == RELATIONSHIP:
                     return Iterable(Relationship, results_list, "self",
                                     auth=self._auth)
@@ -1237,22 +1245,17 @@ class Node(Base):
                 raise StatusException(response.status_code, msg)
 
     def _set_labels(self, labels):
-        if isinstance(labels, (tuple, list)):
-            self._labels = NodeLabelsProxy(
-                self._dic['labels'], labels=labels, auth=self._auth,
-                node=Node
-            )
-        else:
-            self._labels = NodeLabelsProxy(
-                self._dic['labels'], labels=[labels], auth=self._auth,
-                node=Node
-            )
+        if not isinstance(labels, (tuple, list)):
+            labels = [labels]
+        self._labels = NodeLabelsProxy(self._dic['labels'], labels=labels,
+                                       auth=self._auth, node=Node,
+                                       cypher=self._cypher)
 
     def _get_labels(self):
         if not self._labels:
-            self._labels = NodeLabelsProxy(
-                self._dic['labels'], auth=self._auth, node=Node
-            )
+            self._labels = NodeLabelsProxy(self._dic['labels'],
+                                           auth=self._auth, node=Node,
+                                           cypher=self._cypher)
         return self._labels
 
     labels = property(_get_labels, _set_labels)
@@ -1263,8 +1266,9 @@ class PaginatedTraversal(object):
     Class for paged traversals.
     """
 
-    def __init__(self, url, returns, data=None, auth=None):
+    def __init__(self, url, returns, data=None, auth=None, cypher=None):
         self._auth = auth or {}
+        self._cypher = cypher
         self.url = url
         self.returns = returns
         self.data = data
@@ -1287,7 +1291,7 @@ class PaginatedTraversal(object):
             self._item = False
             if self.returns == NODE:
                 results = Iterable(Node, self._results, "self",
-                                   auth=self._auth)
+                                   auth=self._auth, cypher=self._cypher)
             elif self.returns == RELATIONSHIP:
                 results = Iterable(Relationship, self._results, "self",
                                    auth=self._auth)
@@ -1458,7 +1462,7 @@ class IndexKey(object):
         tx = Transaction.get_transaction(tx)
         url = "%s/%s" % (self.url, smart_quote(value))
         return Index._get_results(url, self._index_for, auth=self._auth,
-                                  tx=tx)
+                                  cypher=self._cypher, tx=tx)
 
     def __setitem__(self, value, item):
         tx = self.tx
@@ -1508,7 +1512,8 @@ class IndexKey(object):
                 entity = response.json()
                 if self._index_for == NODE:
                     return Node(entity['self'], data=entity['data'],
-                                auth=self._auth, update_dict=entity)
+                                auth=self._auth, update_dict=entity,
+                                cypher=self._cypher)
                 else:
                     return Relationship(entity['self'],
                                         data=entity['data'],
@@ -1522,7 +1527,7 @@ class IndexKey(object):
     def query(self, value, tx=None):
         url = "%s?query=%s" % (self.url, smart_quote(value))
         return Index._get_results(url, self._index_for, auth=self._auth,
-                                  tx=tx)
+                                  cypher=self._cypher, tx=tx)
 
     def filter(self, lookups=[], value=None):
         return Index._filter(self, lookups, self._key, value)
@@ -1538,7 +1543,7 @@ class Index(object):
     """
 
     @staticmethod
-    def _get_results(url, node_or_rel, auth={}, tx=None):
+    def _get_results(url, node_or_rel, auth={}, cypher=None, tx=None):
         tx = Transaction.get_transaction(tx)
         if tx:
             return tx.subscribe(TX_GET, url, obj=None, returns=ITERABLE,
@@ -1548,7 +1553,8 @@ class Index(object):
             if response.status_code == 200:
                 data_list = response.json()
                 if node_or_rel == NODE:
-                    return Iterable(Node, data_list, "self", auth=auth)
+                    return Iterable(Node, data_list, "self", auth=auth,
+                                    cypher=cypher)
                 else:
                     return Iterable(Relationship, data_list, "self", auth=auth)
             elif response.status_code == 404:
@@ -1690,7 +1696,8 @@ class Index(object):
                 entity = response.json()
                 if self._index_for == NODE:
                     return Node(entity['self'], data=entity['data'],
-                                auth=self._auth, update_dict=entity)
+                                auth=self._auth, update_dict=entity,
+                                cypher=self._cypher)
                 else:
                     return Relationship(entity['self'],
                                         data=entity['data'],
@@ -1974,11 +1981,11 @@ class Relationship(Base):
     """
 
     def _get_start(self):
-        return Node(self._dic['start'], auth=self._auth)
+        return Node(self._dic['start'], auth=self._auth, cypher=self._cypher)
     start = property(_get_start)
 
     def _get_end(self):
-        return Node(self._dic['end'], auth=self._auth)
+        return Node(self._dic['end'], auth=self._auth, cypher=self._cypher)
     end = property(_get_end)
 
     def _get_type(self):
@@ -1998,24 +2005,27 @@ class Path(object):
     Path class for return type PATH in traversals.
     """
 
-    def __init__(self, dic, auth=None):
+    def __init__(self, dic, auth=None, cypher=None):
         self._auth = auth or {}
+        self._cypher = cypher
         self._dic = dic
         self._length = int(dic["length"])
         self._nodes = []
         self._relationships = []
         self._iterable = []
-        self._start = Node(self._dic["start"], auth=self._auth)
-        self._end = Node(self._dic["end"], auth=self._auth)
+        self._start = Node(self._dic["start"], auth=self._auth,
+                           cypher=self._cypher)
+        self._end = Node(self._dic["end"], auth=self._auth,
+                         cypher=self._cypher)
         for i in range(0, len(dic["relationships"])):
-            node = Node(dic["nodes"][i], auth=self._auth)
+            node = Node(dic["nodes"][i], auth=self._auth, cypher=self._cypher)
             self._nodes.append(node)
             relationship = Relationship(dic["relationships"][i],
                                         auth=self._auth)
             self._relationships.append(relationship)
             self._iterable.append(node)
             self._iterable.append(relationship)
-        node = Node(dic["nodes"][-1], auth=self._auth)
+        node = Node(dic["nodes"][-1], auth=self._auth, cypher=self._cypher)
         self._nodes.append(node)
         self._iterable.append(node)
 
@@ -2055,15 +2065,16 @@ class Position(object):
     Position class for return type POSITION in traversals.
     """
 
-    def __init__(self, dic, auth=None):
+    def __init__(self, dic, auth=None, cypher=None, **kwargs):
         self._auth = auth or {}
-        self._node = Node(dic["node"], auth=self._auth)
+        self._cypher = cypher
+        self._node = Node(dic["node"], auth=self._auth, cypher=self._cypher)
         self._depth = int(dic["depth"])
         relationship = Relationship(dic.get("last relationship",
                                     dic.get("last_relationship", None)),
                                     auth=self._auth)
         self._last_relationship = relationship
-        self._path = Path(dic["path"], auth=self._auth)
+        self._path = Path(dic["path"], auth=self._auth, cypher=self._cypher)
 
     def _get_node(self):
         return self._node
@@ -2152,10 +2163,11 @@ class ExtensionsProxy(dict):
     and class name and executing with the right params through calling.
     """
 
-    def __init__(self, extensions, auth=None):
+    def __init__(self, extensions, auth=None, cypher=None):
         self._extensions = extensions
         self._dict = {}
         self._auth = auth or {}
+        self._cypher = cypher
 
     def __getitem__(self, attr):
         return self.__getattr__(attr)
@@ -2213,8 +2225,9 @@ class Extension(object):
     Extension class.
     """
 
-    def __init__(self, url, auth=None):
+    def __init__(self, url, auth=None, cypher=None):
         self._auth = auth or {}
+        self._cypher = cypher
         self._dic = {}
         if url.endswith("/"):
             url = url[:-1]
@@ -2248,7 +2261,8 @@ class Extension(object):
                 return result
             if isinstance(result, (tuple, list)) and returns:
                 if NODE in returns:
-                    return Iterable(Node, result, "self", auth=self._auth)
+                    return Iterable(Node, result, "self", auth=self._auth,
+                                    cypher=self._cypher)
                 elif RELATIONSHIP in returns:
                     return Iterable(Relationship, result, "self",
                                     auth=self._auth)
@@ -2258,14 +2272,16 @@ class Extension(object):
                     return Iterable(Position, result, auth=self._auth)
             elif isinstance(result, dict) and returns:
                 if NODE in returns:
-                    return Node(result["self"], data=result, auth=self._auth)
+                    return Node(result["self"], data=result, auth=self._auth,
+                                cypher=self._cypher)
                 elif RELATIONSHIP in returns:
                     return Relationship(result["self"], data=result,
-                                        auth=self._auth)
+                                        auth=self._auth, cypher=self._cypher)
                 elif PATH in returns:
-                    return Path(result, auth=self._auth)
+                    return Path(result, auth=self._auth, cypher=self._cypher)
                 elif POSITION in returns:
-                    return Position(result, auth=self._auth)
+                    return Position(result, auth=self._auth,
+                                    cypher=self._cypher)
             elif result:
                 return result
             else:

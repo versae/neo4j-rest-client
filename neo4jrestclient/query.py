@@ -388,14 +388,15 @@ class QuerySequence(Sequence):
                         func_lower = func.lower()
                         if func_lower in types_keys:
                             func = self._types[func_lower]
-                    if func in (self._types["node"],
-                                self._types["relationship"]):
+                    if func in (self._types.get("node", ""),
+                                self._types.get("relationship", "")):
                         obj = func(element["self"], data=element,
-                                   auth=self._auth)
+                                   auth=self._auth, cypher=self._cypher)
                         casted_row.append(obj)
-                    elif func in (self._types["path"],
-                                  self._types["position"]):
-                        obj = func(element, auth=self._auth)
+                    elif func in (self._types.get("path", ""),
+                                  self._types.get("position", "")):
+                        obj = func(element, auth=self._auth,
+                                   cypher=self._cypher)
                         casted_row.append(obj)
                     elif func in (None, True, False):
                         sub_func = lambda x: x is func
@@ -411,11 +412,16 @@ class QuerySequence(Sequence):
 
 class FilterSequence(QuerySequence):
 
-    def __init__(self, cypher, auth, start=None, lookups=[],
+    def __init__(self, cypher, auth, start=None, matches=None, lookups=[],
                  order_by=None, types=None, returns=None):
         self.version = auth.get('version', None)
         start = start or u"node(*)"
         q = u"start n=%s " % start
+        if matches:
+            if not isinstance(matches, (list, tuple)):
+                matches = [matches]
+            match = u", ".join(matches)
+            q = u"{} match {}".format(q, match)
         where = None
         params = {}
         if lookups:
@@ -428,9 +434,9 @@ class FilterSequence(QuerySequence):
             where, params = wheres.get_query_objects(var="n",
                                                      version=self.version)
         if where:
-            q = u"%s where %s return n " % (q, where)
+            q = u"{} where {} return n ".format(q, where)
         else:
-            q = u"%s return n " % q
+            q = u"{} return n ".format(q)
         super(FilterSequence, self).__init__(cypher=cypher, auth=auth, q=q,
                                              params=params, types=types,
                                              returns=returns)

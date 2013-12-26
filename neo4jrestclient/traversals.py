@@ -54,8 +54,9 @@ class Traverser(object):
     PATH = constants.PATH
     FULLPATH = constants.FULLPATH
 
-    def __init__(self, start_node, data, auth=None):
+    def __init__(self, start_node, data, auth=None, cypher=None):
         self._auth = auth or {}
+        self._cypher = cypher
         self._data = data
         self._endpoint = start_node._dic["traverse"]
         self._cache = {}
@@ -79,7 +80,7 @@ class Traverser(object):
     def nodes(self):
         from neo4jrestclient.client import Node
         results = self.request(Traverser.NODE)
-        return Iterable(Node, results, "self")
+        return Iterable(Node, results, "self", cypher=self._cypher)
 
     @property
     def relationships(self):
@@ -101,8 +102,9 @@ class TraversalDescription(object):
     """https://github.com/neo4j/community/blob/master/kernel/src/main
               /java/org/neo4j/graphdb/traversal/TraversalDescription.java"""
 
-    def __init__(self, auth=None):
+    def __init__(self, auth=None, cypher=None):
         self._auth = auth or {}
+        self._cypher = cypher
         self._data = {}
         self.uniqueness(Uniqueness.NODE_GLOBAL)
         # self.max_depth(1)
@@ -172,7 +174,8 @@ class TraversalDescription(object):
             del self._data["max_depth"]
         except KeyError:
             pass
-        return Traverser(start_node, self._data, auth=self._auth)
+        return Traverser(start_node, self._data, auth=self._auth,
+                         cypher=self._cypher)
 
 
 class Traversal(object):

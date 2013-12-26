@@ -4,6 +4,7 @@ import unittest
 import os
 
 from neo4jrestclient import client
+from neo4jrestclient.query import Q
 from neo4jrestclient.request import StatusException
 
 
@@ -116,7 +117,7 @@ class LabelsTestCase(GraphDatabaseTesCase):
             n = self.gdb.nodes.create()
             n.labels.add(label)
             nodes.append(n)
-        labeled_nodes = self.gdb.labels[label]
+        labeled_nodes = self.gdb.labels[label].all()
         for node in nodes:
             self.assertIn(node, labeled_nodes)
         self.assertEqual(len(nodes), len(labeled_nodes))
@@ -128,7 +129,7 @@ class LabelsTestCase(GraphDatabaseTesCase):
             n = self.gdb.nodes.create()
             n.labels.add(label)
             nodes.append(n)
-        labeled_nodes = self.gdb.labels.get(label)
+        labeled_nodes = self.gdb.labels.get(label).all()
         for node in nodes:
             self.assertIn(node, labeled_nodes)
         self.assertEqual(len(nodes), len(labeled_nodes))
@@ -144,7 +145,7 @@ class LabelsTestCase(GraphDatabaseTesCase):
                 nodes.append(n)
             else:
                 n = self.gdb.nodes.create()
-        labeled_nodes = self.gdb.labels.get(label, property=value)
+        labeled_nodes = self.gdb.labels[label].get(property=value)
         for node in nodes:
             self.assertIn(node, labeled_nodes)
         self.assertEqual(len(nodes), len(labeled_nodes))
@@ -154,7 +155,13 @@ class LabelsTestCase(GraphDatabaseTesCase):
         n1.labels.add(["label1", "label2"])
         n2 = self.gdb.nodes.create()
         n2.labels.add("label3")
-        for label in n1.labels + n2.labels:
+        for label in n1.labels | n2.labels:
             self.assertIn(label, self.gdb.labels)
         self.assertTrue(len(n1.labels) + len(n2.labels) <=
                         len(self.gdb.labels))
+
+    def test_filter(self):
+        n = self.gdb.nodes.create(key="value")
+        label = n.labels.add("label")
+        q = Q("key", "icontains", "VALUE")
+        self.assertIn(n, label.filter(q))
