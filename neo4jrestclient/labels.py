@@ -16,6 +16,10 @@ class Label(object):
         self._auth = auth
         self._cypher = cypher
         self._node_cls = node
+        # Check URLs like http://localhost:7474/db/data/node/27530/labels
+        url_split = self._url.rsplit("/", 3)
+        if url_split[1] == 'node':
+            self._url = u"{}/labels".format(url_split[0])
 
     def __eq__(self, obj):
         try:

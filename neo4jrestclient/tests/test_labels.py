@@ -160,8 +160,25 @@ class LabelsTestCase(GraphDatabaseTesCase):
         self.assertTrue(len(n1.labels) + len(n2.labels) <=
                         len(self.gdb.labels))
 
+    def test_labels_all(self):
+        n = self.gdb.nodes.create()
+        labels = n.labels.add(["label1", "label2"])
+        for label in labels:
+            self.assertIn(label, self.gdb.labels)
+            self.assertIn(n, label.all())
+
     def test_filter(self):
         n = self.gdb.nodes.create(key="value")
         label = n.labels.add("label")
         q = Q("key", "icontains", "VALUE")
         self.assertIn(n, label.filter(q))
+
+    def test_filter_safe(self):
+        n1 = self.gdb.nodes.create(key=u"válu½/ë")
+        n1.labels.add(u"läbel")
+        n2 = self.gdb.nodes.create(key=u"val")
+        n2.labels.add(u"läbel")
+        q = Q("key", "icontains", u"LU½")
+        label = self.gdb.labels.get(u"läbel")
+        self.assertIn(n1, label.filter(q))
+        self.assertNotIn(n2, label.filter(q))
