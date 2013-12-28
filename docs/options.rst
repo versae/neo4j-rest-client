@@ -72,6 +72,13 @@ transactions (aka batch operations), you can do that with ``TX_NAME``:
   >>> neo4jrestclient.options.TX_NAME = "_tx"  # Default
 
 
+``VERIFY_SSL``
+--------------
+This option is used to set to ``True`` the verification of SSL certificates. By
+default is set to ``False``
+
+  >>> neo4jrestclient.options.VERIFY_SSL = "False"  # Default
+
 .. _python-embedded: http://docs.neo4j.org/chunked/snapshot/python-embedded.html
 .. _lucene-querybuilder: http://github.com/scholrly/lucene-querybuilder
 .. _`read the docs`: http://readthedocs.org/docs/neo4j-rest-client/en/latest/

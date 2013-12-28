@@ -337,11 +337,12 @@ class Request(object):
         if method in ("POST", "PUT"):
             headers['Content-Type'] = 'application/json'
         data = self._json_encode(data, ensure_ascii=True)
+        verify = options.VERIFY_SSL
         try:
             method = method.lower()
             response = getattr(session, method)(root_uri, headers=headers,
                                                 data=data, cert=cert,
-                                                auth=auth)
+                                                auth=auth, verify=verify)
             if response.status_code == 401:
                 raise StatusException(401, "Authorization Required")
             return response
