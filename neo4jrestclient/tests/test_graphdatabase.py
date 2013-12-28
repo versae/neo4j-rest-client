@@ -20,6 +20,10 @@ class GraphDatabaseTesCase(unittest.TestCase):
         url = url.replace(":7474", ":7473")
         client.GraphDatabase(url)
 
+    def test_connection_host(self):
+        url = NEO4J_URL.replace("/db/data/", "")
+        client.GraphDatabase(url)
+
     def tearDown(self):
         if self.gdb:
             self.gdb.flush()

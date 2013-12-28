@@ -70,6 +70,15 @@ class GraphDatabase(object):
         response = Request(**self._auth).get(self.url)
         if response.status_code == 200:
             response_json = response.json()
+        else:
+            raise NotFoundError(response.status_code, "Unable get root")
+        if "data" in response_json and "management" in response_json:
+            response = Request(**self._auth).get(response_json["data"])
+            if response.status_code == 200:
+                response_json = response.json()
+            else:
+                raise NotFoundError(response.status_code, "Unable get root")
+        if response_json:
             self._relationship_index = response_json['relationship_index']
             self._node = response_json['node']
             self._labels = response_json.get('labels',
@@ -104,8 +113,7 @@ class GraphDatabase(object):
                 self._batch = response_json["batch"]
             except KeyError:
                 self._batch = "%sbatch" % self.url
-        else:
-            raise NotFoundError(response.status_code, "Unable get root")
+
 
     def _get_reference_node(self):
         warnings.warn("Deprecated, the reference node is not needed anymore",
