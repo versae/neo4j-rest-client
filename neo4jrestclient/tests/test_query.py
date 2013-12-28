@@ -84,3 +84,22 @@ class QueryTestCase(GraphDatabaseTesCase):
             self.assertTrue(name in (u"John", u"William"))
             self.assertEqual(rel, r)
             self.assertEqual(date, 1982)
+
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_query_raw_no_return(self):
+        property_name = u"rel%s" % text_type(datetime.now().strftime('%s%f'))
+        self.gdb.nodes.create(name="John")
+        # This sets a property which we will check later
+        q = ("""start n=node(*) WHERE HAS(n.name) AND n.name='John' """
+             """SET n.`v{}`=True;""".format(property_name))
+        # Notice there is NO return value
+        self.gdb.query(q=q)
+        # Here, we find all nodes that have this property set
+        q = ("""start n=node(*) """
+             """WHERE HAS(n.`v{}`) return n;""".format(property_name))
+        result = self.gdb.query(q=q)
+        self.assertTrue(result is not None)
+        # Assuming the properties are set according for the first cypher
+        # query, this should always be True
+        self.assertTrue(len(result) > 0)

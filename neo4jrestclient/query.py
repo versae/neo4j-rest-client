@@ -269,7 +269,8 @@ class CypherException(Exception):
 
 class QuerySequence(Sequence):
 
-    def __init__(self, cypher, auth, q, params=None, types=None, returns=None):
+    def __init__(self, cypher, auth, q, params=None, types=None, returns=None,
+                 lazy=False):
         self.q = q
         self.params = params
         self._skip = None
@@ -282,6 +283,8 @@ class QuerySequence(Sequence):
         # This way we avoid a circular reference, by passing objects like Node
         self._types = types or {}
         self._elements = None
+        if not lazy:
+            self.elements
 
     def _get_elements(self):
         if self._elements is None:
@@ -439,7 +442,7 @@ class FilterSequence(QuerySequence):
             q = u"{} return n ".format(q)
         super(FilterSequence, self).__init__(cypher=cypher, auth=auth, q=q,
                                              params=params, types=types,
-                                             returns=returns)
+                                             returns=returns, lazy=True)
         self._return_single_rows = True
 
     def __getitem__(self, key):
