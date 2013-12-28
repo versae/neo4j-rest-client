@@ -182,3 +182,11 @@ class LabelsTestCase(GraphDatabaseTesCase):
         label = self.gdb.labels.get(u"läbel")
         self.assertIn(n1, label.filter(q))
         self.assertNotIn(n2, label.filter(q))
+
+    def test_label_create(self):
+        label = self.gdb.labels.create("label")
+        n1 = self.gdb.nodes.create(key=u"válu½/ë")
+        n2 = self.gdb.nodes.create(key=u"val")
+        label.add(n1, n2)
+        self.assertIn("label", n1.labels)
+        self.assertIn("label", n2.labels)

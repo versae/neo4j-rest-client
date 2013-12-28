@@ -40,6 +40,10 @@ class Label(object):
         return u"<Neo4j {}: {}>".format(self.__class__.__name__,
                                         self._label.__repr__())
 
+    def add(self, *nodes):
+        for node in nodes:
+            node.labels.add(self._label)
+
     def get(self, **kwargs):
         data = u""
         if kwargs:
@@ -86,9 +90,9 @@ class Label(object):
                               returns=returns)
 
 
-class LabelsProxy(object):
+class BaseLabelsProxy(object):
     """
-    Class proxy for labels the GraphDatabase object.
+    Base class proxy for labels.
     """
 
     def __init__(self, url, labels=None, auth=None, cypher=None, node=None):
@@ -169,7 +173,17 @@ class LabelsProxy(object):
             return set(obj) | self._labels
 
 
-class NodeLabelsProxy(LabelsProxy):
+class LabelsProxy(BaseLabelsProxy):
+    """
+    Class proxy for labels the GraphDatabase object.
+    """
+
+    def create(self, label):
+        return Label(self._url, label, auth=self._auth, cypher=self._cypher,
+                     node=self._node_cls)
+
+
+class NodeLabelsProxy(BaseLabelsProxy):
     """
     Class proxy for node labels.
     """
