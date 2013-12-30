@@ -179,7 +179,6 @@ class QueryTestCase(GraphDatabaseTesCase):
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_transaction_rollback(self):
         with self.gdb.transaction(for_query=True) as tx:
-            import ipdb; ipdb.set_trace()
             self.gdb.query("MERGE (a:Person {name:'Alice'})")
             self.gdb.query("MERGE (b:Person {name:'Bob'})")
             results = self.gdb.query(
