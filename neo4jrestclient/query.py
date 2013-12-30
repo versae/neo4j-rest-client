@@ -561,7 +561,7 @@ class QueryTransaction(object):
         if not self.url_tx:
             self._begin()
         results = self._execute(self.url_tx, results=True)
-        self.finished = True
+        self.finished = False
         return results
 
     def commit(self):
