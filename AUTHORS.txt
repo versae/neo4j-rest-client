@@ -20,6 +20,8 @@ APPRECIATED CONTRIBUTORS:
     * Robin Edwards: https://github.com/robinedwards
     * André Panisson: https://github.com/panisson
     * Kristian Glass: https://github.com/doismellburning
+    * Patrick Carlson: https://github.com/carlsonp
+    * Corey Farwell: https://github.com/frewsxcv
 
 And a big THANK YOU goes to:
 
