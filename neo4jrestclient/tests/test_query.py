@@ -4,6 +4,7 @@ import unittest
 import os
 
 from neo4jrestclient import client
+from neo4jrestclient.request import TransactionException
 from neo4jrestclient.utils import text_type
 
 
@@ -103,3 +104,82 @@ class QueryTestCase(GraphDatabaseTesCase):
         # Assuming the properties are set according for the first cypher
         # query, this should always be True
         self.assertTrue(len(result) > 0)
+
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_query_transaction_reset(self):
+        tx = self.gdb.transaction(for_query=True)
+        self.assertFalse(tx.finished)
+        expires = tx.expires
+        tx.reset()
+        self.assertNotEqual(expires, tx.expires)
+        tx.commit()
+        self.assertTrue(tx.finished)
+
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_query_transaction(self):
+        tx = self.gdb.transaction(for_query=True)
+        self.assertFalse(tx.finished)
+        tx.append("CREATE (a) RETURN a")
+        results = tx.commit()
+        self.assertEqual(len(results), 1)
+        for result in results:
+            self.assertEqual(len(result), 1)
+            self.assertEqual(result.columns, ["a"])
+            for row in result:
+                self.assertEqual(row[0]['data'], {})
+        self.assertTrue(tx.finished)
+
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_query_transaction_object(self):
+        tx = self.gdb.transaction(for_query=True)
+        tx.append("MERGE (a:Person {name:'Alice'})")
+        tx.append("MERGE (b:Person {name:'Bob'})")
+        tx.append("MATCH (lft { name: 'Alice' }),(rgt)"
+                  "WHERE rgt.name IN ['Bob', 'Carl']"
+                  "CREATE UNIQUE (lft)-[r:KNOWS]->(rgt)"
+                  "RETURN r",
+                  returns=client.Relationship)
+        results = tx.execute()
+        self.assertTrue(len(results) == 3)
+        self.assertTrue(isinstance(results[-1][0][0], client.Relationship))
+        self.assertEqual(results[-1][0][0].type, u"KNOWS")
+        # send another three statements and commit the transaction
+        tx.append("MERGE (c:Person {name:'Carol'})")
+        tx.append("MERGE (d:Person {name:'Dave'})")
+        results = tx.commit()
+        self.assertTrue(len(results) == 2)
+
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_query_transaction_returns_tuple(self):
+        n1 = self.gdb.nodes.create(name="John")
+        n2 = self.gdb.nodes.create(name="William")
+        rel_type = u"rel%s" % text_type(datetime.now().strftime('%s%f'))
+        r = n1.relationships.create(rel_type, n2, since=1982)
+        q = """start n=node(*) match n-[r:`{rel}`]-() """ \
+            """return n, n.name, r, r.since"""
+        params = {
+            "rel": rel_type,
+        }
+        with self.gdb.transaction(for_query=True) as tx:
+            results = self.gdb.query(q, params=params,
+                                     returns=(client.Node, text_type,
+                                              client.Relationship))
+        self.assertTrue(tx.finished)
+        for node, name, rel, date in results:
+            self.assertTrue(node in (n1, n2))
+            self.assertTrue(name in (u"John", u"William"))
+            self.assertEqual(rel, r)
+            self.assertEqual(date, 1982)
+
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_query_transaction_fails(self):
+        try:
+            with self.gdb.transaction(for_query=True):
+                self.gdb.query("strt n=node(*) return n")
+        except Exception as e:
+            self.assertTrue(isinstance(e, TransactionException))

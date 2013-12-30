@@ -9,9 +9,6 @@ import warnings
 from lucenequerybuilder import Q
 
 from neo4jrestclient import options
-from neo4jrestclient.query import (
-    QuerySequence, FilterSequence, CypherException
-)
 from neo4jrestclient.constants import (
     BREADTH_FIRST, DEPTH_FIRST,
     STOP_AT_END_OF_GRAPH,
@@ -26,6 +23,9 @@ from neo4jrestclient.constants import (
 )
 from neo4jrestclient.iterable import Iterable
 from neo4jrestclient.labels import NodeLabelsProxy, LabelsProxy
+from neo4jrestclient.query import (
+    QuerySequence, FilterSequence, QueryTransaction, CypherException
+)
 from neo4jrestclient.request import (Request, NotFoundError, StatusException,
                                      TransactionException)
 from neo4jrestclient.traversals import TraversalDescription
@@ -89,6 +89,7 @@ class GraphDatabase(object):
             self._extensions_info = response_json['extensions_info']
             self._extensions = response_json['extensions']
             self._cypher = response_json.get('cypher', None)
+            self._transaction = response_json.get('transaction', None)
             self.VERSION = response_json.get('neo4j_version', None)
             if self.VERSION:
                 self._auth.update({'version': self.VERSION})
@@ -113,7 +114,6 @@ class GraphDatabase(object):
                 self._batch = response_json["batch"]
             except KeyError:
                 self._batch = "%sbatch" % self.url
-
 
     def _get_reference_node(self):
         warnings.warn("Deprecated, the reference node is not needed anymore",
@@ -191,18 +191,28 @@ class GraphDatabase(object):
         return Traversal
 
     def transaction(self, using_globals=True, commit=True, update=True,
-                    transaction_id=None, context=None):
+                    transaction_id=None, context=None, for_query=False,
+                    rollback=True):
         if transaction_id not in self._transactions:
             transaction_id = len(self._transactions.keys())
-        self._transactions[transaction_id] = Transaction(self, transaction_id,
-                                                         context or {},
-                                                         commit=commit,
-                                                         update=update)
+        if for_query:
+            types = {
+                "node": Node,
+                "relationship": Relationship,
+                "path": Path,
+                "position": Position,
+            }
+            tx = QueryTransaction(self, transaction_id, rollback=rollback,
+                                  commit=commit, update=update, types=types)
+        else:
+            tx = Transaction(self, transaction_id, context or {},
+                             commit=commit, update=update)
+        self._transactions[transaction_id] = tx
         if using_globals:
             globals()[options.TX_NAME] = self._transactions[transaction_id]
         return self._transactions[transaction_id]
 
-    def query(self, q, params=None, returns=RAW):
+    def query(self, q, params=None, returns=RAW, tx=None):
         if self._cypher:
             types = {
                 "node": Node,
@@ -210,8 +220,9 @@ class GraphDatabase(object):
                 "path": Path,
                 "position": Position,
             }
+            tx = Transaction.get_transaction(tx)
             return QuerySequence(self._cypher, self._auth, q=q, params=params,
-                                 types=types, returns=returns)
+                                 types=types, returns=returns, tx=tx)
         else:
             raise CypherException
 
@@ -469,8 +480,8 @@ class TransactionOperationProxy(dict, object):
             if kwargs:
                 data.update({"data": kwargs})
             object.__getattribute__(self, "_extras")["tx"] = tx
-            return tx.subscribe(TX_POST, create_relationship_url,
-                                data=data, obj=self, returns=RELATIONSHIP)
+            return tx.append(TX_POST, create_relationship_url,
+                             data=data, obj=self, returns=RELATIONSHIP)
         return relationship
 
     # Relationships functions
@@ -529,8 +540,8 @@ class TransactionOperationProxy(dict, object):
                 "uri": url_ref}
         if tx:
             request_url = "index/%s/%s" % (index_for, _name)
-            op = tx.subscribe(TX_POST, request_url, data=data,
-                              obj=self, returns=index_for)
+            op = tx.append(TX_POST, request_url, data=data,
+                           obj=self, returns=index_for)
             return op
 
 
@@ -645,8 +656,7 @@ class Transaction(object):
         else:
             return True
 
-    def subscribe(self, method, url, data=None, obj=None, returns=None,
-                  of=None):
+    def append(self, method, url, data=None, obj=None, returns=None, of=None):
         job_id = len(self.operations)
         if url.startswith("{"):
             url_to = url
@@ -689,10 +699,10 @@ class Transaction(object):
     def get_transaction(tx=None):
         if not tx and options.TX_NAME in globals():
             return globals()[options.TX_NAME]
-        elif isinstance(tx, Transaction):
+        elif isinstance(tx, (Transaction, QueryTransaction)):
             return tx
         elif (isinstance(tx, (list, tuple)) and len(tx) > 1
-              and isinstance(tx[-1], Transaction)):
+              and isinstance(tx[-1], (Transaction, QueryTransaction))):
             return tx[-1]
         else:
             return None
@@ -796,7 +806,7 @@ class Base(object):
             return self.__delitem__(key, tx=tx)
         tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.subscribe(TX_DELETE, self.url, obj=self)
+            return tx.append(TX_DELETE, self.url, obj=self)
         response = Request(**self._auth).delete(self.url)
         if response.status_code == 204:
             self.url = None
@@ -815,7 +825,7 @@ class Base(object):
         property_url = self._dic["property"].replace("{key}", smart_quote(key))
         tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.subscribe(TX_GET, property_url, obj=self)
+            return tx.append(TX_GET, property_url, obj=self)
         response = Request(**self._auth).get(property_url)
         if response.status_code == 200:
             self._dic["data"][key] = response.json()
@@ -862,8 +872,8 @@ class Base(object):
             tx = Transaction.get_transaction(tx)
             if tx:
                 transaction_url = self._dic["property"].replace("{key}", "")
-                return tx.subscribe(TX_PUT, transaction_url, {key: value},
-                                    obj=self)
+                return tx.append(TX_PUT, transaction_url, {key: value},
+                                 obj=self)
             response = Request(**self._auth).put(property_url, data=value)
             if response.status_code == 204:
                 if options.SMART_DATES:
@@ -891,7 +901,7 @@ class Base(object):
         property_url = self._dic["property"].replace("{key}", smart_quote(key))
         tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.subscribe(TX_DELETE, property_url, obj=self)
+            return tx.append(TX_DELETE, property_url, obj=self)
         response = Request(**self._auth).delete(property_url)
         if response.status_code == 204:
             del self._dic["data"][key]
@@ -1012,10 +1022,10 @@ class NodesProxy(dict):
         tx = Transaction.get_transaction(tx)
         if tx:
             if isinstance(key, string_types) and key.startswith(self._node):
-                return tx.subscribe(TX_GET, key, obj=self)
+                return tx.append(TX_GET, key, obj=self)
             else:
-                return tx.subscribe(TX_GET, "%s/%s/" % (self._node, key),
-                                    obj=self)
+                return tx.append(TX_GET, "%s/%s/" % (self._node, key),
+                                 obj=self)
         else:
             if isinstance(key, string_types) and key.startswith(self._node):
                 return Node(key, auth=self._auth, cypher=self._cypher)
@@ -1041,8 +1051,8 @@ class NodesProxy(dict):
             if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
                 x = kwargs.pop("tx", None)
                 del x  # Makes pyflakes happy
-            op = tx.subscribe(TX_POST, self._node, data=kwargs, obj=self,
-                              returns=NODE)
+            op = tx.append(TX_POST, self._node, data=kwargs, obj=self,
+                           returns=NODE)
             return op
         else:
             return Node(self._node, create=True, data=kwargs, auth=self._auth,
@@ -1105,8 +1115,8 @@ class Node(Base):
             if kwargs:
                 data.update({"data": kwargs})
             if tx:
-                return tx.subscribe(TX_POST, create_relationship_url,
-                                    data=data, obj=self, returns=RELATIONSHIP)
+                return tx.append(TX_POST, create_relationship_url,
+                                 data=data, obj=self, returns=RELATIONSHIP)
             request = Request(**self._auth)
             response = request.post(create_relationship_url, data=data)
             if response.status_code == 201:
@@ -1389,11 +1399,11 @@ class IndexesProxy(dict):
                 del x  # Makes pyflakes happy
             url = "/%s/%s" % (INDEX, self._index_for)
             if self._index_for == NODE:
-                op = tx.subscribe(TX_POST, url, data=data, obj=self,
-                                  returns=INDEX_NODE)
+                op = tx.append(TX_POST, url, data=data, obj=self,
+                               returns=INDEX_NODE)
             else:
-                op = tx.subscribe(TX_POST, url, data=data, obj=self,
-                                  returns=INDEX_RELATIONSHIP)
+                op = tx.append(TX_POST, url, data=data, obj=self,
+                               returns=INDEX_RELATIONSHIP)
             return op
         else:
             if name not in self._dict:
@@ -1509,8 +1519,8 @@ class IndexKey(object):
                 "uri": url_ref}
         if tx:
             request_url = "index/%s/%s" % (self._index_for, self.name)
-            op = tx.subscribe(TX_POST, request_url, data=data,
-                              obj=self, returns=self._index_for)
+            op = tx.append(TX_POST, request_url, data=data,
+                           obj=self, returns=self._index_for)
             return op
         else:
             request = Request(**self._auth)
@@ -1554,8 +1564,8 @@ class Index(object):
     def _get_results(url, node_or_rel, auth={}, cypher=None, tx=None):
         tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.subscribe(TX_GET, url, obj=None, returns=ITERABLE,
-                                of=node_or_rel)
+            return tx.append(TX_GET, url, obj=None, returns=ITERABLE,
+                             of=node_or_rel)
         else:
             response = Request(**auth).get(url)
             if response.status_code == 200:
@@ -1692,8 +1702,8 @@ class Index(object):
                 })
         tx = Transaction.get_transaction(tx)
         if tx:
-            op = tx.subscribe(TX_POST, url, data=data,
-                              obj=self, returns=self._index_for)
+            op = tx.append(TX_POST, url, data=data, obj=self,
+                           returns=self._index_for)
             return op
         else:
             index_for = self._index_for.capitalize()
@@ -1754,7 +1764,7 @@ class Index(object):
                                 "%s to remove" % self._index_for)
         tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.subscribe(TX_DELETE, request_url, obj=self)
+            return tx.append(TX_DELETE, request_url, obj=self)
         else:
             response = Request(**self._auth).delete(url)
             if response.status_code == 404:
@@ -1855,8 +1865,8 @@ class RelationshipsProxy(dict):
     def __getitem__(self, key, tx=None):
         tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.subscribe(TX_GET, "%s/%s" % (self._relationship, key),
-                                obj=self)
+            return tx.append(TX_GET, "%s/%s" % (self._relationship, key),
+                             obj=self)
         else:
             return Relationship("%s/%s" % (self._relationship, key),
                                 auth=self._auth)
@@ -1924,7 +1934,7 @@ class Relationships(object):
                     key = "%s_relationships" % relationship_type
                     url = self._node._dic[key]
                 if tx:
-                    return tx.subscribe(TX_GET, url, obj=self)
+                    return tx.append(TX_GET, url, obj=self)
                 response = Request(**self._auth).get(url)
                 if response.status_code == 200:
                     relationship_list = response.json()

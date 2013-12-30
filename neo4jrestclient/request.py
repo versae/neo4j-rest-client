@@ -154,9 +154,10 @@ class StatusException(Exception):
 
 class TransactionException(StatusException):
 
-    def __init__(self, value=None):
-        result = "Node, relationship or property not found"
-        super(TransactionException, self).__init__(value, result)
+    def __init__(self, value=None, message=None):
+        if message is None:
+            message = "Element not found"
+        super(TransactionException, self).__init__(value, message)
 
 
 class NotFoundError(StatusException):
@@ -330,7 +331,7 @@ class Request(object):
         headers['Connection'] = 'keep-alive'
         if not options.CACHE:
             headers['Cache-Control'] = 'no-cache'
-        headers['User-Agent'] = 'Neo4jPythonClient/%s ' % __version__
+        headers['User-Agent'] = 'neo4jrestclient/%s ' % __version__
         auth = None
         if username and password:
             auth = (username, password)
