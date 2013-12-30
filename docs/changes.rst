@@ -1,6 +1,54 @@
 Changes
 =======
 
+2.0.0 (2013-12-30)
+------------------
+- Add support for Neo4j 2.0
+- Add Python3 support
+- Remove Python 2.6 support
+- Add support for Cypher transactional endpoint
+- Add documentation for Cypher transactions
+- Add support for Labels
+- Add documentation for Labels
+- Add support to pass Neo4j URL as the host, and neo4j-rest-client will request
+  for the '/db/data' part in an extra request
+- Add option for enabling verification of SSL certificates
+- Fix #94. Disable lazy loading from Cypher queries but keep if for filters
+- Update documentation
+- Add the option to 'create' labels and add nodes to them
+- Add filtering support for Labels
+- Add tests for Labels
+- Better structure to organize tests
+- Add UnitTest.skipIf instead of my own decorator @versions
+- Add development requirements and PyPy to Travis
+- Add flake8
+- Add support for tox
+- Skip some test that depend on newer versions of other dependencies
+- Update README with Coveralls.io image
+- Add coverage
+- Add extra requires for tests
+- Enable syntax highlighting, fix spelling errors
+- Fix #92. Allow nodes to be deleted from index without key or value
+- Fix an error on traversals time_out when decimal values are passed
+- Update Neo4j versions for Travis
+- PEP8 review
+- Add .all method to get all the elements. Underneath, it invokes .filter
+  with no arguments
+- Merge pull request #85 from carlsonp/patch-1
+
+
+1.9.0 (2013-05-27)
+------------------
+- Add Neo4j 1.9 and 2.0.0-M02 to tests and Travis.
+- Fix Python 2.6 compatibility. Last Python 2.6 issue fixed.
+- Fix test_filter_nodes_complex_lookups test for empty databases
+- Fix get_or_create and create_or_fail tests and add SMART_ERRORS for those functions
+- Add support for Neo4j versions when testing in Travis
+- Add support for get_or_create and create_or_fail index operations
+- Adding integration tests with Travis-CI
+- Updated requirements.txt with Shrubbery proposals
+- Add experimental support for smart dates
+
 
 1.8.0 (2012-12-09)
 ------------------
