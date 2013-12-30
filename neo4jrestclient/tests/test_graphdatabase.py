@@ -9,6 +9,8 @@ NEO4J_URL = os.environ.get('NEO4J_URL', "http://localhost:7474/db/data/")
 NEO4J_VERSION = os.environ.get('NEO4J_VERSION', None)
 
 
+@unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2"],
+                 "Not supported by Neo4j {}".format(NEO4J_VERSION))
 class GraphDatabaseTesCase(unittest.TestCase):
 
     def setUp(self):
