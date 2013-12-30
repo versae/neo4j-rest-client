@@ -177,6 +177,28 @@ class QueryTestCase(GraphDatabaseTesCase):
 
     @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_query_transaction_rollback(self):
+        with self.gdb.transaction(for_query=True) as tx:
+            import ipdb; ipdb.set_trace()
+            self.gdb.query("MERGE (a:Person {name:'Alice'})")
+            self.gdb.query("MERGE (b:Person {name:'Bob'})")
+            results = self.gdb.query(
+                "MATCH (lft { name: 'Alice' }),(rgt) "
+                "WHERE rgt.name IN ['Bob', 'Carl'] "
+                "CREATE (lft)-[r:KNOWS]->(rgt)"
+                "RETURN r",
+                returns=client.Relationship
+            )
+            self.assertTrue(len(results) == 1)
+            rel = results[0][0]
+            self.assertTrue(isinstance(rel, client.Relationship))
+            self.assertEqual(rel.type, u"KNOWS")
+            tx.rollback()
+        self.assertTrue(len(results) == 0)
+        self.assertIsNone(self.gdb.relationships.get(rel.id))
+
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_transaction_fails(self):
         try:
             with self.gdb.transaction(for_query=True):

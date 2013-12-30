@@ -430,7 +430,7 @@ class QuerySequence(Sequence):
                         casted_row.append(sub_func(element))
                     else:
                         casted_row.append(func(element))
-                if cls and cls._return_single_rows:
+                if cls is not None and cls._return_single_rows:
                     results.append(*casted_row)
                 else:
                     results.append(casted_row)
@@ -456,17 +456,18 @@ class QueryTransaction(object):
         self.auto_rollback = rollback
         self.statements = []
         self.references = []
+        self.executed = []
         self.expires = None
 
     def __enter__(self):
         return self
 
     def __exit__(self, type, value, traceback):
-        if self.auto_commit:
-            self.commit()
-        if (not self.finished and isinstance(value, TransactionException)
-                and self.auto_rollback):
-            self.rollback()
+        if not self.finished:
+            if self.auto_commit:
+                self.commit()
+            if isinstance(value, TransactionException) and self.auto_rollback:
+                self.rollback()
         return True
 
     def _manage_errors(self, errors):
@@ -504,6 +505,7 @@ class QueryTransaction(object):
         content = response.json()
         self._manage_errors(content["errors"])
         _results = self._update(content["results"])
+        self.executed = self.references
         self.statements = []
         self.references = []
         if results:
@@ -577,6 +579,13 @@ class QueryTransaction(object):
             response = request.delete(self.url_tx)
             if response.status_code in [200, 201]:
                 self._manage_errors(response.json()["errors"])
+                self.finished = True
+                for reference in self.executed:
+                    obj = reference["obj"]
+                    obj._elements = []
+                    obj.columns = None
+                    obj = None
+                self.executed = []
             else:
                 raise TransactionException(response.status_code)
 
