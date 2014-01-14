@@ -12,3 +12,5 @@ TIME_FORMAT = "%H:%M:%S.%f"
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 # Transactions
 TX_NAME = "_tx"
+# Verify SSL
+VERIFY_SSL = False

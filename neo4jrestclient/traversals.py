@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 # From https://gist.github.com/1865786 by @aventurella
-# http://docs.neo4j.org/chunked/snapshot/rest-api-traverse.html#rest-api-traversal-returning-nodes-below-a-certain-depth
-import json
-
+# http://docs.neo4j.org/chunked/snapshot/rest-api-traverse.html
+#       #rest-api-traversal-returning-nodes-below-a-certain-depth
 from neo4jrestclient import constants
 from neo4jrestclient.iterable import Iterable
 from neo4jrestclient.request import Request, NotFoundError, StatusException
+from neo4jrestclient.utils import string_types
 
 
 class Order(object):
@@ -54,8 +54,9 @@ class Traverser(object):
     PATH = constants.PATH
     FULLPATH = constants.FULLPATH
 
-    def __init__(self, start_node, data, auth=None):
+    def __init__(self, start_node, data, auth=None, cypher=None):
         self._auth = auth or {}
+        self._cypher = cypher
         self._data = data
         self._endpoint = start_node._dic["traverse"]
         self._cache = {}
@@ -65,26 +66,25 @@ class Traverser(object):
             return self._cache[return_type]
         except KeyError:
             url = self._endpoint.replace("{returnType}", return_type)
-            response, content = Request(**self._auth).post(url,
-                                                           data=self._data)
-            if response.status == 200:
-                results_list = json.loads(content)
+            response = Request(**self._auth).post(url, data=self._data)
+            if response.status_code == 200:
+                results_list = response.json()
                 self._cache[return_type] = results_list
                 return results_list
-            elif response.status == 404:
-                raise NotFoundError(response.status, "Node or relationship "
-                                                     "not found")
-            raise StatusException(response.status, "Invalid data sent")
+            elif response.status_code == 404:
+                raise NotFoundError(response.status_code,
+                                    "Node or relationship not found")
+            raise StatusException(response.status_code, "Invalid data sent")
 
     @property
     def nodes(self):
-        from client import Node
+        from neo4jrestclient.client import Node
         results = self.request(Traverser.NODE)
-        return Iterable(Node, results, "self")
+        return Iterable(Node, results, "self", cypher=self._cypher)
 
     @property
     def relationships(self):
-        from client import Relationship
+        from neo4jrestclient.client import Relationship
         results = self.request(Traverser.RELATIONSHIP)
         return Iterable(Relationship, results, "self")
 
@@ -93,16 +93,18 @@ class Traverser(object):
         raise NotImplementedError()
 
     def __iter__(self):
-        from client import Path
+        from neo4jrestclient.client import Path
         results = self.request(Traverser.PATH)
         return Iterable(Path, results, auth=self._auth)
 
 
 class TraversalDescription(object):
-    """https://github.com/neo4j/community/blob/master/kernel/src/main/java/org/neo4j/graphdb/traversal/TraversalDescription.java"""
+    """https://github.com/neo4j/community/blob/master/kernel/src/main
+              /java/org/neo4j/graphdb/traversal/TraversalDescription.java"""
 
-    def __init__(self, auth=None):
+    def __init__(self, auth=None, cypher=None):
         self._auth = auth or {}
+        self._cypher = cypher
         self._data = {}
         self.uniqueness(Uniqueness.NODE_GLOBAL)
         # self.max_depth(1)
@@ -144,7 +146,7 @@ class TraversalDescription(object):
 
     def relationships(self, name, direction=RelationshipDirection.ALL):
         self._data["relationships"] = []
-        if (not isinstance(name, (str, unicode)) and hasattr(name, "type")
+        if (not isinstance(name, string_types) and hasattr(name, "type")
                 and hasattr(name, "direction")):
             direction = name.direction
             name = name.type
@@ -153,7 +155,7 @@ class TraversalDescription(object):
         return self
 
     def relationships_append(self, name, direction=RelationshipDirection.ALL):
-        if (not isinstance(name, (str, unicode)) and hasattr(name, "type")
+        if (not isinstance(name, string_types) and hasattr(name, "type")
                 and hasattr(name, "direction")):
             direction = name.direction
             name = name.type
@@ -172,7 +174,8 @@ class TraversalDescription(object):
             del self._data["max_depth"]
         except KeyError:
             pass
-        return Traverser(start_node, self._data, auth=self._auth)
+        return Traverser(start_node, self._data, auth=self._auth,
+                         cypher=self._cypher)
 
 
 class Traversal(object):

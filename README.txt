@@ -1,3 +1,10 @@
+.. image:: https://travis-ci.org/versae/neo4j-rest-client.png?branch=master
+  :target: https://travis-ci.org/versae/neo4j-rest-client
+
+.. image:: https://coveralls.io/repos/versae/neo4j-rest-client/badge.png?branch=master
+  :target: https://coveralls.io/r/versae/neo4j-rest-client?branch=master
+
+
 Neo4j Python REST Client
 ========================
 
@@ -25,7 +32,9 @@ Or::
 `Getting started`_
 ------------------
 
-The main class is *GraphDatabase*, exactly how in python-embedded_::
+The main class is *GraphDatabase*, exactly how in python-embedded_:
+
+.. code:: python
 
   >>> from neo4jrestclient.client import GraphDatabase
 
@@ -34,29 +43,39 @@ The main class is *GraphDatabase*, exactly how in python-embedded_::
 Due to the syntax is fully compatible with python-embedded_, the next lines only show
 the commands added and its differences.
 
-Creating a node::
+Creating a node:
+
+.. code:: python
 
   >>> n = gdb.nodes.create()
 
   # Equivalent to
   >>> n = gdb.node()
 
-Specify properties for new node::
+Specify properties for new node:
 
-  >>> n = gdb.nodes.create(color="Red", widht=16, height=32)
+.. code:: python
 
-Accessing properties::
+  >>> n = gdb.nodes.create(color="Red", width=16, height=32)
+
+Accessing properties:
+
+.. code:: python
 
   >>> value = n['key'] # Get property value
 
   >>> n['key'] = value # Set property value
 
-Create relationship::
+Create relationship:
 
-  >>> n1.relationships.create("Knows", n2) # Usefull when the name of
+.. code:: python
+
+  >>> n1.relationships.create("Knows", n2) # Useful when the name of
                                            # relationship is stored in a variable
 
-Specify properties for new relationships::
+Specify properties for new relationships:
+
+.. code:: python
 
   >>> n1.Knows(n2, since=123456789, introduced_at="Christmas party")
 
@@ -69,7 +88,7 @@ For the extended and latest version of the documentation, please, visit the
 
 
 
-.. _python-embedded: http://docs.neo4j.org/chunked/snapshot/python-embedded.html
+.. _python-embedded: http://docs.neo4j.org/drivers/python-embedded/snapshot/
 .. _lucene-querybuilder: http://github.com/scholrly/lucene-querybuilder
 .. _`read the docs`: http://readthedocs.org/docs/neo4j-rest-client/en/latest/
 .. _Documentation: http://readthedocs.org/docs/neo4j-rest-client/en/latest/

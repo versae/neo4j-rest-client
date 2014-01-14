@@ -1,27 +1,28 @@
-Neo4j Python REST Client
-========================
+neo4j-rest-client's documentation
+=================================
 
 :synopsis: Object-oriented Python library to interact with Neo4j standalone REST server.
 
-The first objective of Neo4j Python REST Client is to make transparent for
-Python programmers the use of a local database through python-embedded_ or a
-remote database thanks to Neo4j REST Server. So, the syntax of this API is
-fully compatible with python-embedded. However, a new syntax is introduced in
-order to reach a more pythonic style.
+The main goal of neo4j-rest-client was to enable Python programmers
+already using Neo4j locally through python-embedded_, to use the Neo4j REST
+server. So the syntax of neo4j-rest-client's API is fully compatible with
+python-embedded. However, a new syntax is introduced in order to reach a more
+pythonic style and to enrich the API with the new features the Neo4j team
+introduces.
 
 
 Installation
 ------------
 
-Available throught Python Package Index::
+Available through Python Package Index::
 
   $ pip install neo4jrestclient
 
-Or::
+Or the old way::
 
   $ easy_install neo4jrestclient
 
-Or even if you want to use the development branch::
+You can also install the development branch::
 
   $ pip install git+https://github.com/versae/neo4j-rest-client.git
 
@@ -29,56 +30,47 @@ Or even if you want to use the development branch::
 Getting started
 ---------------
 
-The main class is *GraphDatabase*, exactly how in python-embedded_:
+The main class is ``GraphDatabase``, exactly how in python-embedded_:
 
   >>> from neo4jrestclient.client import GraphDatabase
-  
+
   >>> gdb = GraphDatabase("http://localhost:7474/db/data/")
 
-For providing authentication like is needed in services like Heroku_, you
-should add the proper parameters:
+If ``/db/data/`` is not added, neo4j-rest-client will do an extra request in
+order to know the endpoint for data.
+
+And now we are ready to create nodes and relationhips:
+
+  >>> alice = gdb.nodes.create(name="Alice", age=30)
+
+  >>> bob = gdb.nodes.create(name="Bob", age=30)
+
+  >>> alice.relationships.create("Knows", bob, since=1980)
+
+Although using ``labels`` is usually easier:
+
+  >>> people = gdb.labels.create("Person")
+
+  >>> people.add(alice, bob)
+
+  >>> carl = people.create(name="Carl", age=25)
+
+Now we can list and filter nodes according to the labels they are associated
+to:
+
+  >>> people.filter(Q("age", "gte", 30))
+
+Authentication
+^^^^^^^^^^^^^^
+Authentication-based services like Heroku_ are also supported by passing extra
+parameters:
 
   >>> url = "http://<instance>.hosted.neo4j.org:7000/db/data/"
-  
+
   >>> gdb = GraphDatabase(url, username="username", password="password")
 
-Or even using certificates:
+And when using certificates (both files must be in PEM_ format):
 
   >>> gdb = GraphDatabase(url, username="username", password="password",
-     ...: cert_file='path/to/file.cert', key_file='path/to/file.key')
-
-Due to a limitation of `httplib2`, both files must be in PEM_ format.
-
-
-Options
--------
-
-There some global options available::
-If CACHE is `True`, a `.cache` directory is created and the future request to
-the same URL will be taken from cache::
-
-  neo4jrestclient.options.CACHE = False # Default
-
-You can also use your own custom cache, (e.g LocMemCache from django)::
-
-  neo4jrestclient.options.CACHE_STORE = LocMemCache()
-
-If DEBUG is `True`, `httplib2` is set to debuglevel = 1::
-
-  neo4jrestclient.options.DEBUG = False # Default
-
-And `SMART_ERRORS`, set to 'False' by default. In case of `True`, the standard
-HTTP errors will be replaced by more pythonic errors (i.e. `KeyError` instead
-of `NotFoundError` in some cases)::
-
-  neo4jrestclient.options.SMART_ERRORS = False # Default
-
-
-.. _python-embedded: http://docs.neo4j.org/chunked/snapshot/python-embedded.html
-.. _lucene-querybuilder: http://github.com/scholrly/lucene-querybuilder
-.. _`read the docs`: http://readthedocs.org/docs/neo4j-rest-client/en/latest/
-.. _Documentation: http://readthedocs.org/docs/neo4j-rest-client/en/latest/
-.. _Installation: https://neo4j-rest-client.readthedocs.org/en/latest/info.html#installation
-.. _`Getting started`: https://neo4j-rest-client.readthedocs.org/en/latest/info.html#getting-started
-.. _Heroku: http://devcenter.heroku.com/articles/neo4j
-.. _PEM: http://en.wikipedia.org/wiki/X.509#Certificate_filename_extensions
+                          cert_file='path/to/file.cert',
+                          key_file='path/to/file.key')

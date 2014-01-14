@@ -1,24 +1,47 @@
 # -*- coding: utf-8 -*-
-import base64
 import datetime
 import decimal
-import httplib2
 import re
+import requests
 import json
 import time
-from urlparse import urlparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 
 from neo4jrestclient import options
 from neo4jrestclient.constants import __version__
+from neo4jrestclient.utils import string_types
 
 if options.DEBUG:
-    httplib2.debuglevel = 1
-else:
-    httplib2.debuglevel = 0
+    import httplib
+    import logging
+    httplib.HTTPConnection.debuglevel = 1
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
+    requests_log = logging.getLogger("requests.packages.urllib3")
+    requests_log.setLevel(logging.DEBUG)
+    requests_log.propagate = True
+session = requests.Session()
+
 if options.CACHE:
-    http = httplib2.Http(options.CACHE_STORE)
-else:
-    http = httplib2.Http()
+    try:
+        from cachecontrol import CacheControl
+        from cachecontrol.cache import DictCache
+        from cachecontrol.caches import FileCache
+    except ImportError as e:
+        raise ImportError("CacheControl and lockfile need to be installed "
+                          "in order to use CACHE and CACHE_STORE options "
+                          "in neo4jrestclient. \n"
+                          "Please, run $ pip install CacheControl lockfile")
+    if isinstance(options.CACHE_STORE, string_types):
+        cache = FileCache(options.CACHE_STORE)
+    elif isinstance(options.CACHE_STORE, dict):
+        cache = DictCache(options.CACHE_STORE)
+    else:
+        cache = options.CACHE_STORE
+    session = CacheControl(session, cache=cache)
 
 
 class StatusException(Exception):
@@ -131,9 +154,10 @@ class StatusException(Exception):
 
 class TransactionException(StatusException):
 
-    def __init__(self, value=None):
-        result = "Node, relationship or property not found"
-        super(TransactionException, self).__init__(value, result)
+    def __init__(self, value=None, message=None):
+        if message is None:
+            message = "Element not found"
+        super(TransactionException, self).__init__(value, message)
 
 
 class NotFoundError(StatusException):
@@ -292,44 +316,36 @@ class Request(object):
         else:
             root_uri = "%s://%s%s%s" % (splits.scheme, splits.hostname,
                                         port, splits.path)
-        scheme = splits.scheme
-        # Not used, it makes pyflakes happy
-        # hostname = splits.hostname
-        # port = splits.port
         username = splits.username or self.username
         password = splits.password or self.password
+        cert = None
+        if self.cert_file:
+            if self.key_file:
+                cert = (self.cert_file, self.key_file)
+            else:
+                cert = self.cert_file
         headers = headers or {}
-        if scheme.lower() == 'https':
-            http.add_certificate(key=self.key_file, cert=self.cert_file,
-                                 domain='')
-        headers['Accept'] = 'application/json'
+        headers['Accept'] = 'application/json; charset=UTF-8'
         headers['Accept-Encoding'] = '*'
-        headers['Accept-Charset'] = 'ISO-8859-1,utf-8;q=0.7,*;q=0.7'
+        headers['Accept-Charset'] = 'UTF-8,ISO-8859-1;q=0.7,*;q=0.7'
         headers['Connection'] = 'keep-alive'
         if not options.CACHE:
             headers['Cache-Control'] = 'no-cache'
-        headers['User-Agent'] = 'Neo4jPythonClient/%s ' % __version__
+        headers['User-Agent'] = 'neo4jrestclient/%s ' % __version__
+        auth = None
         if username and password:
-            http.add_credentials(username, password)
-            credentials = "%s:%s" % (username, password)
-            base64_credentials = base64.encodestring(credentials)
-            authorization = "Basic %s" % base64_credentials[:-1]
-            headers['Authorization'] = authorization
-            headers['Remote-User'] = username
+            auth = (username, password)
         if method in ("POST", "PUT"):
             headers['Content-Type'] = 'application/json'
-        # Thanks to Yashh: http://bit.ly/cWsnZG
-        # Don't JSON encode body when it starts with "http://" to set inde
-        # hrm, neo4j-1.3.M04 always expects JSON
-        # if isinstance(data, basestring) and data.startswith('http://'):
-        #    body = data
-        # else:
-        body = self._json_encode(data, ensure_ascii=True)
+        data = self._json_encode(data, ensure_ascii=True)
+        verify = options.VERIFY_SSL
         try:
-            response, content = http.request(root_uri, method, headers=headers,
-                                             body=body)
-            if response.status == 401:
+            method = method.lower()
+            response = getattr(session, method)(root_uri, headers=headers,
+                                                data=data, cert=cert,
+                                                auth=auth, verify=verify)
+            if response.status_code == 401:
                 raise StatusException(401, "Authorization Required")
-            return response, content
+            return response
         except AttributeError:
             raise Exception("Unknown error. Is the server running?")

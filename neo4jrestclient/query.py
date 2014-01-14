@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
-# Inspired by: https://github.com/CulturePlex/Sylva/tree/master/sylva/engines/gdb/lookups
-import json
+# Inspired by: https://github.com/CulturePlex/Sylva
+#                     /tree/master/sylva/engines/gdb/lookups
 from collections import Sequence
 
 from neo4jrestclient.constants import RAW
-from neo4jrestclient.request import Request, StatusException
+from neo4jrestclient.request import (
+    Request, StatusException, TransactionException
+)
+from neo4jrestclient.utils import text_type, string_types
 
 
 class BaseQ(object):
-    # Based on: https://github.com/scholrly/lucene-querybuilder/blob/master/lucenequerybuilder/query.py
+    # Based on: https://github.com/scholrly/lucene-querybuilder
+    #                  /blob/master/lucenequerybuilder/query.py
     """
     Q is a query builder for the Neo4j Cypher language backend
 
@@ -219,7 +223,7 @@ class Q(BaseQ):
             lookup, match = self._get_lookup_and_match()
         if self.property is not None and self.var is not None:
             key = u"{0}p{1}".format(prefix, len(params))
-            prop = unicode(self.property).replace(u"`", u"\\`")
+            prop = text_type(self.property).replace(u"`", u"\\`")
             NEO4J_V2 = version and version.split(".")[0] >= "2"
             if NEO4J_V2 and self.nullable is True:
                 try:
@@ -267,9 +271,11 @@ class CypherException(Exception):
 
 class QuerySequence(Sequence):
 
-    def __init__(self, cypher, auth, q, params=None, types=None, returns=None):
+    def __init__(self, cypher, auth, q, params=None, types=None, returns=None,
+                 lazy=False, tx=None):
         self.q = q
         self.params = params
+        self.columns = None
         self._skip = None
         self._limit = None
         self._order_by = None
@@ -280,13 +286,21 @@ class QuerySequence(Sequence):
         # This way we avoid a circular reference, by passing objects like Node
         self._types = types or {}
         self._elements = None
+        if tx:
+            tx.append(q=self.q, params=self.params, returns=self._returns,
+                      obj=self)
+            tx.execute()
+        elif not lazy:
+            self._get_elements()
 
     def _get_elements(self):
         if self._elements is None:
             response = self.get_response()
             try:
-                self._elements = self.cast(elements=response["data"],
-                                           returns=self._returns)
+                self._elements = QuerySequence.cast(
+                    self, elements=response["data"], returns=self._returns
+                )
+                self.columns = response.get("columns", None)
             except:
                 self._elements = response
         return self._elements
@@ -345,24 +359,35 @@ class QuerySequence(Sequence):
             "query": q,
             "params": params,
         }
-        response, content = Request(**self._auth).post(self._cypher, data=data)
-        if response.status == 200:
-            response_json = json.loads(content)
+        response = Request(**self._auth).post(self._cypher, data=data)
+        if response.status_code == 200:
+            response_json = response.json()
             return response_json
-        elif response.status == 400:
+        elif response.status_code == 400:
             err_msg = u"Cypher query exception"
             try:
-                err_msg = "%s: %s" % (err_msg, json.loads(content)["message"])
+                err_msg = "%s: %s" % (err_msg, response.json()["message"])
             except:
-                err_msg = "%s: %s" % (err_msg, content)
+                err_msg = "%s: %s" % (err_msg, response.text)
             raise CypherException(err_msg)
         else:
-            raise StatusException(response.status, "Invalid data sent")
+            raise StatusException(response.status_code, "Invalid data sent")
 
-    def cast(self, elements, returns=None):
+    @staticmethod
+    def cast(cls, elements, returns=None, types=None, auth=None, cypher=None):
+        if types is None:
+            types = cls._types
+        if auth is None:
+            auth = cls._auth
+        if cypher is None:
+            cypher = cls._cypher
         neutral = lambda x: x
         if not returns or returns is RAW:
-            return elements
+            if len(elements) > 0 and "rest" in elements[0]:
+                # For transactional Cypher endpoint
+                return [e["rest"] for e in elements]
+            else:
+                return elements
         else:
             results = []
             if not isinstance(returns, (tuple, list)):
@@ -370,6 +395,9 @@ class QuerySequence(Sequence):
             else:
                 returns = list(returns)
             for row in elements:
+                # For transactional Cypher endpoint
+                if "rest" in row:
+                    row = row["rest"]
                 # We need both list to have the same lenght
                 len_row = len(row)
                 len_returns = len(returns)
@@ -378,42 +406,202 @@ class QuerySequence(Sequence):
                 returns = returns[:len_row]
                 # And now, apply i-th function to the i-th column in each row
                 casted_row = []
-                types_keys = self._types.keys()
+                types_keys = types.keys()
                 for i, element in enumerate(row):
+                    # if "rest" in element:
+                    #     element = element["rest"]
                     func = returns[i]
                     # We also allow the use of constants like NODE, etc
-                    if isinstance(func, basestring):
+                    if isinstance(func, string_types):
                         func_lower = func.lower()
                         if func_lower in types_keys:
-                            func = self._types[func_lower]
-                    if func in (self._types["node"],
-                                self._types["relationship"]):
+                            func = types[func_lower]
+                    if func in (types.get("node", ""),
+                                types.get("relationship", "")):
                         obj = func(element["self"], data=element,
-                                   auth=self._auth)
+                                   auth=auth, cypher=cypher)
                         casted_row.append(obj)
-                    elif func in (self._types["path"],
-                                  self._types["position"]):
-                        obj = func(element, auth=self._auth)
+                    elif func in (types.get("path", ""),
+                                  types.get("position", "")):
+                        obj = func(element, auth=auth, cypher=cypher)
                         casted_row.append(obj)
                     elif func in (None, True, False):
                         sub_func = lambda x: x is func
                         casted_row.append(sub_func(element))
                     else:
                         casted_row.append(func(element))
-                if self._return_single_rows:
+                if cls is not None and cls._return_single_rows:
                     results.append(*casted_row)
                 else:
                     results.append(casted_row)
             return results
 
 
+class QueryTransaction(object):
+    """
+    Transaction class for tge Cypher endpoint.
+    """
+
+    def __init__(self, cls, transaction_id, types, commit=True, update=True,
+                 rollback=True):
+        self._class = cls
+        self.url_begin = self._class._transaction
+        self.url_tx = None
+        self.url_commit = None
+        self.id = transaction_id
+        self.finished = False
+        self._types = types
+        self.auto_commit = commit
+        self.auto_update = update
+        self.auto_rollback = rollback
+        self.statements = []
+        self.references = []
+        self.executed = []
+        self.expires = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        if not self.finished:
+            if self.auto_commit:
+                self.commit()
+            if isinstance(value, TransactionException) and self.auto_rollback:
+                self.rollback()
+        return True
+
+    def _manage_errors(self, errors):
+        message = u""
+        if errors:
+            for error in errors:
+                message = u"{}\n{}:\n{}\n".format(
+                    message, error["code"], error["message"]
+                )
+            raise TransactionException(200, message)
+
+    def _begin(self):
+        response = self._request(self.url_begin)
+        content = response.json()
+        self._manage_errors(content["errors"])
+        self.url_tx = response.headers.get("location")
+        self.url_commit = content["commit"]
+        self.expires = content["transaction"]["expires"]
+
+    def _request(self, url, statements=None):
+        if statements is None:
+            statements = []
+        request = Request(**self._class._auth)
+        data = {
+            "statements": statements
+        }
+        response = request.post(url, data=data)
+        if response.status_code in [200, 201]:
+            return response
+        else:
+            raise TransactionException(response.status_code)
+
+    def _execute(self, url, results=True):
+        response = self._request(url, statements=self.statements)
+        content = response.json()
+        self._manage_errors(content["errors"])
+        _results = self._update(content["results"])
+        self.executed = self.references
+        self.statements = []
+        self.references = []
+        if results:
+            return _results
+
+    def _update(self, result_list):
+        if self.auto_update:
+            results = []
+            for i, result in enumerate(result_list):
+                reference = self.references[i]
+                obj = reference["obj"]
+                returns = reference["returns"]
+                statement = reference["statement"]
+                if obj is None:
+                    obj = QuerySequence(
+                        q=statement['statement'],
+                        params=statement['parameters'], returns=returns,
+                        types=self._types, auth=self._class._auth,
+                        cypher=self._class._cypher, lazy=True
+                    )
+                obj._elements = QuerySequence.cast(
+                    obj, elements=result["data"], returns=returns
+                )
+                obj.columns = result.get("columns", None)
+                results.append(obj)
+            return results
+        else:
+            return result_list
+
+    def append(self, q, params=None, returns=None, obj=None):
+        statement = {
+            "statement": q,
+            "parameters": params,
+            "resultDataContents": ["REST"],
+        }
+        self.statements.append(statement)
+        self.references.append({
+            "statement": statement,
+            "returns": returns,
+            "obj": obj,
+        })
+
+    def reset(self):
+        if not self.url_tx:
+            self._begin()
+        response = self._request(self.url_tx)
+        content = response.json()
+        self._manage_errors(content["errors"])
+        self.expires = content["transaction"]["expires"]
+        return self.expires
+
+    def execute(self):
+        if not self.url_tx:
+            self._begin()
+        results = self._execute(self.url_tx, results=True)
+        self.finished = False
+        return results
+
+    def commit(self):
+        if self.url_commit:
+            url = self.url_commit
+        else:
+            url = u"{}/commit".format(self.url_begin)
+        results = self._execute(url, results=True)
+        self.finished = True
+        return results
+
+    def rollback(self):
+        if self.url_tx:
+            request = Request(**self._class._auth)
+            response = request.delete(self.url_tx)
+            if response.status_code in [200, 201]:
+                self._manage_errors(response.json()["errors"])
+                self.finished = True
+                for reference in self.executed:
+                    obj = reference["obj"]
+                    obj._elements = []
+                    obj.columns = None
+                    obj = None
+                self.executed = []
+            else:
+                raise TransactionException(response.status_code)
+
+
 class FilterSequence(QuerySequence):
 
-    def __init__(self, cypher, auth, start=None, lookups=[],
+    def __init__(self, cypher, auth, start=None, matches=None, lookups=[],
                  order_by=None, types=None, returns=None):
         self.version = auth.get('version', None)
         start = start or u"node(*)"
         q = u"start n=%s " % start
+        if matches:
+            if not isinstance(matches, (list, tuple)):
+                matches = [matches]
+            match = u", ".join(matches)
+            q = u"{} match {}".format(q, match)
         where = None
         params = {}
         if lookups:
@@ -426,12 +614,12 @@ class FilterSequence(QuerySequence):
             where, params = wheres.get_query_objects(var="n",
                                                      version=self.version)
         if where:
-            q = u"%s where %s return n " % (q, where)
+            q = u"{} where {} return n ".format(q, where)
         else:
-            q = u"%s return n " % q
+            q = u"{} return n ".format(q)
         super(FilterSequence, self).__init__(cypher=cypher, auth=auth, q=q,
                                              params=params, types=types,
-                                             returns=returns)
+                                             returns=returns, lazy=True)
         self._return_single_rows = True
 
     def __getitem__(self, key):
