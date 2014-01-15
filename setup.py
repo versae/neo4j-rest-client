@@ -12,8 +12,8 @@ def read(*rnames):
 constants = __import__('neo4jrestclient.constants').constants
 
 tests_require = [
-    'lockfile==0.9.1',
-    'CacheControl==0.8.3',
+    'lockfile>=0.9.1',
+    'CacheControl>=0.9.2',
 ]
 
 setup(
@@ -42,8 +42,8 @@ setup(
     ],
     include_package_data=True,
     install_requires=[
-        'requests==2.1.0',
-        'lucene-querybuilder==0.2',
+        'requests>=2.1.0',
+        'lucene-querybuilder>=0.2',
     ],
     tests_require=tests_require,
     test_suite='neo4jrestclient.tests',

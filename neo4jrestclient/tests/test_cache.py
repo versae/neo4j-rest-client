@@ -9,7 +9,6 @@ import os
 from neo4jrestclient import client
 from neo4jrestclient import options
 from neo4jrestclient import request
-from neo4jrestclient.utils import PY2
 
 
 NEO4J_URL = os.environ.get('NEO4J_URL', "http://localhost:7474/db/data/")
@@ -48,8 +47,6 @@ class FakeCache(object):
             del self.dict[key]
 
 
-@unittest.skipIf(not PY2,
-                 "CacheControl FileCache is not Python3 compliant yet")
 class XtraCacheTestCase(unittest.TestCase):
 
     def setUp(self):
