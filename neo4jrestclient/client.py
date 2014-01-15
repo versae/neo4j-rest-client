@@ -1384,19 +1384,18 @@ class IndexesProxy(dict):
                                   "Error requesting indexes with GET %s"
                                   % self.url)
 
-    def create(self, name, **kwargs):
+    def create(self, name, **config):
+        tx = Transaction.get_transaction(config.pop("tx", None))
+        if not config:
+            config = {
+                'type': INDEX_FULLTEXT,
+                'provider': "lucene",
+            }
         data = {
             'name': name,
-            'config': {
-                'type': kwargs.get("type", INDEX_FULLTEXT),
-                'provider': kwargs.get("provider", "lucene"),
-            }
+            'config': config,
         }
-        tx = Transaction.get_transaction(kwargs.get("tx", None))
         if tx:
-            if "tx" in kwargs and isinstance(kwargs["tx"], Transaction):
-                x = kwargs.pop("tx", None)
-                del x  # Makes pyflakes happy
             url = "/%s/%s" % (INDEX, self._index_for)
             if self._index_for == NODE:
                 op = tx.append(TX_POST, url, data=data, obj=self,
