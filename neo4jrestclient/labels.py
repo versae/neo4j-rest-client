@@ -3,7 +3,8 @@ import json
 
 from neo4jrestclient import options
 from neo4jrestclient.iterable import Iterable
-from neo4jrestclient.request import Request, StatusException
+from neo4jrestclient.request import Request
+from neo4jrestclient.exceptions import StatusException
 from neo4jrestclient.query import FilterSequence
 from neo4jrestclient.utils import smart_quote, text_type
 

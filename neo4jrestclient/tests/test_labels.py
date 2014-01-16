@@ -5,7 +5,7 @@ import os
 
 from neo4jrestclient import client
 from neo4jrestclient.query import Q
-from neo4jrestclient.request import StatusException
+from neo4jrestclient.exceptions import StatusException
 
 
 NEO4J_URL = os.environ.get('NEO4J_URL', "http://localhost:7474/db/data/")

@@ -4,9 +4,8 @@
 from collections import Sequence
 
 from neo4jrestclient.constants import RAW
-from neo4jrestclient.request import (
-    Request, StatusException, TransactionException
-)
+from neo4jrestclient.request import Request
+from neo4jrestclient.exceptions import StatusException, TransactionException
 from neo4jrestclient.utils import text_type, string_types
 
 

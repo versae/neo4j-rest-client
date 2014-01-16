@@ -4,8 +4,7 @@ import unittest
 import os
 
 from neo4jrestclient import client
-from neo4jrestclient import request
-
+from neo4jrestclient.exceptions import NotFoundError, StatusException
 
 NEO4J_URL = os.environ.get('NEO4J_URL', "http://localhost:7474/db/data/")
 NEO4J_VERSION = os.environ.get('NEO4J_VERSION', None)
@@ -192,7 +191,7 @@ class NodesTestCase(GraphDatabaseTesCase):
         try:
             self.gdb.nodes.get(identifier)
             self.fail()
-        except (request.NotFoundError, request.StatusException):
+        except (NotFoundError, StatusException):
             pass
 
     def test_node_hash(self):

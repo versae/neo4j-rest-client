@@ -26,8 +26,9 @@ from neo4jrestclient.labels import NodeLabelsProxy, LabelsProxy
 from neo4jrestclient.query import (
     QuerySequence, FilterSequence, QueryTransaction, CypherException
 )
-from neo4jrestclient.request import (Request, NotFoundError, StatusException,
-                                     TransactionException)
+from neo4jrestclient.request import Request
+from neo4jrestclient.exceptions import (NotFoundError, StatusException,
+                                        TransactionException)
 from neo4jrestclient.traversals import TraversalDescription
 from neo4jrestclient.utils import (PY2, text_type, smart_quote, string_types,
                                    unquote)

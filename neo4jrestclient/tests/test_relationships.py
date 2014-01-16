@@ -3,7 +3,7 @@ import unittest
 import os
 
 from neo4jrestclient import client
-from neo4jrestclient import request
+from neo4jrestclient.exceptions import NotFoundError
 
 
 NEO4J_URL = os.environ.get('NEO4J_URL', "http://localhost:7474/db/data/")
@@ -102,5 +102,5 @@ class RelationshipsTestCase(GraphDatabaseTesCase):
         rel = n1.relationships.create("Knows", n2, since=1970)
         rel_id = rel.id
         rel.delete()
-        self.assertRaises(request.NotFoundError, self.gdb.relationships.get,
+        self.assertRaises(NotFoundError, self.gdb.relationships.get,
                           rel_id)

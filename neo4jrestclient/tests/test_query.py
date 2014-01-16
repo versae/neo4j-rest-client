@@ -4,7 +4,7 @@ import unittest
 import os
 
 from neo4jrestclient import client
-from neo4jrestclient.request import TransactionException
+from neo4jrestclient.exceptions import TransactionException
 from neo4jrestclient.utils import text_type
 
 

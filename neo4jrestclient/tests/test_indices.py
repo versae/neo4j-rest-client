@@ -4,7 +4,7 @@ import unittest
 import os
 
 from neo4jrestclient import client
-from neo4jrestclient import request
+from neo4jrestclient.exceptions import NotFoundError, StatusException
 from neo4jrestclient.utils import PY2
 
 
@@ -86,7 +86,7 @@ class IndicesTestCase(GraphDatabaseTesCase):
         index = self.gdb.nodes.indexes.create(name="doe")
         index["surnames"]["d"] = n1
         index.delete()
-        self.assertRaises(request.NotFoundError,
+        self.assertRaises(NotFoundError,
                           index["surnames"].__getitem__, "d")
 
     def test_create_index_for_relationships(self):
@@ -134,7 +134,7 @@ class IndicesTestCase(GraphDatabaseTesCase):
         index = self.gdb.relationships.indexes.create(name="brothers")
         index["feeling"]["hate"] = r1
         index.delete()
-        self.assertRaises(request.NotFoundError,
+        self.assertRaises(NotFoundError,
                           index["feeling"].__getitem__, "hate")
 
     @unittest.skipIf(not PY2,
@@ -216,6 +216,6 @@ class IndicesTestCase(GraphDatabaseTesCase):
         }
         n1 = self.gdb.nodes.create(**properties)
         index["now"][now] = n1
-        self.assertRaises((Exception, ValueError, request.StatusException),
+        self.assertRaises((Exception, ValueError, StatusException),
                           index.create_or_fail,
                           key="now", value=now, properties=properties)

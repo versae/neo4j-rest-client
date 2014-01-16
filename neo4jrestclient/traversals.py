@@ -4,7 +4,8 @@
 #       #rest-api-traversal-returning-nodes-below-a-certain-depth
 from neo4jrestclient import constants
 from neo4jrestclient.iterable import Iterable
-from neo4jrestclient.request import Request, NotFoundError, StatusException
+from neo4jrestclient.request import Request
+from neo4jrestclient.exceptions import NotFoundError, StatusException
 from neo4jrestclient.utils import string_types
 
 
