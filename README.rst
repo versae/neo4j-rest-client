@@ -4,6 +4,10 @@
 .. image:: https://coveralls.io/repos/versae/neo4j-rest-client/badge.png?branch=master
   :target: https://coveralls.io/r/versae/neo4j-rest-client?branch=master
 
+.. image:: https://pypip.in/d/neo4jrestclient/badge.png
+    :target: https://pypi.python.org/pypi/neo4jrestclient/
+    :alt: Downloads
+
 
 Neo4j Python REST Client
 ========================
