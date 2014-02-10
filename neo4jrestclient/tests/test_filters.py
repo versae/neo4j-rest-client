@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
+from random import randint
 import unittest
 import os
 
@@ -171,3 +172,16 @@ class FilterTestCase(GraphDatabaseTesCase):
         self.assertTrue(len(old_loves) == 5)
         old_loves = self.gdb.relationships.filter(lookup, start=index["since"])
         self.assertTrue(len(old_loves) == 5)
+
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_filter_inrange(self):
+        Q = query.Q
+        t1 = randint(1, 10 ** 10)
+        t2 = t1 + 1
+        for i in range(5):
+            self.gdb.nodes.create(number=t1)
+            self.gdb.nodes.create(number=t2)
+        lookup = Q("number", inrange=[t1, t2])
+        nodes = self.gdb.nodes.filter(lookup)
+        self.assertTrue(len(nodes) == 10)
