@@ -173,7 +173,7 @@ class FilterTestCase(GraphDatabaseTesCase):
         old_loves = self.gdb.relationships.filter(lookup, start=index["since"])
         self.assertTrue(len(old_loves) == 5)
 
-    @unittest.skipIf(NEO4J_VERSION in ["1.6.3"],
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_filter_inrange(self):
         Q = query.Q
