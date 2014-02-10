@@ -23,7 +23,7 @@ class GraphDatabaseTesCase(unittest.TestCase):
             self.gdb.flush()
 
 
-@unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+@unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
                  "Not supported by Neo4j {}".format(NEO4J_VERSION))
 class LabelsTestCase(GraphDatabaseTesCase):
 

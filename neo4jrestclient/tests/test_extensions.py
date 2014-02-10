@@ -40,7 +40,7 @@ class ExtensionsTestCase(GraphDatabaseTesCase):
             fail = True
         self.assertTrue(not fail)
 
-    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_gremlin_extension_reference_node(self):
         # Assuming the GremlinPlugin installed
@@ -49,7 +49,7 @@ class ExtensionsTestCase(GraphDatabaseTesCase):
         gremlin_n = ext.execute_script(script='g.v(%s)' % n.id)
         self.assertEqual(gremlin_n, n)
 
-    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_gremlin_extension_reference_node_returns(self):
         # Assuming the GremlinPlugin installed
@@ -59,7 +59,7 @@ class ExtensionsTestCase(GraphDatabaseTesCase):
                                        returns=constants.NODE)
         self.assertEqual(gremlin_n, n)
 
-    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_gremlin_extension_relationships(self):
         # Assuming the GremlinPlugin installed
@@ -74,7 +74,7 @@ class ExtensionsTestCase(GraphDatabaseTesCase):
         for rel in rels:
             self.assertTrue(isinstance(rel, client.Relationship))
 
-    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_gremlin_extension_relationships_returns(self):
         # Assuming the GremlinPlugin installed
@@ -93,7 +93,7 @@ class ExtensionsTestCase(GraphDatabaseTesCase):
             self.assertTrue(isinstance(rel, client.Relationship))
         clientDebug.DEBUG = False
 
-    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_gremlin_extension_reference_raw_returns(self):
         # Assuming the GremlinPlugin installed
@@ -104,7 +104,7 @@ class ExtensionsTestCase(GraphDatabaseTesCase):
         self.assertEqual(gremlin_n["data"], n.properties)
         self.assertTrue(isinstance(gremlin_n, dict))
 
-    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.5"],
+    @unittest.skipIf(NEO4J_VERSION not in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_gremlin_results_raw(self):
         # Assuming the GremlinPlugin installed
