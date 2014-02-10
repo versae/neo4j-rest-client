@@ -153,8 +153,14 @@ class Q(BaseQ):
             match = self.match
         elif self.lookup in ["in", "inrange"]:
             lookup = u"IN"
-            match = u"['{0}']".format(u"', '".join([self._escape(m)
-                                      for m in self.match]))
+            matchs = []
+            for list_item in self.match:
+                if isinstance(list_item, string_types):
+                    item = self._escape(list_item)
+                else:
+                    item = list_item
+                matchs.append(item)
+            match = matchs
         elif self.lookup == "isnull":
             if self.match:
                 lookup = u"="
@@ -163,10 +169,16 @@ class Q(BaseQ):
             match = u"null"
         elif self.lookup in ["eq", "equals"]:
             lookup = u"="
-            match = u"'{0}'".format(self._escape(self.match))
+            if isinstance(self.match, string_types):
+                match = u"'{0}'".format(self._escape(self.match))
+            else:
+                match = self.match
         elif self.lookup in ["neq", "notequals"]:
             lookup = u"<>"
-            match = u"'{0}'".format(self._escape(self.match))
+            if isinstance(self.match, string_types):
+                match = u"'{0}'".format(self._escape(self.match))
+            else:
+                match = self.match
         else:
             lookup = self.lookup
             match = u""
