@@ -12,8 +12,8 @@ before_install:
   - curl http://localhost:$NEO4J_PORT/db/data/
   - curl -X DELETE 'http://localhost:7474/cleandb/supersecretdebugkey!'
 install:
-  - pip install --use-mirrors -r requirements.txt
-  - pip install --use-mirrors coveralls
+  - pip install -r requirements.txt
+  - pip install coveralls
 env:
   - NEO4J_VERSION="1.6.3"
   - NEO4J_VERSION="1.7.2"
@@ -23,6 +23,6 @@ env:
 script:
   - coverage run setup.py test
 after_success:
-  - if [ $NEO4J_VERSION == "2.0.0" ]; then
+  - if [ $NEO4J_VERSION == "2.0.1" ]; then
     coveralls;
     fi
