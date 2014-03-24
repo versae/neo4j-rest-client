@@ -1,6 +1,22 @@
 Changes
 =======
 
+2.0.1 (2014-03-23)
+------------------
+- Fix coveralls for Travis
+- Fix #100. Fixes rollback problem when outside a with statement
+- Update Neo4j versions for testing
+- Remove inrange test for version 1.7.2 of Neo4j
+- Add specific test for inrange lookups
+- Fixes #98. Bug due to an incorrect treatment of numbers in eq, equals,
+  neq, notequals lookups
+- Add downloads
+- Split exceptions from request.py file to a exceptions.py file
+- Update requirements.txt
+- Fix #96, fix dependency versions
+- Fix #95. Support for creating spatial indexes
+
+
 2.0.0 (2013-12-30)
 ------------------
 - Add support for Neo4j 2.0
