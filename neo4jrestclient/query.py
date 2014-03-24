@@ -593,9 +593,9 @@ class QueryTransaction(object):
                 self.finished = True
                 for reference in self.executed:
                     obj = reference["obj"]
-                    obj._elements = []
-                    obj.columns = None
-                    obj = None
+                    if obj is not None:
+                        obj._elements = []
+                        obj.columns = None
                 self.executed = []
             else:
                 raise TransactionException(response.status_code)
