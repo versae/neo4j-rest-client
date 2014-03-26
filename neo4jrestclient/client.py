@@ -826,7 +826,10 @@ class Base(object):
         property_url = self._dic["property"].replace("{key}", smart_quote(key))
         tx = Transaction.get_transaction(tx)
         if tx:
-            return tx.append(TX_GET, property_url, obj=self)
+            if isinstance(tx, QueryTransaction):
+                return self._dic["data"][key]
+            else:
+                return tx.append(TX_GET, property_url, obj=self)
         response = Request(**self._auth).get(property_url)
         if response.status_code == 200:
             self._dic["data"][key] = response.json()

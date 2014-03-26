@@ -214,3 +214,15 @@ class QueryTestCase(GraphDatabaseTesCase):
         self.assertTrue(len(results) == 1)
         tx.rollback()
         self.assertTrue(tx.finished)
+
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_query_transaction_items_get_populated_after_execute(self):
+        tx = self.gdb.transaction(for_query=True)
+        tx.append('CREATE (me:User {name: "Me"}) RETURN me;',
+                  returns=client.Node)
+        results = tx.execute()
+        node = results[0][0][0]
+        self.assertTrue(node.properties != {})
+        self.assertEqual(node["name"], "Me")
+        tx.commit()

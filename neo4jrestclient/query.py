@@ -429,7 +429,7 @@ class QuerySequence(Sequence):
                             func = types[func_lower]
                     if func in (types.get("node", ""),
                                 types.get("relationship", "")):
-                        obj = func(element["self"], data=element,
+                        obj = func(element["self"], update_dict=element,
                                    auth=auth, cypher=cypher)
                         casted_row.append(obj)
                     elif func in (types.get("path", ""),
