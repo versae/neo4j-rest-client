@@ -41,3 +41,21 @@ else:
             except (KeyError, UnicodeEncodeError, UnicodeError):
                 safe_key = quote(val.encode("utf8"), safe="")
             return safe_key
+
+
+def in_ipnb():
+    """
+    check if we're inside an IPython Notebook
+    https://github.com/pydata/pandas/blob/master/pandas/core/common.py#L2508
+    """
+    try:
+        ip = get_ipython()
+        front_end = (
+            ip.config.get('KernelApp', {}).get('parent_appname', "") or
+            ip.config.get('IPKernelApp', {}).get('parent_appname', "")
+        )
+        if 'notebook' in front_end.lower():
+            return True
+    except:
+        return False
+    return False

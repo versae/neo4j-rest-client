@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 # Inspired by: https://github.com/CulturePlex/Sylva
 #                     /tree/master/sylva/engines/gdb/lookups
+import json
+import uuid
 from collections import Sequence
 
 from neo4jrestclient.constants import RAW
 from neo4jrestclient.request import Request
 from neo4jrestclient.exceptions import StatusException, TransactionException
-from neo4jrestclient.utils import text_type, string_types
+from neo4jrestclient.utils import text_type, string_types, in_ipnb
 
 
 class BaseQ(object):
@@ -297,6 +299,9 @@ class QuerySequence(Sequence):
         # This way we avoid a circular reference, by passing objects like Node
         self._types = types or {}
         self._elements = None
+        # Store rows and graphs information
+        self._elements_row = None
+        self._elements_graph = None
         if tx:
             tx.append(q=self.q, params=self.params, returns=self._returns,
                       obj=self)
@@ -331,6 +336,249 @@ class QuerySequence(Sequence):
 
     def __reversed__(self):
         return reversed(self.elements)
+
+    def _repr_html_(self):
+        return self.to_html()
+
+    def to_html(self, title=None, width=None, height=None):
+        html = self._plot_graph(
+            self._elements_graph,
+            title=title,
+            width=width,
+            height=height,
+        )
+        return html
+
+    def _transform_graph_to_d3(self, graph):
+        nodes = []
+        links = []
+        nodes_ids = set()
+        links_ids = set()
+        for node_dict in graph:
+            for node in node_dict.get('nodes', []):
+                node_id = node.get('id', len(nodes))
+                if node_id not in nodes_ids:
+                    nodes.append({
+                        'fill': 'white',
+                        'id': node_id,
+                        'label': node_id,
+                        'properties': node.get('properties')
+                    })
+                    nodes_ids.add(node_id)
+            for relationship in node_dict.get('relationships', []):
+                link_id = (
+                    relationship.get('startNode'), relationship.get('endNode')
+                )
+                if link_id not in links_ids:
+                    links.append({
+                        'source': link_id[0],
+                        'stroke': 'black',
+                        'target': link_id[1],
+                        'label': relationship.get('type'),
+                        'properties': relationship.get('properties'),
+                    })
+                    links_ids.add(link_id)
+        d3_graph = {
+            'directed': True,
+            'graph': [],
+            'multigraph': False,
+            'links': links,
+            'nodes': nodes,
+        }
+        return d3_graph
+
+    def _plot_graph(self, graph, title=None, width=None, height=None):
+        """
+        Return a HTML representation for a particular QuerySequence.
+        Mainly for IPython Notebook.
+        """
+        if not self._elements_row and not self._elements_graph:
+            raise ValueError('Unable to display the graph or the table')
+        title = title or self.q
+        width = width or json.dumps(None)
+        height = height or 300
+        d3_uuid = str(uuid.uuid1())
+        d3_graph = self._transform_graph_to_d3(graph)
+        d3_id = "d3_id_" + d3_uuid
+        d3_title = title
+        d3_container_id = d3_id + "_d3c"
+        style = """
+        #{d3_id} path.link {{
+            fill: none;
+            stroke-width: 1.5px;
+        }}
+        #{d3_id} .node {{
+            /*fill: #ccc;*/
+            stroke: #333;
+            stroke-width: 1.5px;
+        }}
+        #{d3_id} text {{
+            font: 10px sans-serif;
+            pointer-events: none;
+        }}
+        #{d3_id} text.shadow {{
+            stroke: #fff;
+            stroke-width: 3px;
+            stroke-opacity: .8;
+        }}
+        #{d3_id} .node.sticky {{
+            /* stroke-width: 2px; */
+        }}
+        """.format(d3_id=d3_id)
+        js = """
+        var links = json.links;
+        var nodes = json.nodes;
+
+        // Compute the distinct nodes from the links.
+        links.forEach(function(link) {
+            link.source = (nodes[link.source] ||
+                           (nodes[link.source] = {name: link.source}));
+            link.target = (nodes[link.target] ||
+                           (nodes[link.target] = {name: link.target}));
+        });
+
+        var w = width || $(container).width(), h = height;
+
+        var force = d3.layout.force()
+            .nodes(d3.values(nodes))
+            .links(links)
+            .size([w, h])
+            .linkDistance(60)
+            .charge(-300)
+            .on("tick", tick)
+            .start();
+
+        var svg = d3.select(container).append("svg:svg")
+            .attr("width", w)
+            .attr("height", h);
+
+        // Per-type markers, as they don't inherit styles.
+        svg.append("svg:defs").selectAll("marker")
+            .data(["arrow"])
+            .enter().append("svg:marker")
+            .attr("id", String)
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 15)
+            .attr("refY", -1.5)
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("svg:path")
+            .attr("d", "M0,-5L10,0L0,5");
+
+        var path = svg.append("svg:g").selectAll("path")
+            .data(force.links())
+            .enter().append("svg:path")
+            .attr("class", function(d) { return "link " + d.stroke; })
+            .attr("stroke", function(d) { return d.stroke; })
+            .attr("marker-end", function(d) { return "url(#arrow)"; });
+
+        var circle = svg.append("svg:g").selectAll("circle")
+            .data(force.nodes())
+            .enter().append("svg:circle")
+            .attr("fill", function(d) { return d.fill; })
+            .attr("r", 6)
+            .attr("class", "node")
+            .call(force.drag)
+            .on("mousedown", function(d) {
+                d.fixed = true;
+                d3.select(this).classed("sticky", true);
+            });
+
+        var text = svg.append("svg:g").selectAll("g")
+            .data(force.nodes())
+            .enter().append("svg:g");
+
+        // A copy of the text with a thick white stroke for legibility.
+        text.append("svg:text")
+            .attr("x", 8)
+            .attr("y", ".31em")
+            .attr("class", "shadow")
+            .text(function(d) { return d.label; });
+
+        text.append("svg:text")
+            .attr("x", 8)
+            .attr("y", ".31em")
+            .text(function(d) { return d.label; });
+
+        // Use elliptical arc path segments to doubly-encode directionality.
+        function tick() {
+            path.attr("d", function(d) {
+                var dx = d.target.x - d.source.x,
+                dy = d.target.y - d.source.y,
+                dr = Math.sqrt(dx * dx + dy * dy);
+                return ("M" + d.source.x + "," + d.source.y + "A"
+                        + dr + "," + dr + " 0 0,1 " + d.target.x + ","
+                        + d.target.y);
+            });
+
+            circle.attr("transform", function(d) {
+                return "translate(" + d.x + "," + d.y + ")";
+            });
+
+            text.attr("transform", function(d) {
+                return "translate(" + d.x + "," + d.y + ")";
+            });
+        }
+        """
+        return ("""
+        <style type="text/css">
+        {style}
+        </style>
+
+        <div class="accordion">
+            <div class="accordion-group">
+                <div class="accordion-heading">
+                    <a class="accordion-toggle collapsed"
+                       data-toggle="collapse" data-parent=""
+                       href="#{d3_id}">
+                        {d3_title}
+                    </a>
+                </div>
+                <div id="{d3_id}" class="accordion-body in collapse">
+                    <div class="accordion-inner">
+                        <div id="{d3_container_id}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            var neo4jrestclient = window.neo4jrestclient || {{}};
+            neo4jrestclient['{d3_uuid}'] = {{}};
+            neo4jrestclient['{d3_uuid}'].json = {d3_graph};
+            neo4jrestclient['{d3_uuid}'].container_id = "{d3_container_id}";
+            neo4jrestclient['{d3_uuid}'].container = "#{d3_container_id}";
+            neo4jrestclient['{d3_uuid}'].render = function () {{
+                (function (json, container, width, height) {{
+                    {js}
+                }})(
+                    neo4jrestclient['{d3_uuid}'].json,
+                    neo4jrestclient['{d3_uuid}'].container,
+                    {width},
+                    {height}
+                );
+            }}
+            if (!window.d3) {{
+                $.getScript(
+                    "//d3js.org/d3.v2.js?2.9.1",
+                    neo4jrestclient['{d3_uuid}'].render
+                );
+            }} else {{
+                neo4jrestclient['{d3_uuid}'].render();
+            }}
+        </script>
+        """.format(
+            style=style,
+            js=js,
+            d3_graph=json.dumps(d3_graph),
+            d3_id=d3_id,
+            d3_uuid=d3_uuid,
+            d3_title=d3_title,
+            d3_container_id=d3_container_id,
+            width=width,
+            height=height,
+        ))
 
     def get_response(self):
         # Preparing slicing and ordering
@@ -393,10 +641,19 @@ class QuerySequence(Sequence):
         if cypher is None:
             cypher = cls._cypher
         neutral = lambda x: x
+        # For IPython Notebook
+        cls._elements_row = []
+        cls._elements_graph = []
         if not returns or returns is RAW:
-            if len(elements) > 0 and "rest" in elements[0]:
-                # For transactional Cypher endpoint
-                return [e["rest"] for e in elements]
+            if len(elements) > 0:
+                results = []
+                for element in elements:
+                    # For IPython Notebook
+                    cls._elements_row.append(element.get("row", None))
+                    cls._elements_graph.append(element.get("graph", None))
+                    # For transactional Cypher endpoint
+                    results.append(element.get("rest", None))
+                return results
             else:
                 return elements
         else:
@@ -406,6 +663,9 @@ class QuerySequence(Sequence):
             else:
                 returns = list(returns)
             for row in elements:
+                # For IPython Notebook
+                cls._elements_row.append(row.get("row", None))
+                cls._elements_graph.append(row.get("graph", None))
                 # For transactional Cypher endpoint
                 if "rest" in row:
                     row = row["rest"]
@@ -547,10 +807,13 @@ class QueryTransaction(object):
             return result_list
 
     def append(self, q, params=None, returns=None, obj=None):
+        result_data_contents = ["REST"]
+        if in_ipnb():
+            result_data_contents += ["row", "graph"]
         statement = {
             "statement": q,
             "parameters": params,
-            "resultDataContents": ["REST"],
+            "resultDataContents": result_data_contents,
         }
         self.statements.append(statement)
         self.references.append({
