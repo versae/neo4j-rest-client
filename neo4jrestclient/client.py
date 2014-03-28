@@ -214,7 +214,7 @@ class GraphDatabase(object):
         return self._transactions[transaction_id]
 
     def query(self, q, params=None, returns=RAW, tx=None):
-        if self._cypher:
+        if self._cypher or self._transaction:
             types = {
                 "node": Node,
                 "relationship": Relationship,
@@ -222,6 +222,10 @@ class GraphDatabase(object):
                 "position": Position,
             }
             tx = Transaction.get_transaction(tx)
+            # The non transactional Cypher endpoint will be removed eventually,
+            # So we create always a transaction per query
+            if tx is None:
+                tx = self.transaction(commit=True, for_query=True)
             return QuerySequence(self._cypher, self._auth, q=q, params=params,
                                  types=types, returns=returns, tx=tx)
         else:
