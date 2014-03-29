@@ -223,8 +223,9 @@ class GraphDatabase(object):
             }
             tx = Transaction.get_transaction(tx)
             # The non transactional Cypher endpoint will be removed eventually,
-            # So we create always a transaction per query
-            if tx is None:
+            # So we create always a transaction per query for Neo4j 2.0+
+            if (tx is None
+                    and self.VERSION and self.VERSION.split(".")[0] >= "2"):
                 tx = self.transaction(commit=True, for_query=True)
             return QuerySequence(self._cypher, self._auth, q=q, params=params,
                                  types=types, returns=returns, tx=tx)
