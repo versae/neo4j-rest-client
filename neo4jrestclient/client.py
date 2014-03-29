@@ -193,7 +193,7 @@ class GraphDatabase(object):
 
     def transaction(self, using_globals=True, commit=True, update=True,
                     transaction_id=None, context=None, for_query=False,
-                    rollback=True):
+                    rollback=True, execute=False):
         if transaction_id not in self._transactions:
             transaction_id = len(self._transactions.keys())
         if for_query:
@@ -204,7 +204,8 @@ class GraphDatabase(object):
                 "position": Position,
             }
             tx = QueryTransaction(self, transaction_id, rollback=rollback,
-                                  commit=commit, update=update, types=types)
+                                  commit=commit, update=update, types=types,
+                                  execute=execute)
         else:
             tx = Transaction(self, transaction_id, context or {},
                              commit=commit, update=update)
@@ -226,7 +227,7 @@ class GraphDatabase(object):
             # So we create always a transaction per query for Neo4j 2.0+
             if (tx is None
                     and self.VERSION and self.VERSION.split(".")[0] >= "2"):
-                tx = self.transaction(commit=True, for_query=True)
+                tx = self.transaction(for_query=True, execute=True)
             return QuerySequence(self._cypher, self._auth, q=q, params=params,
                                  types=types, returns=returns, tx=tx)
         else:

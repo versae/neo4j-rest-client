@@ -718,7 +718,7 @@ class QueryTransaction(object):
     """
 
     def __init__(self, cls, transaction_id, types, commit=True, update=True,
-                 rollback=True):
+                 rollback=True, execute=False):
         self._class = cls
         self.url_begin = self._class._transaction
         self.url_tx = None
@@ -729,6 +729,7 @@ class QueryTransaction(object):
         self.auto_commit = commit
         self.auto_update = update
         self.auto_rollback = rollback
+        self.auto_execute = execute
         self.statements = []
         self.references = []
         self.executed = []
@@ -836,6 +837,9 @@ class QueryTransaction(object):
         return self.expires
 
     def execute(self):
+        if self.auto_execute:
+            self.url_commit = None
+            return self.commit()
         if not self.url_tx:
             self._begin()
         results = self._execute(self.url_tx, results=True)
