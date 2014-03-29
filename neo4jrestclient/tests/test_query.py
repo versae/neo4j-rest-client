@@ -137,9 +137,9 @@ class QueryTestCase(GraphDatabaseTesCase):
         tx = self.gdb.transaction(for_query=True)
         tx.append("MERGE (a:Person {name:'Alice'})")
         tx.append("MERGE (b:Person {name:'Bob'})")
-        tx.append("MATCH (lft { name: 'Alice' }),(rgt)"
-                  "WHERE rgt.name IN ['Bob', 'Carl']"
-                  "CREATE UNIQUE (lft)-[r:KNOWS]->(rgt)"
+        tx.append("MATCH (lft { name: 'Alice' }),(rgt) "
+                  "WHERE rgt.name IN ['Bob', 'Carl'] "
+                  "CREATE (lft)-[r:KNOWS]->(rgt) "
                   "RETURN r",
                   returns=client.Relationship)
         results = tx.execute()
@@ -184,7 +184,7 @@ class QueryTestCase(GraphDatabaseTesCase):
             results = self.gdb.query(
                 "MATCH (lft { name: 'Alice' }),(rgt) "
                 "WHERE rgt.name IN ['Bob', 'Carl'] "
-                "CREATE (lft)-[r:KNOWS]->(rgt)"
+                "CREATE (lft)-[r:KNOWS]->(rgt) "
                 "RETURN r",
                 returns=client.Relationship
             )
