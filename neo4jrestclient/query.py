@@ -649,8 +649,10 @@ class QuerySequence(Sequence):
                 results = []
                 for element in elements:
                     # For IPython Notebook
-                    cls._elements_row.append(element.get("row", None))
-                    cls._elements_graph.append(element.get("graph", None))
+                    if "row" in element:
+                        cls._elements_row.append(element["row"])
+                    if "graph" in element:
+                        cls._elements_graph.append(element["graph"])
                     # For transactional Cypher endpoint
                     results.append(element.get("rest", None))
                 return results
@@ -664,8 +666,10 @@ class QuerySequence(Sequence):
                 returns = list(returns)
             for row in elements:
                 # For IPython Notebook
-                cls._elements_row.append(row.get("row", None))
-                cls._elements_graph.append(row.get("graph", None))
+                if "row" in row:
+                    cls._elements_row.append(row["row"])
+                if "graph" in row:
+                    cls._elements_graph.append(row["graph"])
                 # For transactional Cypher endpoint
                 if "rest" in row:
                     row = row["rest"]
