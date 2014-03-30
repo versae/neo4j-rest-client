@@ -353,7 +353,7 @@ class QuerySequence(Sequence):
         nodes = {}
         links = []
         links_ids = set()
-        properties = set(['id'])
+        properties = set()
         for node_dict in graph:
             for node in node_dict.get('nodes', []):
                 node_id = node.get('id', len(nodes))
@@ -404,7 +404,7 @@ class QuerySequence(Sequence):
         title = title or self.q
         width = width or json.dumps(None)
         height = height or 300
-        d3_uuid = str(uuid.uuid1())
+        d3_uuid = text_type(uuid.uuid1())
         d3_graph = self._transform_graph_to_d3(graph)
         d3_id = "d3_id_" + d3_uuid
         d3_title = title
@@ -433,8 +433,8 @@ class QuerySequence(Sequence):
         }}
         """.format(d3_id=d3_id)
         js = """
-        var links = json.links;
-        var nodes = json.nodes;
+        var links = graph.links;
+        var nodes = graph.nodes;
 
         // Compute the distinct nodes from the links.
         links.forEach(function(link) {
@@ -506,6 +506,7 @@ class QuerySequence(Sequence):
         text.append("svg:text")
             .attr("x", 8)
             .attr("y", ".31em")
+            .attr("class", "front")
             .text(function(d) { return d.label; });
 
         // Use elliptical arc path segments to doubly-encode directionality.
@@ -527,6 +528,30 @@ class QuerySequence(Sequence):
                 return "translate(" + d.x + "," + d.y + ")";
             });
         }
+
+        // Display options
+        var display = $(container + "_display");
+        graph.properties.forEach(function (property) {
+            var option = $("<OPTION/>");
+            option.text(property);
+            option.attr("value", property);
+            display.append(option);
+        });
+        display.on("change", function () {
+            var selected = $(this).find(":selected").val(),
+                displayFunc;
+            if (selected.length !== 0) {
+                displayFunc = function(d) {
+                    return d.properties[selected];
+                }
+            } else {
+                displayFunc = function(d) {
+                    return d.label;
+                }
+            }
+            text.select("text.front").text(displayFunc);
+            text.select("text.shadow").text(displayFunc);
+        });
         """
         return ("""
         <style type="text/css">
@@ -545,6 +570,10 @@ class QuerySequence(Sequence):
                 <div id="{d3_id}" class="accordion-body in collapse">
                     <div class="accordion-inner">
                         <div id="{d3_container_id}">
+                            <select id="{d3_container_id}_display">
+                                <option value="">ID</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -553,14 +582,14 @@ class QuerySequence(Sequence):
         <script>
             var neo4jrestclient = window.neo4jrestclient || {{}};
             neo4jrestclient['{d3_uuid}'] = {{}};
-            neo4jrestclient['{d3_uuid}'].json = {d3_graph};
+            neo4jrestclient['{d3_uuid}'].graph = {d3_graph};
             neo4jrestclient['{d3_uuid}'].container_id = "{d3_container_id}";
             neo4jrestclient['{d3_uuid}'].container = "#{d3_container_id}";
             neo4jrestclient['{d3_uuid}'].render = function () {{
-                (function (json, container, width, height) {{
+                (function (graph, container, width, height) {{
                     {js}
                 }})(
-                    neo4jrestclient['{d3_uuid}'].json,
+                    neo4jrestclient['{d3_uuid}'].graph,
                     neo4jrestclient['{d3_uuid}'].container,
                     {width},
                     {height}
