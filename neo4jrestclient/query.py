@@ -350,40 +350,47 @@ class QuerySequence(Sequence):
         return html
 
     def _transform_graph_to_d3(self, graph):
-        nodes = []
+        nodes = {}
         links = []
-        nodes_ids = set()
         links_ids = set()
+        properties = set(['id'])
         for node_dict in graph:
             for node in node_dict.get('nodes', []):
                 node_id = node.get('id', len(nodes))
-                if node_id not in nodes_ids:
-                    nodes.append({
-                        'fill': 'white',
-                        'id': node_id,
-                        'label': node_id,
-                        'properties': node.get('properties')
+                if node_id not in nodes:
+                    node_properties = node.get('properties', {})
+                    nodes.update({
+                        node_id: {
+                            'fill': 'white',
+                            'id': node_id,
+                            'label': node_id,
+                            'properties': node_properties
+                        }
                     })
-                    nodes_ids.add(node_id)
+                    properties.update(node_properties.keys())
             for relationship in node_dict.get('relationships', []):
-                link_id = (
-                    relationship.get('startNode'), relationship.get('endNode')
-                )
-                if link_id not in links_ids:
+                link_id = relationship.get('id', len(links_ids))
+                if (link_id not in links_ids
+                        and 'startNode' in relationship
+                        and 'endNode' in relationship):
+                    rel_properties = relationship.get('properties', {})
                     links.append({
-                        'source': link_id[0],
+                        'id': link_id,
+                        'source': relationship.get('startNode'),
                         'stroke': 'black',
-                        'target': link_id[1],
+                        'target': relationship.get('endNode'),
                         'label': relationship.get('type'),
-                        'properties': relationship.get('properties'),
+                        'properties': rel_properties,
                     })
                     links_ids.add(link_id)
+                    # properties.add(*rel_properties.keys())
         d3_graph = {
             'directed': True,
             'graph': [],
-            'multigraph': False,
+            'multigraph': True,
             'links': links,
             'nodes': nodes,
+            'properties': list(properties)
         }
         return d3_graph
 
