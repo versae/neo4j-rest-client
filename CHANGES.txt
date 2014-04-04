@@ -1,6 +1,19 @@
 Changes
 =======
 
+2.0.2 (2014-04-04)
+------------------
+- Add Pickle support for GraphDatabase objects
+- Add small control to change display property in IPython
+- Add a new parameter to auto_execute transactions in one single request
+- Fix auto transaction in Cypher queries for Neo4j versions prior 2.0
+- The non transactional Cypher will be removed eventually, so we create now
+  a transaction per query automatically
+- Experimental support for IPython Notebook rendering
+- Fix #101. Fix a problem when accessing node properties inside transaction
+  for queries
+
+
 2.0.1 (2014-03-23)
 ------------------
 - Fix coveralls for Travis

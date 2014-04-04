@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 __author__ = "Javier de la Rosa"
 __license__ = "GPL 3"
-__version__ = "2.0.1"
+__version__ = "2.0.2"
 __email__ = "versae@gmail.com"
 __url__ = "https://github.com/versae/neo4j-rest-client"
 __description__ = """Object-oriented Python library to interact with """ \
