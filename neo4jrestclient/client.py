@@ -29,7 +29,7 @@ from neo4jrestclient.query import (
 from neo4jrestclient.request import Request
 from neo4jrestclient.exceptions import (NotFoundError, StatusException,
                                         TransactionException)
-from neo4jrestclient.traversals import TraversalDescription
+from neo4jrestclient.traversals import TraversalDescription, GraphTraversal
 from neo4jrestclient.utils import (PY2, text_type, smart_quote, string_types,
                                    unquote)
 
@@ -94,9 +94,7 @@ class GraphDatabase(object):
             self.VERSION = response_json.get('neo4j_version', None)
             if self.VERSION:
                 self._auth.update({'version': self.VERSION})
-            self.extensions = ExtensionsProxy(self._extensions,
-                                              auth=self._auth,
-                                              cypher=self._cypher)
+            self._extensions = None
             self.nodes = NodesProxy(self._node, self._reference_node,
                                     self._node_index,
                                     auth=self._auth, cypher=self._cypher)
@@ -110,11 +108,35 @@ class GraphDatabase(object):
                                                     self._relationship_index,
                                                     auth=self._auth,
                                                     cypher=self._cypher)
-            self.Traversal = self._get_traversal_class()
+            self.Traversal = GraphTraversal
             try:
                 self._batch = response_json["batch"]
             except KeyError:
                 self._batch = "%sbatch" % self.url
+
+    def __eq__(self, obj):
+        return (
+            self._relationship_index == obj._relationship_index
+            and self._relationship == obj._relationship
+            and self._node == obj._node
+            and self._labels == obj._labels
+            and self._labels_list == obj._labels_list
+            and self._node_index == obj._node_index
+            and self._reference_node == obj._reference_node
+            and self._extensions_info == obj._extensions_info
+            and self._extensions == obj._extensions
+            and self._cypher == obj._cypher
+            and self._transaction == obj._transaction
+            and self._batch == obj._batch
+        )
+
+    def _get_extensions(self):
+        if not self._extensions:
+            self._extensions = ExtensionsProxy(self._extensions,
+                                               auth=self._auth,
+                                               cypher=self._cypher)
+        return self._extensions
+    extensions = property(_get_extensions)
 
     def _get_reference_node(self):
         warnings.warn("Deprecated, the reference node is not needed anymore",
@@ -137,59 +159,6 @@ class GraphDatabase(object):
 
     def traversal(self):
         return TraversalDescription(auth=self._auth, cypher=self._cypher)
-
-    def _get_traversal_class(self):
-        cls = self
-
-        class Traversal(object):
-            types = None
-            order = None
-            stop = None
-            returnable = None
-            uniqueness = None
-            paginated = None
-            page_size = None
-            time_out = None
-            returns = None
-            is_returnable = None
-            isReturnable = None
-            is_stop_node = None
-            isStopNode = None
-
-            def __init__(self, start_node=None):
-                if start_node is not None and isinstance(start_node, Node):
-                    self.start_node = start_node
-                else:
-                    self.start_node = cls.reference_node
-                is_returnable = self.is_returnable or self.isReturnable
-                is_stop_node = self.is_stop_node or self.isStopNode
-                results = self.start_node.traverse(types=self.types,
-                                                   order=self.order,
-                                                   stop=self.stop,
-                                                   returnable=self.returnable,
-                                                   uniqueness=self.uniqueness,
-                                                   is_stop_node=is_stop_node,
-                                                   is_returnable=is_returnable,
-                                                   paginated=self.paginated,
-                                                   page_size=self.page_size,
-                                                   time_out=self.time_out,
-                                                   returns=self.returns)
-                self._items = results
-                self._index = len(results)
-
-            def __iter__(self):
-                return self
-
-            def __next__(self):
-                if self._index == 0:
-                    raise StopIteration
-                self._index = self._index - 1
-                return self._items[self._index]
-
-            def next(self):
-                return self.__next__()
-
-        return Traversal
 
     def transaction(self, using_globals=True, commit=True, update=True,
                     transaction_id=None, context=None, for_query=False,
@@ -240,7 +209,6 @@ class GraphDatabase(object):
                                             cypher=self._cypher,
                                             node=Node)
         return self._labels_list
-
     labels = property(_get_labels)
 
 

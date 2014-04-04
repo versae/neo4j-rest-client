@@ -9,6 +9,52 @@ from neo4jrestclient.exceptions import NotFoundError, StatusException
 from neo4jrestclient.utils import string_types
 
 
+class GraphTraversal(object):
+    types = None
+    order = None
+    stop = None
+    returnable = None
+    uniqueness = None
+    paginated = None
+    page_size = None
+    time_out = None
+    returns = None
+    is_returnable = None
+    isReturnable = None
+    is_stop_node = None
+    isStopNode = None
+
+    def __init__(self, start_node=None):
+        self.start_node = start_node
+        is_returnable = self.is_returnable or self.isReturnable
+        is_stop_node = self.is_stop_node or self.isStopNode
+        results = self.start_node.traverse(types=self.types,
+                                           order=self.order,
+                                           stop=self.stop,
+                                           returnable=self.returnable,
+                                           uniqueness=self.uniqueness,
+                                           is_stop_node=is_stop_node,
+                                           is_returnable=is_returnable,
+                                           paginated=self.paginated,
+                                           page_size=self.page_size,
+                                           time_out=self.time_out,
+                                           returns=self.returns)
+        self._items = results
+        self._index = len(results)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._index == 0:
+            raise StopIteration
+        self._index = self._index - 1
+        return self._items[self._index]
+
+    def next(self):
+        return self.__next__()
+
+
 class Order(object):
     BREADTH_FIRST = constants.BREADTH_FIRST
     DEPTH_FIRST = constants.DEPTH_FIRST

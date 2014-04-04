@@ -26,6 +26,11 @@ class GraphDatabaseTesCase(unittest.TestCase):
 
 class PickleTestCase(GraphDatabaseTesCase):
 
+    def test_gdb(self):
+        gdb = self.gdb
+        p = pickle.dumps(gdb)
+        self.assertEqual(gdb, pickle.loads(p))
+
     def test_node_pickle(self):
         n = self.gdb.nodes.create()
         p = pickle.dumps(n)
