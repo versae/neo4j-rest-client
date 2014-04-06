@@ -31,7 +31,7 @@ Or pass a custom function:
   True,
   <Neo4j Relationship: http://localhost:7474/db/data/relationship/47>]
 
-If the lenght of the elements is greater than the casting functions pass through
+If the length of the elements is greater than the casting functions pass through
 the `returns` parameter, the `RAW` will be used instead of raising an exception.
 
 
