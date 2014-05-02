@@ -41,7 +41,7 @@ class BaseQ(object):
         self.match = match
         self.nullable = nullable
         self.var = var
-        if property and (not self.lookup or not self.match):
+        if property and (not self.lookup or self.match == None):
             for m in self.matchs:
                 if m in kwargs:
                     self.lookup = m
@@ -53,7 +53,7 @@ class BaseQ(object):
                                  " (%s) and a match case".format(all_matchs))
 
     def is_valid(self):
-        return ((self.property and self.lookup and self.match) or
+        return ((self.property and self.lookup and self.match != None) or
                 (self._and or self._or or self._not))
 
     def _make_and(q1, q2):
@@ -165,10 +165,10 @@ class Q(BaseQ):
             match = matchs
         elif self.lookup == "isnull":
             if self.match:
-                lookup = u"="
+                lookup = u"is"
             else:
-                lookup = u"<>"
-            match = u"null"
+                lookup = u"is not"
+            match = u"NULL"
         elif self.lookup in ["eq", "equals"]:
             lookup = u"="
             if isinstance(self.match, string_types):
@@ -238,7 +238,10 @@ class Q(BaseQ):
             key = u"{0}p{1}".format(prefix, len(params))
             prop = text_type(self.property).replace(u"`", u"\\`")
             NEO4J_V2 = version and version.split(".")[0] >= "2"
-            if NEO4J_V2 and self.nullable is True:
+            if NEO4J_V2 and self.lookup == 'isnull':
+                query_format = ("{0}.`{1}` {2} NULL")
+                query = query_format.format(self.var, prop, lookup)
+            elif NEO4J_V2 and self.nullable is True:
                 try:
                     query_format = (u"(has({0}.`{1}`) and {2}.`{3}` "
                                     u"{4} {{{5}}})")
@@ -248,7 +251,7 @@ class Q(BaseQ):
                 except AttributeError:
                     query = (u"( has(%s.`%s`) and %s.`%s` %s {%s} )"
                              % (self.var, prop, self.var, prop, lookup, key))
-            if NEO4J_V2 and self.nullable is False:
+            elif NEO4J_V2 and self.nullable is False:
                 try:
                     query_format = (u"(not(has({0}.`{1}`)) or {2}.`{3}` "
                                     u"{4} {{{5}}})")
