@@ -215,7 +215,10 @@ class Q(BaseQ):
             op_not = self._not.get_query_objects(params=params,
                                                  version=version)
             params.update(op_not[1])
-            query = u"True = NOT ( {0} )".format(op_not[0])
+            if version and version.split(".")[0] >= "2":
+                query = u"True = NOT ( {0} )".format(op_not[0])
+            else:
+                query = u"NOT ( {0} )".format(op_not[0])
         elif self._or is not None:
             left_or = self._or[0].get_query_objects(params=params,
                                                     version=version)
