@@ -6,6 +6,7 @@ PY2 = sys.version_info[0] == 2
 
 if PY2:
     import urllib
+    from urlparse import urlparse
     quote = urllib.quote
     unquote = urllib.unquote
     text_type = unicode
@@ -25,7 +26,7 @@ if PY2:
             return safe_key
 
 else:
-    from urllib.parse import quote, unquote
+    from urllib.parse import quote, unquote, urlparse
     quote = quote
     unquote = unquote
     text_type = str
@@ -59,3 +60,27 @@ def in_ipnb():
     except:
         return False
     return False
+
+
+def get_auth_from_uri(uri):
+    splits = urlparse(uri)
+    if splits.port:
+        port = u":%s" % splits.port
+    else:
+        port = u""
+    if splits.query and splits.fragment:
+        root_uri = "%s://%s%s%s?%s#%s" % (splits.scheme, splits.hostname,
+                                          port, splits.path,
+                                          splits.query, splits.fragment)
+    elif splits.query:
+        root_uri = "%s://%s%s%s?%s" % (splits.scheme, splits.hostname,
+                                       port, splits.path,
+                                       splits.query)
+    elif splits.fragment:
+        root_uri = "%s://%s%s%s#%s" % (splits.scheme, splits.hostname,
+                                       port, splits.path,
+                                       splits.fragment)
+    else:
+        root_uri = "%s://%s%s%s" % (splits.scheme, splits.hostname,
+                                    port, splits.path)
+    return splits.username, splits.password, root_uri

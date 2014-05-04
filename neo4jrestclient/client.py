@@ -31,7 +31,7 @@ from neo4jrestclient.exceptions import (NotFoundError, StatusException,
                                         TransactionException)
 from neo4jrestclient.traversals import TraversalDescription, GraphTraversal
 from neo4jrestclient.utils import (PY2, text_type, smart_quote, string_types,
-                                   unquote)
+                                   unquote, get_auth_from_uri)
 
 __all__ = ["GraphDatabase", "Incoming", "Outgoing", "Undirected",
            "StopAtDepth", "NotFoundError", "StatusException", "Q"]
@@ -56,6 +56,9 @@ class GraphDatabase(object):
 
     def __init__(self, url, username=None, password=None, cert_file=None,
                  key_file=None):
+        username_uri, password_uri, xxx = get_auth_from_uri(url)
+        username = username or username_uri
+        password = password or password_uri
         self._auth = {
             "username": username,
             "password": password,

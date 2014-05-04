@@ -5,15 +5,11 @@ import re
 import requests
 import json
 import time
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
 
 from neo4jrestclient import options
 from neo4jrestclient.constants import __version__
 from neo4jrestclient.exceptions import StatusException
-from neo4jrestclient.utils import string_types
+from neo4jrestclient.utils import string_types, get_auth_from_uri
 
 if options.DEBUG:
     import httplib
@@ -171,28 +167,9 @@ class Request(object):
         return json.dumps(ret, ensure_ascii=ensure_ascii)
 
     def _request(self, method, url, data={}, headers={}):
-        splits = urlparse(url)
-        if splits.port:
-            port = u":%s" % splits.port
-        else:
-            port = u""
-        if splits.query and splits.fragment:
-            root_uri = "%s://%s%s%s?%s#%s" % (splits.scheme, splits.hostname,
-                                              port, splits.path,
-                                              splits.query, splits.fragment)
-        elif splits.query:
-            root_uri = "%s://%s%s%s?%s" % (splits.scheme, splits.hostname,
-                                           port, splits.path,
-                                           splits.query)
-        elif splits.fragment:
-            root_uri = "%s://%s%s%s#%s" % (splits.scheme, splits.hostname,
-                                           port, splits.path,
-                                           splits.fragment)
-        else:
-            root_uri = "%s://%s%s%s" % (splits.scheme, splits.hostname,
-                                        port, splits.path)
-        username = splits.username or self.username
-        password = splits.password or self.password
+        username_uri, password_uri, root_uri = get_auth_from_uri(url)
+        username = username_uri or self.username
+        password = password_uri or self.password
         cert = None
         if self.cert_file:
             if self.key_file:
