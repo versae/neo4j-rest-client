@@ -239,6 +239,9 @@ class Q(BaseQ):
             key = u"{0}p{1}".format(prefix, len(params))
             prop = text_type(self.property).replace(u"`", u"\\`")
             NEO4J_V2 = version and version.split(".")[0] >= "2"
+            if not NEO4J_V2 and self.nullable is None:
+                # Backwards compatibility for Neo5j versions prior 2.0
+                self.nullable = True
             if self.lookup == 'isnull':
                 query_format = ("{0}.`{1}` {2} NULL")
                 query = query_format.format(self.var, prop, lookup)
