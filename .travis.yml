@@ -18,11 +18,11 @@ env:
   - NEO4J_VERSION="1.6.3"
   - NEO4J_VERSION="1.7.2"
   - NEO4J_VERSION="1.8.3"
-  - NEO4J_VERSION="1.9.6"
-  - NEO4J_VERSION="2.0.1"
+  - NEO4J_VERSION="1.9.7"
+  - NEO4J_VERSION="2.0.3"
 script:
   - coverage run setup.py test
 after_success:
-  - if [ $NEO4J_VERSION == "2.0.1" ]; then
+  - if [ $NEO4J_VERSION == "2.0.3" ]; then
     coveralls;
     fi
