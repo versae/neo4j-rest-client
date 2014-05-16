@@ -2217,6 +2217,24 @@ class ExtensionsProxy(dict):
             self._dict = self._get_dict()
         return self._dict.keys()
 
+    # Special methods for handle pickling manually
+    def __getnewargs__(self):
+        return tuple()
+
+    def __getstate__(self):
+        data = {}
+        for key, value in self.__dict__.items():
+            try:
+                encoded = pickle.dumps(value)
+            except pickle.PicklingError:
+                encoded = pickle.dumps(pickle.Unpickable())
+            data[key] = encoded
+        return data
+
+    def __setstate__(self, state):
+        for key, value in state.items():
+            self.__dict__[key] = pickle.loads(value)
+
 
 class Extension(object):
     """
