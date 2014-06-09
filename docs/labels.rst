@@ -8,7 +8,7 @@ label and a label can `have` more than one node.
 Add and remove labels to/from a node
 ------------------------------------
 
-For example, we can crete a couple of nodes:
+For example, we can create a couple of nodes:
 
   >>> alice = gdb.nodes.create(name="Alice", age=30)
 
