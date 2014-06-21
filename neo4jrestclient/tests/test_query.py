@@ -109,7 +109,7 @@ class QueryTestCase(GraphDatabaseTesCase):
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_create_node_after_query(self):
         # See https://github.com/versae/neo4j-rest-client/issues/103
-        q = """start n=node(*) match (a) return a limit 10"""
+        q = """start n=node(*) match (n) return n limit 10"""
         self.gdb.query(q=q)
         self.gdb.nodes.create(name="John")
 
