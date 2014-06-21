@@ -1,6 +1,13 @@
 Changes
 =======
 
+2.0.4 (2014-06-20)
+------------------
+- Typos
+- Bugfixes
+- Drop support for 1.6 branch
+
+
 2.0.3 (2014-05-16)
 ------------------
 - Update travis to test Neo4j versions 1.9.7 and 2.0.3
