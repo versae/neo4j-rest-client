@@ -1,6 +1,18 @@
 Changes
 =======
 
+2.0.3 (2014-05-16)
+------------------
+- Update travis to test Neo4j versions 1.9.7 and 2.0.3
+- Fix #104. Keep backwards compatibility for 'nullable' prior 2.0
+  It will be deprecated for Neo4j>=2.0.0
+- Update Q class for nullable=True
+- Fix un/pickling extenions
+- Refactorize get auth information from the connection URL
+- Update queries.rst (typo)
+- Fix the lazy loading of extensions
+
+
 2.0.2 (2014-04-04)
 ------------------
 - Add Pickle support for GraphDatabase objects

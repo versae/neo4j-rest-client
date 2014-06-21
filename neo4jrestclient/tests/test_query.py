@@ -113,7 +113,7 @@ class QueryTestCase(GraphDatabaseTesCase):
         self.gdb.query(q=q)
         self.gdb.nodes.create(name="John")
 
-    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.7"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_transaction_reset(self):
         tx = self.gdb.transaction(for_query=True)
@@ -124,7 +124,7 @@ class QueryTestCase(GraphDatabaseTesCase):
         tx.commit()
         self.assertTrue(tx.finished)
 
-    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.7"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_transaction(self):
         tx = self.gdb.transaction(for_query=True)
@@ -139,7 +139,7 @@ class QueryTestCase(GraphDatabaseTesCase):
                 self.assertEqual(row[0]['data'], {})
         self.assertTrue(tx.finished)
 
-    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.7"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_transaction_object(self):
         tx = self.gdb.transaction(for_query=True)
@@ -160,7 +160,7 @@ class QueryTestCase(GraphDatabaseTesCase):
         results = tx.commit()
         self.assertTrue(len(results) == 2)
 
-    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.7"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_transaction_returns_tuple(self):
         n1 = self.gdb.nodes.create(name="John")
@@ -183,7 +183,7 @@ class QueryTestCase(GraphDatabaseTesCase):
             self.assertEqual(rel, r)
             self.assertEqual(date, 1982)
 
-    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.7"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_transaction_rollback(self):
         with self.gdb.transaction(for_query=True) as tx:
@@ -204,7 +204,7 @@ class QueryTestCase(GraphDatabaseTesCase):
         self.assertTrue(len(results) == 0)
         self.assertIsNone(self.gdb.relationships.get(rel.id))
 
-    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.7"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_transaction_fails(self):
         try:
@@ -213,7 +213,7 @@ class QueryTestCase(GraphDatabaseTesCase):
         except Exception as e:
             self.assertTrue(isinstance(e, TransactionException))
 
-    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.7"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_transaction_rollback_after_execute(self):
         tx = self.gdb.transaction(for_query=True)
@@ -223,7 +223,7 @@ class QueryTestCase(GraphDatabaseTesCase):
         tx.rollback()
         self.assertTrue(tx.finished)
 
-    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.7"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_transaction_items_get_populated_after_execute(self):
         tx = self.gdb.transaction(for_query=True)

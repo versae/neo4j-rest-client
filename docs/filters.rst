@@ -5,7 +5,7 @@ On top of Queries feature, there are some filtering helpers for nodes,
 relationships and both indices. First thing you need is to define `Q` objects:
 
   >>> from neo4jrestclient.query import Q
-  
+
   >>> Q("name", istartswith="william")
 
 Once a lookup is defined, you may call the `filter` method over all
@@ -17,12 +17,12 @@ the nodes or the relationships:
 Or just a list of elements identifiers, `Node`'s or `Relationship`'s:
 
   >>> nodes = []
-  
+
   >>> for i in range(2):
      ...: nodes.append(gdb.nodes.create(name="William %s" % i))
-  
+
   >>> lookup = Q("name", istartswith="william")
-  
+
   >>> williams = gdb.nodes.filter(lookup, start=nodes)
 
 
@@ -58,22 +58,23 @@ The next list shows all the current lookups supported:
 * `neq`, performs not equal comparations.
 * `notequals`, an alias `neq`.
 
-Also, in order to be compliant with Cypher syntax, you can add a `nullable`
-parameter to set if the lookup must be don using `!` or `?`. By default, all
-lookups are nullable.
+Also, in order to be compliant with Cypher syntax prior to Neo4j 2.0, you can
+add a `nullable` parameter to set if the lookup must be don using `!` or `?`.
+By default, all lookups are nullable. After Neo4j 2.0, `nullable` options is no
+longer supported since the operators `!` and `?` are not longer in Neo4j.
 
   >>> lookup = Q("name", istartswith="william", nullable=True)
-  
+
   >>> lookup
   n.`name`! =~ (?i)william.*
-  
+
   >>> lookup = Q("name", istartswith="william", nullable=False)
-  
+
   >>> lookup
   n.`name`? =~ (?i)william.*
-  
+
   >>> lookup = Q("name", istartswith="william", nullable=None)
-  
+
   >>> lookup
   n.`name` =~ (?i)william.*
 
@@ -104,15 +105,15 @@ Indices also implement the `filter` method, so you can use an index as a start,
 or just invoke the method to filter the elements:
 
   >>> old_loves = gdb.relationships.filter(lookup, start=index)
-  
+
   >>> old_loves = gdb.relationships.filter(lookup, start=index["since"])
 
 So, the next would be the same:
 
   >>> old_loves = index.filter(lookup)
-  
+
   >>> old_loves = index.filter(lookup, key="since")
-  
+
   >>> old_loves = index["since"].filter(lookup)
 
 However, it is not possible yet to pass a value for the index using the common
@@ -129,9 +130,9 @@ the results are going to be retrieved. However, there is not still support for
 transactions:
 
   >>> lookup = Q("name", istartswith="william")
-  
+
   >>> results = gdb.nodes.filter(lookup)  # Not query executed yet
-  
+
   >>> len(restuls)  # Here the query is executed
   12
 
@@ -140,10 +141,10 @@ slicing is then run against the local version. If not, the `slice` is transforme
 into `limit` and `skip` options before doing the request.
 
   >>> results = gdb.nodes.filter(lookup)  # Not query executed yet
-  
+
   >>> restuls[1:2]  # The Cypher query is limited using limit and skip
   [<Neo4j Node: http://localhost:7474/db/data/node/14>]
-  
+
   >>> len(results)  # The Cypher query is sent again to the server
   12
 
