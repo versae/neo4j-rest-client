@@ -105,6 +105,14 @@ class QueryTestCase(GraphDatabaseTesCase):
         # query, this should always be True
         self.assertTrue(len(result) > 0)
 
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_create_node_after_query(self):
+        # See https://github.com/versae/neo4j-rest-client/issues/103
+        q = """start n=node(*) match (a) return a limit 10"""
+        self.gdb.query(q=q)
+        self.gdb.nodes.create(name="John")
+
     @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.6"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_transaction_reset(self):

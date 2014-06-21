@@ -199,7 +199,8 @@ class GraphDatabase(object):
             # So we create always a transaction per query for Neo4j 2.0+
             if (tx is None
                     and self.VERSION and self.VERSION.split(".")[0] >= "2"):
-                tx = self.transaction(for_query=True, execute=True)
+                tx = self.transaction(for_query=True, execute=True,
+                                      using_globals=False)
             return QuerySequence(self._cypher, self._auth, q=q, params=params,
                                  types=types, returns=returns, tx=tx)
         else:
