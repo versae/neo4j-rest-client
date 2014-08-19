@@ -1172,6 +1172,11 @@ class Node(Base):
                 'language': 'javascript',
                 'body': 'false',
             }})
+        elif stop:
+            data.update({'prune_evaluator': {
+                'language': 'javascript',
+                'body': stop,
+            }})
         if returnable in (RETURN_ALL_NODES, RETURN_ALL_BUT_START_NODE):
             data.update({"return_filter": {
                 "language": "builtin",
