@@ -178,6 +178,7 @@ class TraversalDescription(object):
         except KeyError:
             self._data["prune_evaluator"] = {"language": language,
                                              "body": value}
+        return self
 
     def order(self, value):
         self._data["order"] = value
