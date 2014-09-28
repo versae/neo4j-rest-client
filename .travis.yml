@@ -10,7 +10,6 @@ before_install:
   - ./install_local_neo4j.bash $NEO4J_VERSION
   - ./lib/neo4j/bin/neo4j start || ( cat ./lib/neo4j/data/log/*.log && exit 1 )
   - curl http://localhost:$NEO4J_PORT/db/data/
-  - curl -X DELETE 'http://localhost:7474/cleandb/supersecretdebugkey!'
 install:
   - pip install -r requirements.txt
   - pip install coveralls
@@ -23,6 +22,7 @@ env:
 script:
   - coverage run setup.py test
 after_success:
-  - if [ $NEO4J_VERSION == "2.0.3" ]; then
+  - if [ $NEO4J_VERSION == "2.1.4" ]; then
     coveralls;
     fi
+  - ./lib/neo4j/bin/neo4j stop || ( cat ./lib/neo4j/data/log/*.log && exit 1 )

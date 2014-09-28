@@ -16,18 +16,6 @@ if [[ ! -d lib/$DIR ]]; then
     mv $DIR lib/
     [[ -h lib/neo4j ]] && unlink lib/neo4j
     ln -fs $DIR lib/neo4j
-    mkdir lib/neo4j/testing/
-    PLUGIN_VERSION="1.6"
-    if [[ $NEO4J_VERSION == 1.5* ]]; then
-        PLUGIN_VERSION="1.5"
-    fi
-    DELETE_DB_PLUGIN_JAR="test-delete-db-extension-$PLUGIN_VERSION.jar"
-    wget --no-check-certificate -O lib/neo4j/testing/$DELETE_DB_PLUGIN_JAR https://github.com/downloads/jexp/neo4j-clean-remote-db-addon/$DELETE_DB_PLUGIN_JAR
-    ln -s ../testing/$DELETE_DB_PLUGIN_JAR lib/neo4j/plugins/$DELETE_DB_PLUGIN_JAR
-    cat >> $SERVER_PROPERTIES_FILE <<EOF
-org.neo4j.server.thirdparty_jaxrs_classes=org.neo4j.server.extension.test.delete=/cleandb
-org.neo4j.server.thirdparty.delete.key=supersecretdebugkey!
-EOF
 fi
 
 if grep 7474 $SERVER_PROPERTIES_FILE > /dev/null; then
