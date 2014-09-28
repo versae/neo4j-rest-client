@@ -167,13 +167,13 @@ class LabelsTestCase(GraphDatabaseTesCase):
             self.assertIn(label, self.gdb.labels)
             self.assertIn(n, label.all())
 
-    def test_filter(self):
+    def test_label_filter(self):
         n = self.gdb.nodes.create(key="value")
         label = n.labels.add("label")
         q = Q("key", "icontains", "VALUE")
         self.assertIn(n, label.filter(q))
 
-    def test_filter_safe(self):
+    def test_label_filter_safe(self):
         n1 = self.gdb.nodes.create(key=u"válu½/ë")
         n1.labels.add(u"läbel")
         n2 = self.gdb.nodes.create(key=u"val")
