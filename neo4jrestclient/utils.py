@@ -90,22 +90,26 @@ def get_auth_from_uri(uri):
 
 
 def rewrites(obj):
-    if isinstance(obj, dict):
-        rewritten_obj = {}
-        for k, v in obj.iteritems():
-            if k in ["data"]:
-                # Special case, we do not touch "data" values
-                rewritten_obj[k] = v
-            else:
-                for uri_from, uri_to in options.URI_REWRITES.iteritems():
-                    if uri_from in v:
-                        rewritten_obj[k] = v.replace(uri_from, uri_to)
-                    else:
-                        rewritten_obj[k] = v
-        return rewritten_obj
-    elif isinstance(obj, tuple):
-        return (rewrites(elem) for elem in obj)
-    elif isinstance(obj, list):
-        return [rewrites(elem) for elem in obj]
+    if options.URI_REWRITES:
+        if isinstance(obj, dict):
+            rewritten_obj = {}
+            ignored_keys = ("data", )
+            for k, v in obj.iteritems():
+                if k in ignored_keys:
+                    # Special case, we do not touch "data" values
+                    rewritten_obj[k] = v
+                else:
+                    for uri_from, uri_to in options.URI_REWRITES.iteritems():
+                        if isinstance(v, string_types) and uri_from in v:
+                            rewritten_obj[k] = v.replace(uri_from, uri_to)
+                        else:
+                            rewritten_obj[k] = v
+            return rewritten_obj
+        elif isinstance(obj, tuple):
+            return (rewrites(elem) for elem in obj)
+        elif isinstance(obj, list):
+            return [rewrites(elem) for elem in obj]
+        else:
+            return obj
     else:
         return obj

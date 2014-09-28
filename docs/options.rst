@@ -79,11 +79,8 @@ right URI, (mistakenly produces `http` instead of `https`, and `localhost:0`
 instead of the actual URI). By using this option `neo4jrestclient` can rewrite
 those URIs to the right one. It is disabled by default (set to `None`)
 
-If `True`, it will try to set the wrong URIs to the current one:
-
-  >>> neo4jrestclient.options.URI_REWRITES = True
-
-More complex control can be added by setting a dictionary:
+For example, to replace `"http://localhost:0/"` with
+`"https://db.host.com:8000/"`, you will need a dictionary like:
 
   >>> neo4jrestclient.options.URI_REWRITES = {
       {"http://localhost:0/": "https://db.host.com:8000/",

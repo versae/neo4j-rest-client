@@ -14,7 +14,6 @@ install:
   - pip install -r requirements.txt
   - pip install coveralls
 env:
-  - NEO4J_VERSION="1.7.2"
   - NEO4J_VERSION="1.8.3"
   - NEO4J_VERSION="1.9.8"
   - NEO4J_VERSION="2.0.4"
