@@ -26,7 +26,7 @@ class GraphDatabaseTesCase(unittest.TestCase):
 
 class IPythonTestCase(GraphDatabaseTesCase):
 
-    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.7"],
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.8"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_ipython_query_raw(self):
         n1 = self.gdb.nodes.create(name="John")
@@ -37,7 +37,7 @@ class IPythonTestCase(GraphDatabaseTesCase):
         self.assertTrue(len(result._elements_graph) == 2)
         self.assertTrue(len(result._elements_row) == 2)
 
-    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.7"],
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.8"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_ipython_query_returns(self):
         n1 = self.gdb.nodes.create(name="John")
@@ -48,7 +48,7 @@ class IPythonTestCase(GraphDatabaseTesCase):
         self.assertTrue(len(result._elements_graph) == 2)
         self.assertTrue(len(result._elements_row) == 2)
 
-    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.7"],
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.8"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_ipython_query_returns_html(self):
         n1 = self.gdb.nodes.create(name="John")
@@ -58,7 +58,7 @@ class IPythonTestCase(GraphDatabaseTesCase):
         result = self.gdb.query(q=q, returns=client.Node)
         self.assertTrue("div" in result._repr_html_())
 
-    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.7"],
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.8"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_ipython_query_to_html(self):
         n1 = self.gdb.nodes.create(name="John")

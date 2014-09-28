@@ -14,3 +14,5 @@ DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
 TX_NAME = "_tx"
 # Verify SSL
 VERIFY_SSL = False
+# For URI rewrites, https://github.com/neo4j/neo4j/issues/2985
+URI_REWRITES = {}

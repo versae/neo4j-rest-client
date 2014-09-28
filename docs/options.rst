@@ -72,12 +72,32 @@ transactions (aka batch operations), you can do that with ``TX_NAME``:
   >>> neo4jrestclient.options.TX_NAME = "_tx"  # Default
 
 
+``URI_REWRITES``
+----------------
+When using transactional Cypher endpoint behind SSL, Neo4j fails to returns the
+right URI, (mistakenly produces `http` instead of `https`, and `localhost:0`
+instead of the actual URI). By using this option `neo4jrestclient` can rewrite
+those URIs to the right one. It is disabled by default (set to `None`)
+
+If `True`, it will try to set the wrong URIs to the current one:
+
+  >>> neo4jrestclient.options.URI_REWRITES = True
+
+More complex control can be added by setting a dictionary:
+
+  >>> neo4jrestclient.options.URI_REWRITES = {
+      {"http://localhost:0/": "https://db.host.com:8000/",
+  }
+
+If the order of the replace operation is important, a `SortedDict` can be used.
+
+
 ``VERIFY_SSL``
 --------------
 This option is used to set to ``True`` the verification of SSL certificates. By
 default is set to ``False``
 
-  >>> neo4jrestclient.options.VERIFY_SSL = "False"  # Default
+  >>> neo4jrestclient.options.VERIFY_SSL = False  # Default
 
 .. _python-embedded: http://docs.neo4j.org/chunked/snapshot/python-embedded.html
 .. _lucene-querybuilder: http://github.com/scholrly/lucene-querybuilder

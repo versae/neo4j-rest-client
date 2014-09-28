@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 import json
 import sys
+
+from neo4jrestclient import options
+
 PYTHON_VERSION = sys.version_info
 PY2 = sys.version_info[0] == 2
 
@@ -84,3 +87,25 @@ def get_auth_from_uri(uri):
         root_uri = "%s://%s%s%s" % (splits.scheme, splits.hostname,
                                     port, splits.path)
     return splits.username, splits.password, root_uri
+
+
+def rewrites(obj):
+    if isinstance(obj, dict):
+        rewritten_obj = {}
+        for k, v in obj.iteritems():
+            if k in ["data"]:
+                # Special case, we do not touch "data" values
+                rewritten_obj[k] = v
+            else:
+                for uri_from, uri_to in options.URI_REWRITES.iteritems():
+                    if uri_from in v:
+                        rewritten_obj[k] = v.replace(uri_from, uri_to)
+                    else:
+                        rewritten_obj[k] = v
+        return rewritten_obj
+    elif isinstance(obj, tuple):
+        return (rewrites(elem) for elem in obj)
+    elif isinstance(obj, list):
+        return [rewrites(elem) for elem in obj]
+    else:
+        return obj

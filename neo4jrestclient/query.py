@@ -9,7 +9,7 @@ import warnings
 from neo4jrestclient.constants import RAW
 from neo4jrestclient.request import Request
 from neo4jrestclient.exceptions import StatusException, TransactionException
-from neo4jrestclient.utils import text_type, string_types, in_ipnb
+from neo4jrestclient.utils import text_type, string_types, in_ipnb, rewrites
 
 
 class BaseQ(object):
@@ -699,11 +699,11 @@ class QuerySequence(Sequence):
                 for element in elements:
                     # For IPython Notebook
                     if "row" in element:
-                        cls._elements_row.append(element["row"])
+                        cls._elements_row.append(rewrites(element["row"]))
                     if "graph" in element:
-                        cls._elements_graph.append(element["graph"])
+                        cls._elements_graph.append(rewrites(element["graph"]))
                     # For transactional Cypher endpoint
-                    results.append(element.get("rest", None))
+                    results.append(rewrites(element.get("rest", None)))
                 return results
             else:
                 return elements
@@ -716,12 +716,13 @@ class QuerySequence(Sequence):
             for row in elements:
                 # For IPython Notebook
                 if "row" in row:
-                    cls._elements_row.append(row["row"])
+                    cls._elements_row.append(rewrites(row["row"]))
                 if "graph" in row:
-                    cls._elements_graph.append(row["graph"])
+                    cls._elements_graph.append(rewrites(row["graph"]))
                 # For transactional Cypher endpoint
                 if "rest" in row:
                     row = row["rest"]
+                row = rewrites(row)
                 # We need both list to have the same lenght
                 len_row = len(row)
                 len_returns = len(returns)

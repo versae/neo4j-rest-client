@@ -72,7 +72,7 @@ class FilterTestCase(GraphDatabaseTesCase):
                                                           constants.DESC)
         self.assertTrue(williams[-1]["code"] > williams[0]["code"])
 
-    @unittest.skipIf(NEO4J_VERSION not in ["1.7.2", "1.8.3", "1.9.7"],
+    @unittest.skipIf(NEO4J_VERSION not in ["1.7.2", "1.8.3", "1.9.8"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_filter_nodes_nullable(self):
         Q = query.Q
