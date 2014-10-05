@@ -123,6 +123,7 @@ class QueryTestCase(GraphDatabaseTesCase):
         c = self.gdb.nodes.create()
         a.relationships.create("relates", c)
         q = """
+            start a=node(*)
             match (a)--(b) with a, collect(b) as bs
             where a.prop = {prop}
             return a, bs limit 1
@@ -144,7 +145,6 @@ class QueryTestCase(GraphDatabaseTesCase):
         )[-1]
         bs = [node for node in result[1]]
         self.assertEqual(set([b, c]), set(bs))
-
 
     @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.8"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
