@@ -113,6 +113,39 @@ class QueryTestCase(GraphDatabaseTesCase):
         self.gdb.query(q=q)
         self.gdb.nodes.create(name="John")
 
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_query_cast_list_in_resutls(self):
+        prop = u"prop%s" % text_type(datetime.now().strftime('%s%f'))
+        a = self.gdb.nodes.create(prop=prop)
+        b = self.gdb.nodes.create()
+        a.relationships.create("relates", b)
+        c = self.gdb.nodes.create()
+        a.relationships.create("relates", c)
+        q = """
+            match (a)--(b) with a, collect(b) as bs
+            where a.prop = {prop}
+            return a, bs limit 1
+        """
+        result = self.gdb.query(
+            q, returns=[client.Node, (client.Node, )], params={"prop": prop}
+        )[-1]
+        self.assertEqual(a, result[0])
+        self.assertTrue(isinstance(result[1], tuple))
+        self.assertEqual(set([b, c]), set(result[1]))
+        result = self.gdb.query(
+            q, returns=[client.Node, [client.Node, ]], params={"prop": prop}
+        )[-1]
+        self.assertTrue(isinstance(result[1], list))
+        result = self.gdb.query(
+            q,
+            returns=[client.Node, client.Iterable(client.Node)],
+            params={"prop": prop}
+        )[-1]
+        bs = [node for node in result[1]]
+        self.assertEqual(set([b, c]), set(bs))
+
+
     @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.8"],
                      "Not supported by Neo4j {}".format(NEO4J_VERSION))
     def test_query_transaction_reset(self):

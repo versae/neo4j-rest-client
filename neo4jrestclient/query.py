@@ -7,6 +7,7 @@ from collections import Sequence
 import warnings
 
 from neo4jrestclient.constants import RAW
+from neo4jrestclient.iterable import Iterable
 from neo4jrestclient.request import Request
 from neo4jrestclient.exceptions import StatusException, TransactionException
 from neo4jrestclient.utils import text_type, string_types, in_ipnb, rewrites
@@ -690,6 +691,48 @@ class QuerySequence(Sequence):
         if cypher is None:
             cypher = cls._cypher
         neutral = lambda x: x
+
+        def cast_element(element, func):
+            # We also allow the use of constants like NODE, etc
+            if isinstance(func, string_types):
+                func_lower = func.lower()
+                if func_lower in types_keys:
+                    func = types[func_lower]
+            if func in (types.get("node", ""),
+                        types.get("relationship", "")):
+                obj = func(element["self"], update_dict=element,
+                           auth=auth, cypher=cypher)
+                return obj
+            elif func in (types.get("path", ""),
+                          types.get("position", "")):
+                obj = func(element, auth=auth, cypher=cypher)
+                return obj
+            elif func in (None, True, False):
+                sub_func = lambda x: x is func
+                return sub_func(element)
+            elif isinstance(element, (list, tuple)):
+                if isinstance(func, Iterable):
+                    objs = [cast_element(obj, func._class) for obj in element]
+                    return iter(objs)
+                elif isinstance(func, (list, tuple)):
+                    objs = []
+                    for i, obj in enumerate(element):
+                        try:
+                            sub_func = func[i]
+                        except IndexError:
+                            pass  # We keep the last value for sub_func
+                        objs.append(cast_element(obj, sub_func))
+                    return type(func)(objs)
+                elif callable(func):
+                    return func(element)
+                else:
+                    objs = [cast_element(obj, func) for obj in element]
+                    return type(func)(objs)
+            elif func == RAW:
+                return element
+            else:
+                return func(element)
+
         # For IPython Notebook
         cls._elements_row = []
         cls._elements_graph = []
@@ -733,28 +776,8 @@ class QuerySequence(Sequence):
                 casted_row = []
                 types_keys = types.keys()
                 for i, element in enumerate(row):
-                    # if "rest" in element:
-                    #     element = element["rest"]
                     func = returns[i]
-                    # We also allow the use of constants like NODE, etc
-                    if isinstance(func, string_types):
-                        func_lower = func.lower()
-                        if func_lower in types_keys:
-                            func = types[func_lower]
-                    if func in (types.get("node", ""),
-                                types.get("relationship", "")):
-                        obj = func(element["self"], update_dict=element,
-                                   auth=auth, cypher=cypher)
-                        casted_row.append(obj)
-                    elif func in (types.get("path", ""),
-                                  types.get("position", "")):
-                        obj = func(element, auth=auth, cypher=cypher)
-                        casted_row.append(obj)
-                    elif func in (None, True, False):
-                        sub_func = lambda x: x is func
-                        casted_row.append(sub_func(element))
-                    else:
-                        casted_row.append(func(element))
+                    casted_row.append(cast_element(element, func))
                 if cls is not None and cls._return_single_rows:
                     results.append(*casted_row)
                 else:

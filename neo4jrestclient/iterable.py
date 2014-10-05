@@ -6,7 +6,9 @@ class Iterable(list):
     Class to iterate among returned objects.
     """
 
-    def __init__(self, cls, lst, attr=None, auth=None, cypher=None):
+    def __init__(self, cls, lst=None, attr=None, auth=None, cypher=None):
+        if lst is None:
+            lst = []
         self._auth = auth or {}
         self._cypher = cypher
         self._list = lst
