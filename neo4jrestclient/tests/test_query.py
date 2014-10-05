@@ -124,8 +124,8 @@ class QueryTestCase(GraphDatabaseTesCase):
         a.relationships.create("relates", c)
         q = """
             start a=node(*)
-            match (a)--(b) with a, collect(b) as bs
             where a.prop = {prop}
+            match (a)--(b) with a, collect(b) as bs
             return a, bs limit 1
         """
         result = self.gdb.query(

@@ -74,5 +74,5 @@ the result of a `collection function`_, you can always customize the casting fun
     <Neo4j Node: http://localhost:7474/db/data/node/30>)]
 
 .. _neo4j-rest-client: http://pypi.python.org/pypi/neo4jrestclient/
-.. `collection function`_: http://docs.neo4j.org/chunked/stable/query-functions-collection.html
-.. `collection functions`_: http://docs.neo4j.org/chunked/stable/query-functions-collection.html
+.. _`collection function`: http://docs.neo4j.org/chunked/stable/query-functions-collection.html
+.. _`collection functions`: http://docs.neo4j.org/chunked/stable/query-functions-collection.html
