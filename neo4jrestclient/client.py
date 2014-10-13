@@ -201,8 +201,13 @@ class GraphDatabase(object):
                     and self.VERSION and self.VERSION.split(".")[0] >= "2"):
                 tx = self.transaction(for_query=True, execute=True,
                                       using_globals=False)
-            return QuerySequence(self._cypher, self._auth, q=q, params=params,
-                                 types=types, returns=returns, tx=tx)
+            query_sequence = QuerySequence(
+                self._cypher, self._auth, q=q, params=params,
+                types=types, returns=returns, tx=tx
+            )
+            if tx is not None and tx.id in self._transactions:
+                del self._transactions[tx.id]
+            return query_sequence
         else:
             raise CypherException
 
