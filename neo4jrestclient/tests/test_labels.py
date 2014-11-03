@@ -53,7 +53,7 @@ class LabelsTestCase(GraphDatabaseTesCase):
         for label in labels:
             self.assertIn(label, n.labels)
 
-    def test_label_append_invalud(self):
+    def test_label_append_invalid(self):
         n = self.gdb.nodes.create()
         label = ""
         self.assertRaises(StatusException, n.labels.add, label)

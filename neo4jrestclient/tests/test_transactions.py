@@ -509,3 +509,21 @@ class TransactionsTestCase(GraphDatabaseTesCase):
 
         rel_ca = c.relationships.outgoing()[0]
         assert(rel_ca.start == c and rel_ca.end == a)
+
+    # Test from neo4j-googlegroup#149666f627da6c05
+    def test_transaction_relationship_is_destroyed_after_transaction(self):
+        a = self.gdb.nodes.create()
+        b = self.gdb.nodes.create()
+        with self.gdb.transaction(using_globals=False) as tx1:
+            r10 = a.relationships.create("PREV_EVENT", b, tx=tx1)
+            c = self.gdb.nodes.create(tx=tx1)
+            r11 = c.relationships.create("PREV_EVENT", b, tx=tx1)
+            r12 = a.relationships.create("PREV_EVENT", c, tx=tx1)
+            r10.delete(tx=tx1)
+        try:
+            self.assertEqual(r10, self.gdb.relationships.get(r10.id))
+            self.assertTrue(False)
+        except:
+            self.assertTrue(True)
+        self.assertEqual(r11, self.gdb.relationships.get(r11.id))
+        self.assertEqual(r12, self.gdb.relationships.get(r12.id))

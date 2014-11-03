@@ -419,7 +419,7 @@ class TransactionOperationProxy(dict, object):
                                               "self", auth=_auth)
                     else:
                         self._proxy = cls(Path, data["body"], auth=_auth)
-        else:
+        elif data and "body" in data:
             if "self" in data["body"] and data["body"]["self"] != url:
                 self._proxy = cls(data["body"]["self"],
                                   update_dict=data["body"], auth=_auth)
@@ -433,6 +433,13 @@ class TransactionOperationProxy(dict, object):
     def _get_id(self):
         _body = dict.__getitem__(self, "body")
         return "{%s}" % _body["id"]
+
+    def delete(self, tx=None):
+        url = "{{{0}}}".format(object.__getattribute__(self, "_job_id"))
+        tx = Transaction.get_transaction(tx)
+        if tx:
+            return tx.append(TX_DELETE, url, obj=self)
+        return None
 
     # Node functions
     def _get_relationships(self):
@@ -615,6 +622,7 @@ class Transaction(object):
                 ref_object = referenced_object()
                 result = results[ref_object()["id"]]
                 if "returns" in result:
+                    cls, url = None, None
                     if "location" in result:
                         cls = result["returns"]
                         url = result["location"]
@@ -629,6 +637,9 @@ class Transaction(object):
                             url = None
                             ref_object.change(cls.__class__, cls, data=result,
                                               auth=auth)
+                    elif result["returns"] is None:
+                        # Weak ref is not that easy to change
+                        ref_object = None
                     if cls and url:
                         ref_object.change(cls, url, data=result, auth=auth)
         self.references = []
@@ -675,7 +686,7 @@ class Transaction(object):
                                                               typ=returns,
                                                               **params)
             self.operations.append(transaction_operation)
-            if method in (TX_POST, TX_GET):
+            if method in (TX_POST, TX_GET, TX_DELETE):
                 self.references.append(weakref.ref(transaction_operation))
         return transaction_operation
 
