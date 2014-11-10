@@ -1,6 +1,26 @@
 Changes
 =======
 
+2.1.0 (2014-11-09)
+------------------
+- Add support for resultDataContents param in the transactional Cypher endpoint
+- Fix #116. Although the old reference is still kept, the object does not exist
+  in server and will fail
+- Add Neo4j 2.1.5 to travis
+- Fixes issues #109 and #114, related to a memory leak in query transactions
+- Fix #113. Add a way to cast query results from collection functions in Cypher
+- Change .iteritems to items for Python 3 compatibility
+- Change to enterprise for testing
+- Fix URI_REWRITES option. Remove testing for 1.7.2, and add 2.1.4.
+- Fix the download script for Neo4j, neo4j-clean-remote-db-addon no longer used.
+- Add uri rewrites as a work around neo4j issue #2985
+- Some pruning bugs
+- Labels url is stored in node_labels settings key
+- Fixed bug in prune function: it didn't return the self object
+- Fixed bug for prunning with JS code: added the case in traverse method for
+  prunning based on an arbitrary Javascript code.
+
+
 2.0.4 (2014-06-20)
 ------------------
 - Typos
