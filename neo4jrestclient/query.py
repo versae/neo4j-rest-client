@@ -299,7 +299,7 @@ class CypherException(Exception):
 class QuerySequence(Sequence):
 
     def __init__(self, cypher, auth, q, params=None, types=None, returns=None,
-                 lazy=False, tx=None):
+                 lazy=False, data_contents=None, tx=None):
         self.q = q
         self.params = params
         self.columns = None
@@ -316,9 +316,10 @@ class QuerySequence(Sequence):
         # Store rows and graphs information
         self._elements_row = None
         self._elements_graph = None
+        self._data_contents = data_contents
         if tx:
             tx.append(q=self.q, params=self.params, returns=self._returns,
-                      obj=self)
+                      data_contents=data_contents, obj=self)
             tx.execute()
         elif not lazy:
             self._get_elements()
@@ -335,6 +336,14 @@ class QuerySequence(Sequence):
                 self._elements = response
         return self._elements
     elements = property(_get_elements)
+
+    def _get_rows(self):
+        return self._elements_row
+    rows = property(_get_rows)
+
+    def _get_graph(self):
+        return self._elements_graph
+    graph = property(_get_graph)
 
     def __getitem__(self, key):
         return self.elements[key]
@@ -733,18 +742,22 @@ class QuerySequence(Sequence):
             else:
                 return func(element)
 
-        # For IPython Notebook
-        cls._elements_row = []
-        cls._elements_graph = []
+        def _process_data_contents(element):
+            if "row" in element:
+                if cls._elements_row is None:
+                    cls._elements_row = []
+                cls._elements_row.append(rewrites(element["row"]))
+            if "graph" in element:
+                if cls._elements_graph is None:
+                    cls._elements_graph = []
+                cls._elements_graph.append(rewrites(element["graph"]))
+
         if not returns or returns is RAW:
             if len(elements) > 0:
                 results = []
                 for element in elements:
-                    # For IPython Notebook
-                    if "row" in element:
-                        cls._elements_row.append(rewrites(element["row"]))
-                    if "graph" in element:
-                        cls._elements_graph.append(rewrites(element["graph"]))
+                    # For IPython Notebook and data_contents
+                    _process_data_contents(element)
                     # For transactional Cypher endpoint
                     results.append(rewrites(element.get("rest", None)))
                 return results
@@ -757,11 +770,8 @@ class QuerySequence(Sequence):
             else:
                 returns = list(returns)
             for row in elements:
-                # For IPython Notebook
-                if "row" in row:
-                    cls._elements_row.append(rewrites(row["row"]))
-                if "graph" in row:
-                    cls._elements_graph.append(rewrites(row["graph"]))
+                # For IPython Notebook and data_contents
+                _process_data_contents(row)
                 # For transactional Cypher endpoint
                 if "rest" in row:
                     row = row["rest"]
@@ -884,10 +894,13 @@ class QueryTransaction(object):
         else:
             return result_list
 
-    def append(self, q, params=None, returns=None, obj=None):
+    def append(self, q, params=None, returns=None, obj=None,
+               data_contents=None):
         result_data_contents = ["REST"]
-        if in_ipnb():
+        if in_ipnb() or data_contents is True:
             result_data_contents += ["row", "graph"]
+        elif data_contents and data_contents.lower() in ["row", "graph"]:
+            result_data_contents.append(data_contents.lower())
         statement = {
             "statement": q,
             "parameters": params,

@@ -8,6 +8,9 @@ run queries and returns the results properly formatted:
 
   >>> result = gdb.query(q=q)
 
+Returned types
+--------------
+
 This way to run a query will return the results as RAW, i.e., in the same way
 the REST interface get them. However, you can always use a ``returns`` parameter
 in order to perform custom castings:
@@ -72,6 +75,52 @@ the result of a `collection function`_, you can always customize the casting fun
    (<Neo4j Node: http://localhost:7474/db/data/node/29>,
     {u'tag': u'tag1'},
     <Neo4j Node: http://localhost:7474/db/data/node/30>)]
+
+
+Graph and row data contents
+---------------------------
+
+The Neo4j REST API is able to provide the results of a query in other two
+formats that might be useful when redering. To enable this option (which is the
+default only when running inside a IPython Notebook), you might pass an extra
+parameter to the query, `data_contents`. If set to `True`, it will populate the
+properties `.rows` as a list of rows, and `.graph` as a graph representation of
+the result.
+
+  >>> query = "MATCH (n)--() RETURN n LIMIT 5"
+  >>> results = gdb.query(query, data_contents=True)
+  >>> results.rows
+  [[{u'name': u'M\xedchael Doe', u'place': u'T\xedjuana'}],
+   [{u'name': u'J\xf3hn Doe', u'place': u'Texa\u015b'}],
+   [{u'name': u'Rose 0'}],
+   [{u'name': u'William 0'}],
+   [{u'name': u'Rose 1'}]]
+  >>> results.graph
+    [{u'nodes': [{u'id': u'3',
+      u'labels': [],
+      u'properties': {u'name': u'M\xedchael Doe', u'place': u'T\xedjuana'}}],
+    u'relationships': []},
+   {u'nodes': [{u'id': u'2',
+      u'labels': [],
+      u'properties': {u'name': u'J\xf3hn Doe', u'place': u'Texa\u015b'}}],
+    u'relationships': []},
+   {u'nodes': [{u'id': u'45',
+      u'labels': [],
+      u'properties': {u'name': u'Rose 0'}}],
+    u'relationships': []},
+   {u'nodes': [{u'id': u'44',
+      u'labels': [],
+      u'properties': {u'name': u'William 0'}}],
+    u'relationships': []},
+   {u'nodes': [{u'id': u'47',
+      u'labels': [],
+      u'properties': {u'name': u'Rose 1'}}],
+    u'relationships': []}]
+
+If only one of the represenations is needed, `data_contents` can be either
+`constants.DATA_ROWS` or `constants.DATA_GRAPH`.
+
+
 
 .. _neo4j-rest-client: http://pypi.python.org/pypi/neo4jrestclient/
 .. _`collection function`: http://docs.neo4j.org/chunked/stable/query-functions-collection.html

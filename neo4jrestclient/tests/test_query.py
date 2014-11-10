@@ -278,3 +278,36 @@ class QueryTestCase(GraphDatabaseTesCase):
                 returns=constants.RAW,
                 tx=tx)
         self.assertTrue(results[0][0]["self"].startswith("https"))
+
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.8"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_query_data_contents(self):
+        n1 = self.gdb.nodes.create(name="John")
+        n2 = self.gdb.nodes.create(name="William")
+        n1.knows(n2, since=1982)
+        q = """start n=node(*) return n limit 10"""
+        result = self.gdb.query(q=q, data_contents=True)
+        self.assertTrue(result.rows is not None)
+        self.assertTrue(result.graph is not None)
+
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.8"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_query_data_contents_rows(self):
+        n1 = self.gdb.nodes.create(name="John")
+        n2 = self.gdb.nodes.create(name="William")
+        n1.knows(n2, since=1982)
+        q = """start n=node(*) return n limit 10"""
+        result = self.gdb.query(q=q, data_contents=constants.DATA_ROWS)
+        self.assertTrue(result.rows is not None)
+        self.assertTrue(result.graph is None)
+
+    @unittest.skipIf(NEO4J_VERSION in ["1.6.3", "1.7.2", "1.8.3", "1.9.8"],
+                     "Not supported by Neo4j {}".format(NEO4J_VERSION))
+    def test_query_data_contents_graph(self):
+        n1 = self.gdb.nodes.create(name="John")
+        n2 = self.gdb.nodes.create(name="William")
+        n1.knows(n2, since=1982)
+        q = """start n=node(*) return n limit 10"""
+        result = self.gdb.query(q=q, data_contents=constants.DATA_GRAPH)
+        self.assertTrue(result.rows is None)
+        self.assertTrue(result.graph is not None)

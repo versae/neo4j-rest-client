@@ -50,3 +50,6 @@ TX_GET = "GET"
 TX_PUT = "PUT"
 TX_POST = "POST"
 TX_DELETE = "DELETE"
+# Queries REST data contents
+DATA_GRAPH = "graph"
+DATA_ROWS = "row"

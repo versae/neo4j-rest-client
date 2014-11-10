@@ -186,7 +186,7 @@ class GraphDatabase(object):
             globals()[options.TX_NAME] = self._transactions[transaction_id]
         return self._transactions[transaction_id]
 
-    def query(self, q, params=None, returns=RAW, tx=None):
+    def query(self, q, params=None, returns=RAW, data_contents=None, tx=None):
         if self._cypher or self._transaction:
             types = {
                 "node": Node,
@@ -203,7 +203,8 @@ class GraphDatabase(object):
                                       using_globals=False)
             query_sequence = QuerySequence(
                 self._cypher, self._auth, q=q, params=params,
-                types=types, returns=returns, tx=tx
+                types=types, returns=returns, data_contents=data_contents,
+                tx=tx
             )
             if tx is not None and tx.id in self._transactions:
                 del self._transactions[tx.id]
