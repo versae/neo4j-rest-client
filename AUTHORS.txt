@@ -15,13 +15,16 @@ APPRECIATED CONTRIBUTORS:
     * bkizzy, https://github.com/bkizzy
     * Steve Jalim, https://github.com/stevejalim
     * Dan Brown, https://github.com/dbro
-    * Adam Venturella: https://github.com/aventurella
-    * Rami Chowdhury: https://github.com/necaris
-    * Robin Edwards: https://github.com/robinedwards
-    * André Panisson: https://github.com/panisson
-    * Kristian Glass: https://github.com/doismellburning
-    * Patrick Carlson: https://github.com/carlsonp
-    * Corey Farwell: https://github.com/frewsxcv
+    * Adam Venturella, https://github.com/aventurella
+    * Rami Chowdhury, https://github.com/necaris
+    * Robin Edwards, https://github.com/robinedwards
+    * André Panisson, https://github.com/panisson
+    * Kristian Glass, https://github.com/doismellburning
+    * Patrick Carlson, https://github.com/carlsonp
+    * Corey Farwell, https://github.com/frewsxcv
+    * Alejandro Llorente, https://github.com/llorentealex
+    * Simone Marzola, https://github.com/simock85
+    * shaikatzir, https://github.com/shaikatzir
 
 And a big THANK YOU goes to:
 
