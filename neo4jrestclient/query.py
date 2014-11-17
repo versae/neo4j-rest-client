@@ -303,6 +303,7 @@ class QuerySequence(Sequence):
         self.q = q
         self.params = params
         self.columns = None
+        self.stats = None
         self._skip = None
         self._limit = None
         self._order_by = None
@@ -332,6 +333,7 @@ class QuerySequence(Sequence):
                     self, elements=response["data"], returns=self._returns
                 )
                 self.columns = response.get("columns", None)
+                self.stats = response.get("stats", None)
             except:
                 self._elements = response
         return self._elements
@@ -889,6 +891,7 @@ class QueryTransaction(object):
                     obj, elements=result["data"], returns=returns
                 )
                 obj.columns = result.get("columns", None)
+                obj.stats = result.get("stats", None)
                 results.append(obj)
             return results
         else:
@@ -899,11 +902,16 @@ class QueryTransaction(object):
         result_data_contents = ["REST"]
         if in_ipnb() or data_contents is True:
             result_data_contents += ["row", "graph"]
+            include_stats = True
         elif data_contents and data_contents.lower() in ["row", "graph"]:
+            include_stats = True
             result_data_contents.append(data_contents.lower())
+        else:
+            include_stats = False
         statement = {
             "statement": q,
             "parameters": params,
+            "includeStats": include_stats,
             "resultDataContents": result_data_contents,
         }
         self.statements.append(statement)
@@ -953,6 +961,7 @@ class QueryTransaction(object):
                     if obj is not None:
                         obj._elements = []
                         obj.columns = None
+                        obj.stats = None
                 self.executed = []
             else:
                 raise TransactionException(response.status_code)

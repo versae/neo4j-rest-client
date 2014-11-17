@@ -76,6 +76,28 @@ the result of a `collection function`_, you can always customize the casting fun
     {u'tag': u'tag1'},
     <Neo4j Node: http://localhost:7474/db/data/node/30>)]
 
+Query statistics
+----------------
+
+Extra information about the execution of a each query is stored in the
+property `stats`.
+
+  >>> query = "MATCH (n)--() RETURN n LIMIT 5"
+  >>> results = gdb.query(query, data_contents=True)
+  >>> results.stats
+  {u'constraints_added': 0,
+   u'constraints_removed': 0,
+   u'contains_updates': False,
+   u'indexes_added': 0,
+   u'indexes_removed': 0,
+   u'labels_added': 0,
+   u'labels_removed': 0,
+   u'nodes_created': 0,
+   u'nodes_deleted': 0,
+   u'properties_set': 0,
+   u'relationship_deleted': 0,
+   u'relationships_created': 0}
+
 
 Graph and row data contents
 ---------------------------

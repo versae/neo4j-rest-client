@@ -1,6 +1,11 @@
 Changes
 =======
 
+2.1.1 (2014-11-16)
+------------------
+- Add stats for query execution
+
+
 2.1.0 (2014-11-09)
 ------------------
 - Add support for resultDataContents param in the transactional Cypher endpoint
