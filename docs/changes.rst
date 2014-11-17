@@ -1,13 +1,12 @@
 Changes
 =======
 
-2.1.1 (2014-11-16)
-------------------
-- Add stats for query execution
-
 
 2.1.0 (2014-11-09)
 ------------------
+- Fix pip install error
+- Remove lucene-querybuilder as dependency
+- Add stats for query execution
 - Add support for resultDataContents param in the transactional Cypher endpoint
 - Fix #116. Although the old reference is still kept, the object does not exist
   in server and will fail

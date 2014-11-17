@@ -6,7 +6,12 @@ except:
     import pickle
 import weakref
 import warnings
-from lucenequerybuilder import Q
+try:
+    from lucenequerybuilder import Q
+except:
+    class Q(object):
+        def __init__(self, *args, **kwargs):
+            raise ImportError("Try installing lucene-querybuilder first.")
 
 from neo4jrestclient import options
 from neo4jrestclient.constants import (
