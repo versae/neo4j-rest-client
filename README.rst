@@ -98,3 +98,8 @@ For the extended and latest version of the documentation, please, visit the
 .. _Documentation: http://readthedocs.org/docs/neo4j-rest-client/en/latest/
 .. _Installation: https://neo4j-rest-client.readthedocs.org/en/latest/info.html#installation
 .. _`Getting started`: https://neo4j-rest-client.readthedocs.org/en/latest/info.html#getting-started
+
+
+.. image:: https://badges.gitter.im/Join%20Chat.svg
+   :alt: Join the chat at https://gitter.im/versae/neo4j-rest-client
+   :target: https://gitter.im/versae/neo4j-rest-client?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
