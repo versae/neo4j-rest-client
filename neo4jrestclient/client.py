@@ -2154,6 +2154,7 @@ class Direction(object):
 
 
 class ExtensionModule(dict):
+
     def __init__(self, klass_name, auth):
         self.klass_name = klass_name
         self.auth = auth
@@ -2181,6 +2182,24 @@ class ExtensionModule(dict):
         else:
             self.cache[attr] = Extension(self.klass_name[attr], auth=self.auth)
             return self.cache[attr]
+
+    # Special methods for handle pickling manually
+    def __getnewargs__(self):
+        return tuple()
+
+    def __getstate__(self):
+        data = {}
+        for key, value in self.__dict__.items():
+            try:
+                encoded = pickle.dumps(value)
+            except pickle.PicklingError:
+                encoded = pickle.dumps(pickle.Unpickable())
+            data[key] = encoded
+        return data
+
+    def __setstate__(self, state):
+        for key, value in state.items():
+            self.__dict__[key] = pickle.loads(value)
 
 
 class ExtensionsProxy(dict):
