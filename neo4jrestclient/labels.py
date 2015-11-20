@@ -11,12 +11,14 @@ from neo4jrestclient.utils import smart_quote, text_type
 
 class Label(object):
 
-    def __init__(self, url, label, auth=None, cypher=None, node=None):
+    def __init__(self, url, label, auth=None, cypher=None, node=None,
+                 nodes=None):
         self._url = url
         self._label = label
         self._auth = auth
         self._cypher = cypher
         self._node_cls = node
+        self._nodes = nodes  # to allow node creationself._nodes = nodes
         # Check URLs like http://localhost:7474/db/data/node/27530/labels
         url_split = self._url.rsplit("/", 3)
         if url_split[1] == 'node':
@@ -40,6 +42,11 @@ class Label(object):
     def __unicode__(self):
         return u"<Neo4j {}: {}>".format(self.__class__.__name__,
                                         self._label.__repr__())
+
+    def create(self, **properties):
+        node = self._nodes.create(**properties)
+        node.labels.add(self._label)
+        return node
 
     def add(self, *nodes):
         for node in nodes:
@@ -96,12 +103,14 @@ class BaseLabelsProxy(object):
     Base class proxy for labels.
     """
 
-    def __init__(self, url, labels=None, auth=None, cypher=None, node=None):
+    def __init__(self, url, labels=None, auth=None, cypher=None, node=None,
+                 nodes=None):
         self._url = url
         self._labels = labels
         self._auth = auth or {}
         self._cypher = cypher
         self._node_cls = node
+        self._nodes = nodes  # to allow node creation
         if self._labels:
             labels = set()
             for label in self._labels:
@@ -181,7 +190,7 @@ class LabelsProxy(BaseLabelsProxy):
 
     def create(self, label):
         return Label(self._url, label, auth=self._auth, cypher=self._cypher,
-                     node=self._node_cls)
+                     node=self._node_cls, nodes=self._nodes)
 
 
 class NodeLabelsProxy(BaseLabelsProxy):

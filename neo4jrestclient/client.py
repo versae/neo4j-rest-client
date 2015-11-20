@@ -222,7 +222,7 @@ class GraphDatabase(object):
             self._labels_list = LabelsProxy(self._labels,
                                             auth=self._auth,
                                             cypher=self._cypher,
-                                            node=Node)
+                                            node=Node, nodes=self.nodes)
         return self._labels_list
     labels = property(_get_labels)
 
