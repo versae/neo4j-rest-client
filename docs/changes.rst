@@ -1,6 +1,13 @@
 Changes
 =======
 
+2.1.1 (2015-11-20)
+------------------
+- Add dockerized travis
+- Fix #119. Allow labels create nodes directly
+- Fix #122. Problem clearing labels of a node. Fix also a cache issue. Update travis to run python 3.4 and Neo4j verions
+- Add more serialization support for extensions
+
 
 2.1.0 (2014-11-09)
 ------------------
