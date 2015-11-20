@@ -190,3 +190,10 @@ class LabelsTestCase(GraphDatabaseTesCase):
         label.add(n1, n2)
         self.assertIn("label", n1.labels)
         self.assertIn("label", n2.labels)
+
+    def test_labels_clear(self):
+        n = self.gdb.nodes.create()
+        labels = n.labels.add(["label1", "label2"])
+        n.labels.clear()
+        for label in labels:
+            self.assertNotIn(label, n.labels)

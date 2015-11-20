@@ -62,7 +62,7 @@ class XtraCacheTestCase(unittest.TestCase):
 
     def test_custom_cache_used(self):
         n = self.gdb.nodes.create()
-        response = request.session.get(n.url)
+        response = request.session.get(n.url, headers={'Connection': 'close'})
         self.assertTrue(hasattr(response, "from_cache"))
 
     def tearDown(self):

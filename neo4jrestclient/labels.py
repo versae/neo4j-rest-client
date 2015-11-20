@@ -227,13 +227,16 @@ class NodeLabelsProxy(BaseLabelsProxy):
         return self._discard(label, return_label=True, raise_error=True)
 
     def clear(self):
-        for label in self._labels:
-            self._discard(label, return_label=False, raise_error=False)
+        for label in self._labels.copy():  # avoid change size during iteration
+            self._discard(label._label, return_label=False, raise_error=False)
 
     def _discard(self, label=None, return_label=False, raise_error=False):
         if not label:
             label = self._labels.pop()
-        url = "{}/{}".format(self._url, smart_quote(label))
+        try:
+            url = "{}/{}".format(self._url, smart_quote(label))
+        except AttributeError:
+            url = "{}/{}".format(self._url, smart_quote(label._label))
         response = Request(**self._auth).delete(url)
         if response.status_code == 204:
             _label = label
