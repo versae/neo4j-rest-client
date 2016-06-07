@@ -15,6 +15,8 @@ This way to run a query will return the results as RAW, i.e., in the same way
 the REST interface get them. However, you can always use a ``returns`` parameter
 in order to perform custom castings:
 
+  >>> from neo4jrestclient import client
+
   >>> q = """start n=node(*) match n-[r]-() return n, n.name, r"""
 
   >>> results = gdb.query(q, returns=(client.Node, unicode, client.Relationship))
