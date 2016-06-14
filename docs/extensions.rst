@@ -34,7 +34,7 @@ An example using extensions over nodes::
   
   >>> n2 = gdb.nodes.get(1)
   
-  >>> n1.relationships.create("Kwnos", n2)
+  >>> n1.relationships.create("Knows", n2)
   <Neo4j Relationship: http://localhost:7474/db/data/relationship/36>
   
   >>> n1.extensions.ShortestPath
