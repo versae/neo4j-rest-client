@@ -1,4 +1,4 @@
-:Note: This library **is not longer under active development**. PRs to code and docs are still welcome, but new code will rarely if ever occur. If you are interested in taking over the maintainance of this library, please, contact me through a Github issue.
+:Note: This library **is no longer under active development**. PRs to code and docs are still welcome, but new code will rarely if ever occur. If you are interested in taking over the maintainance of this library, please, contact me through a Github issue.
 
 
 .. image:: https://travis-ci.org/versae/neo4j-rest-client.png?branch=master
