@@ -1,5 +1,5 @@
 #distribute==0.6.10
-requests==2.1.0
+requests==2.20.0
 Jinja2==2.6
 Pygments==1.6
 Sphinx==1.1.3
