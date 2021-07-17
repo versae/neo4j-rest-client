@@ -674,7 +674,7 @@ class QuerySequence(Sequence):
         if isinstance(self._limit, int) and "_limit" not in params:
             q = u"%s limit {_limit} " % q
             params["_limit"] = self._limit
-        # Making the real resquest
+        # Making the real request
         data = {
             "query": q,
             "params": params,
@@ -778,7 +778,7 @@ class QuerySequence(Sequence):
                 if "rest" in row:
                     row = row["rest"]
                 row = rewrites(row)
-                # We need both list to have the same lenght
+                # We need both list to have the same length
                 len_row = len(row)
                 len_returns = len(returns)
                 if len_row > len_returns:
