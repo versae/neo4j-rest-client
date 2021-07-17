@@ -36,16 +36,16 @@ include other options:
 
 The next list shows all the current lookups supported:
 
-* `exact`, performs exact string comparation.
-* `iexact`, performs exact string comparation, case insesitive.
+* `exact`, performs exact string comparison.
+* `iexact`, performs exact string comparison, case insensitive.
 * `contains`, checks if the property is contained in the string passed.
-* `icontains`, as `contains` but case insesitive.
+* `icontains`, as `contains` but case insensitive.
 * `startswith`, checks if the property starts with the string passed.
-* `istartswith`, as `startswith` but case insesitive.
+* `istartswith`, as `startswith` but case insensitive.
 * `endswith`, checks if the property ends with the string passed.
-* `iendswith`, as `endswith` but case insesitive.
+* `iendswith`, as `endswith` but case insensitive.
 * `regex`, performs regular expression matching agains the string passed.
-* `iregex`, as `regex` but case insesitive.
+* `iregex`, as `regex` but case insensitive.
 * `gt`, check if the property is greater than the value passed.
 * `gte`, check if the property is greater than or equal to the value passed.
 * `lt`, check if the property is lower than the value passed.
@@ -53,9 +53,9 @@ The next list shows all the current lookups supported:
 * `in`, , check if the property is in a list of elements passed.
 * `inrange`,`an alias for `in`.
 * `isnull`, checks if the property is null, passing `True`, or not, passing `False`.
-* `eq`, performs equal comparations.
+* `eq`, performs equal comparisons.
 * `equals`, an alias `eq`.
-* `neq`, performs not equal comparations.
+* `neq`, performs not equal comparisons.
 * `notequals`, an alias `neq`.
 
 Also, in order to be compliant with Cypher syntax prior to Neo4j 2.0, you can

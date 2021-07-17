@@ -88,7 +88,7 @@ executes it in a transaction, but there is no option to rollback and recover
 a previous status of the database. In this sense, batch-emulated transactions
 for operations on creation, edition and deletion of elements are useful, but
 you won't be able to perform checks on the elements modified until the batch
-is sent to the server and the transaction is commited.
+is sent to the server and the transaction is committed.
 
 
 Deletion
@@ -180,7 +180,7 @@ can be changed using de options:
 
 And this behaviour can be disabled adding the right param in the transaction:
 ``using_globals``. Even is possible (although not very recommendable) to handle
-different transactions in the same time and control when they are commited.
+different transactions in the same time and control when they are committed.
 There are many ways to set the transaction of a intruction (operation):
 
   >>> n = gdb.nodes.create()

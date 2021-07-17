@@ -28,7 +28,7 @@ The main class is ``GraphDatabase``, exactly how in python-embedded_:
 If ``/db/data/`` is not added, neo4j-rest-client will do an extra request in
 order to know the endpoint for data.
 
-And now we are ready to create nodes and relationhips:
+And now we are ready to create nodes and relationships:
 
   >>> alice = gdb.nodes.create(name="Alice", age=30)
 
