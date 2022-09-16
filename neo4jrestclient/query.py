@@ -3,7 +3,10 @@
 #                     /tree/master/sylva/engines/gdb/lookups
 import json
 import uuid
-from collections import Sequence
+try:
+    from collections.abc import MutableSet
+except ImportError:
+    from collections import MutableSet
 import warnings
 
 from neo4jrestclient.constants import RAW
